@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: buska_db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: buska_user
+      POSTGRES_PASSWORD: buska_pass
+      POSTGRES_DB: buska_db
+    volumes:
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - buska_data:/var/lib/postgresql/data
+
+volumes:
+  buska_data:
