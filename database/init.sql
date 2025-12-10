@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_municipios_nome ON municipios (nome);
 
 -- Users
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), 
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(120) NOT NULL UNIQUE,
     senha_hash VARCHAR(200) NOT NULL,
@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_rotas_motorista ON rotas (motorista_id);
 
 CREATE TABLE rotas_alunos (
     id SERIAL PRIMARY KEY,
-    aluno_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    aluno_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     rota_id INTEGER NOT NULL REFERENCES rotas(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
@@ -118,7 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_viagens_data ON viagens (data);
 -- Presencas (attendance/confirmation)
 CREATE TABLE IF NOT EXISTS viagens_alunos (
     id SERIAL PRIMARY KEY,
-    aluno_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    aluno_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     viagem_id INTEGER NOT NULL REFERENCES viagens (id) ON DELETE CASCADE,
     confirmada BOOLEAN DEFAULT FALSE,
     cancelada BOOLEAN DEFAULT FALSE,
