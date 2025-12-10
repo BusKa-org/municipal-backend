@@ -1,5 +1,6 @@
 from .base import db, BaseModel
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 from geoalchemy2 import Geometry
 
 class Rota(BaseModel):
@@ -28,7 +29,7 @@ class Ponto(BaseModel):
 class RotaAluno(BaseModel):
     __tablename__ = "rotas_alunos"
 
-    aluno_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    aluno_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     rota_id = db.Column(db.Integer, db.ForeignKey("rotas.id"), nullable=False)
 
     # Relationships

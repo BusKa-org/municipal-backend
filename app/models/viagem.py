@@ -1,5 +1,6 @@
 from .base import db, BaseModel
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 
 class Viagem(BaseModel):
     __tablename__ = "viagens"
@@ -19,7 +20,7 @@ class Viagem(BaseModel):
 class ViagemAluno(BaseModel):
     __tablename__ = "viagens_alunos"
 
-    aluno_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    aluno_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     viagem_id = db.Column(db.Integer, db.ForeignKey("viagens.id"), nullable=False)
     confirmada = db.Column(db.Boolean, default=False)
     cancelada = db.Column(db.Boolean, default=False)
