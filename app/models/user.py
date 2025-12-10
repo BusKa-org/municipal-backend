@@ -1,7 +1,9 @@
 from .base import db, BaseModel
 from sqlalchemy.orm import relationship
+from sqlalchemy import Enum as SQLEnum
+from enum import Enum
 
-class Role:
+class UserRole(str, Enum):
     ALUNO = "aluno"
     MOTORISTA = "motorista"
     GESTOR = "gestor"
@@ -12,7 +14,10 @@ class User(BaseModel):
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     senha_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(
+        SQLEnum(UserRole, name="user_role"),
+        nullable=False
+    )
 
     municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=True)
 
@@ -23,10 +28,10 @@ class User(BaseModel):
     rotas_inscritas = relationship("RotaAluno", back_populates="aluno", cascade="all, delete-orphan")
 
     def is_aluno(self):
-        return self.role == Role.ALUNO
+        return self.role == UserRole.ALUNO
 
     def is_motorista(self):
-        return self.role == Role.MOTORISTA
+        return self.role == UserRole.MOTORISTA
 
     def is_gestor(self):
-        return self.role == Role.GESTOR
+        return self.role == UserRole.GESTOR
