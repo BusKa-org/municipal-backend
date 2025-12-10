@@ -16,9 +16,8 @@ class Viagem(BaseModel):
     motorista = relationship("User")
     presencas = relationship("Presenca", back_populates="viagem", cascade="all, delete-orphan")
 
-# TODO: change name to ViagemAluno(...)
-class Presenca(BaseModel):
-    __tablename__ = "presencas" # TODO: change to viagem_aluno
+class ViagemAluno(BaseModel):
+    __tablename__ = "viagens_alunos"
 
     aluno_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     viagem_id = db.Column(db.Integer, db.ForeignKey("viagens.id"), nullable=False)
@@ -26,5 +25,5 @@ class Presenca(BaseModel):
     cancelada = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime, nullable=True)
 
-    aluno = relationship("User", back_populates="presencas")
-    viagem = relationship("Viagem", back_populates="presencas")
+    aluno = relationship("User", back_populates="viagens_alunos")
+    viagem = relationship("Viagem", back_populates="viagens_alunos")
