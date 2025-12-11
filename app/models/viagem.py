@@ -15,7 +15,7 @@ class Viagem(BaseModel):
 
     rota = relationship("Rota", back_populates="viagens")
     motorista = relationship("User")
-    presencas = relationship("ViagemAluno", back_populates="viagem", cascade="all, delete-orphan")
+    viagens_presenca = relationship("ViagemAluno", back_populates="viagem", cascade="all, delete-orphan")
 
 class ViagemAluno(BaseModel):
     __tablename__ = "viagens_alunos"
@@ -26,5 +26,5 @@ class ViagemAluno(BaseModel):
     cancelada = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime, nullable=True)
 
-    aluno = relationship("User", back_populates="viagens_alunos")
-    viagem = relationship("Viagem", back_populates="viagens_alunos")
+    aluno = relationship("User", back_populates="viagens_presenca")
+    viagem = relationship("Viagem", back_populates="viagens_presenca")
