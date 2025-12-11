@@ -7,7 +7,7 @@ from datetime import datetime
 from ...models.base import db
 from ...models.user import User
 from ...models.rota import Rota, RotaAluno
-from ...models.viagem import Viagem, Presenca
+from ...models.viagem import Viagem, ViagemAluno
 
 aluno_bp = Blueprint("aluno", __name__)
 
