@@ -8,7 +8,7 @@ class Rota(BaseModel):
 
     nome = db.Column(db.String(120), nullable=False)
     municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=False)
-    motorista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    motorista_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
 
     # Relationships
     municipio = relationship("Municipio", back_populates="rotas")
