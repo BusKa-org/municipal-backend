@@ -1,6 +1,6 @@
 run:
 	docker-compose -f infra/database.yml up -d db
-	uv run -- flask --app backend.app run --debug
+	uv run -- flask --app app run --debug
 
 # Populate the database
 initdb:
