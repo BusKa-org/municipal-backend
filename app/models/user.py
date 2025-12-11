@@ -27,7 +27,7 @@ class User(BaseModel):
     # Relationships
     municipio = relationship("Municipio", back_populates="usuarios")
     rotas = relationship("Rota", back_populates="motorista")
-    presencas = relationship("Presenca", back_populates="aluno")
+    viagens_presenca = relationship("ViagemAluno", back_populates="aluno")
     rotas_inscritas = relationship("RotaAluno", back_populates="aluno", cascade="all, delete-orphan")
 
     def is_aluno(self):
