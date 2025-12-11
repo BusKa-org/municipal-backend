@@ -4,7 +4,7 @@ run:
 
 # Populate the database
 initdb:
-	uv run -- flask --app backend.app init-db
+	uv run -- flask --app app init-db
 
 deletedb:
 	docker-compose -f infra/database.yml down --volumes
