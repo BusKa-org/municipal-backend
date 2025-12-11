@@ -11,7 +11,7 @@ class Viagem(BaseModel):
     tipo = db.Column(db.Enum("IDA", "VOLTA", name="tipo_viagem"), nullable=False)
 
     rota_id = db.Column(db.Integer, db.ForeignKey("rotas.id"), nullable=False)
-    motorista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    motorista_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
 
     rota = relationship("Rota", back_populates="viagens")
     motorista = relationship("User")
