@@ -3,6 +3,7 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from enum import Enum
+import uuid
 
 class UserRole(str, Enum):
     ALUNO = "aluno"
