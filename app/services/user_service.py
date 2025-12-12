@@ -74,7 +74,7 @@ class UserService:
 
     @staticmethod
     def list_users(gestor_id):
-        current_user = User.query.get(gestor_id)
+        user = User.query.get(gestor_id)
 
         if not user or user.is_gestor():
             return {"error": "Unauthorized"}, 403
