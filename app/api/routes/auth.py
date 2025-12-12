@@ -20,6 +20,6 @@ def register():
 
 
 @auth_bp.route("/register_dev", methods=["POST"])
-@swag_from(docs_prefix + "auth-register.yml")
+@swag_from(docs_prefix + "auth-register-dev.yml")
 def register_dev():
     return AuthController.register_dev()
