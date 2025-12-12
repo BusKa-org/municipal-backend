@@ -43,10 +43,40 @@ class UserService:
         return {"message": "user updated successfully."}, 200
 
     @staticmethod
-    def list_users(current_user_id: uuid):
-        current_user = User.query.get(current_user_id)
+    def create_motorista(user_id, data):
+        """Create a new motorista (driver) for this municipality."""
+    
+        if not user or not user.is_gestor():
+            return jsonify({"error": "Access restricted to gestores"}), 403
+    
+        data = request.get_json()
+        nome = data.get("nome").strip()
+        email = data.get("email").strip()
+        password = data.get("password").strip()
+    
+        if not all([nome, email, password]):
+            return jsonify({"error": "Nome, email e senha são obrigatórios"}), 400
+    
+        hashed_pw = generate_password_hash(password)
+    
+        motorista = User(
+            nome=nome,
+            email=email.lower(),
+            senha_hash=hashed_pw,
+            role="motorista",
+            municipio_id=user.municipio_id,
+        )
+    
+        db.session.add(motorista)
+        db.session.commit()
+    
+        return jsonify({"message": "Motorista criado com sucesso."}), 201
 
-        if not current_user or current_user.role != "gestor":
+    @staticmethod
+    def list_users(gestor_id):
+        current_user = User.query.get(gestor_id)
+
+        if not user or user.is_gestor():
             return {"error": "Unauthorized"}, 403
 
         users = User.query.all()
