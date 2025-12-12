@@ -2,7 +2,7 @@ from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from flasgger import swag_from
 
-from ..controllers.self_controller import SelfController
+from ..controllers.user_controller import UserController
 from ..controllers.rotas_controller import RotasController
 from ..controllers.viagens_controller import ViagensController
 
