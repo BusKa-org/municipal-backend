@@ -28,6 +28,14 @@ class UserController:
         result, status = UserService.update_user(identity, data)
         return jsonify(result), status
 
+    def create_motorista():
+        identity = get_jwt_identity()
+        data = request.get_json()
+
+        result, status = UserService.create_motorista(identity, data)
+        return jsonify(result), status
+
+
     @staticmethod
     def list_users():
         identity = get_jwt_identity()
