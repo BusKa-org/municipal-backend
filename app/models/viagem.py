@@ -16,8 +16,7 @@ class Viagem(BaseModel):
 
     rota = relationship("Rota", back_populates="viagens")
     motorista = relationship("User")
-    viagens_presenca = relationship("ViagemAluno", back_populates="viagens", cascade="all, delete-orphan")
-    municipio = relationship("Municipio", back_populates="viagens")
+    viagens_presenca = relationship("ViagemAluno", back_populates="viagem", cascade="all, delete-orphan")
 
 class ViagemAluno(BaseModel):
     __tablename__ = "viagens_alunos"
