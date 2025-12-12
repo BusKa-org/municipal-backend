@@ -29,7 +29,7 @@ class RotasService:
         if not user:
             return {"error": "User nao existe"}, 403
         if not user.municipio_id:
-            return jsonify({"error": "user não possui município cadastrado"}), 400
+            return {"error": "user não possui município cadastrado"}, 400
 
         if user.is_aluno():
             rotas = RotaAluno.query.filter_by(user_id=user.id).all()
@@ -52,34 +52,36 @@ class RotasService:
         """
     
         if not user or not user.is_aluno():
-            return jsonify({"error": "Access restricted to alunos"}), 403
+            return {"error": "Access restricted to alunos"}, 403
     
         rota = Rota.query.get(rota_id)
         if not rota:
-            return jsonify({"error": "Rota não encontrada"}), 404
+            return {"error": "Rota não encontrada"}, 404
     
         data = request.get_json()
         acao = data.get("acao", "").lower()  # "inscrever" ou "desinscrever"
     
         if acao not in ["inscrever", "desinscrever"]:
-            return jsonify({"error": "Ação inválida. Use 'inscrever' ou 'desinscrever'."}), 400
+            return {"error": "Ação inválida. Use 'inscrever' ou 'desinscrever'."}, 400
     
         inscricao = RotaAluno.query.filter_by(aluno_id=user.id, rota_id=rota.id).first()
     
         if acao == "inscrever":
             if inscricao:
-                return jsonify({"message": "Aluno já inscrito nesta rota."}), 200
+                return {"message": "Aluno já inscrito nesta rota."}, 200
+
             nova_inscricao = RotaAluno(aluno_id=user.id, rota_id=rota.id)
             db.session.add(nova_inscricao)
             db.session.commit()
-            return jsonify({"message": "Aluno inscrito na rota com sucesso."}), 200
+            return {"message": "Aluno inscrito na rota com sucesso."}, 200
     
         elif acao == "desinscrever":
             if not inscricao:
                 return jsonify({"message": "Aluno não está inscrito nesta rota."}), 200
+
             db.session.delete(inscricao)
             db.session.commit()
-            return jsonify({"message": "Aluno desinscrito da rota com sucesso."}), 200
+            return {"message": "Aluno desinscrito da rota com sucesso."}), 200
 
     @staticmethod
     def create_rota(gestor_id, data):

@@ -1,4 +1,5 @@
 from werkzeug.security import generate_password_hash
+from flask import request, jsonify
 
 from ..models.user import User
 from ..models.municipio import Municipio
@@ -48,7 +49,7 @@ class UserService:
         user = User.query.get(gestor_id)
     
         if not user or not user.is_gestor():
-            return jsonify({"error": "Access restricted to gestores"}), 403
+            return {"error": "Access restricted to gestores"}, 403
     
         data = request.get_json()
         nome = data.get("nome").strip()
@@ -56,7 +57,7 @@ class UserService:
         password = data.get("password").strip()
     
         if not all([nome, email, password]):
-            return jsonify({"error": "Nome, email e senha são obrigatórios"}), 400
+            return {"error": "Nome, email e senha são obrigatórios"}, 400
     
         hashed_pw = generate_password_hash(password)
     
@@ -71,7 +72,7 @@ class UserService:
         db.session.add(motorista)
         db.session.commit()
     
-        return jsonify({"message": "Motorista criado com sucesso."}), 201
+        return {"message": "Motorista criado com sucesso."}, 201
 
     @staticmethod
     def list_users(gestor_id):
