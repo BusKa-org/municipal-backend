@@ -34,7 +34,7 @@ class ViagensService:
         if not user:
             return {"error": "User nao existe"}, 403
         if not user.municipio_id:
-            return jsonify({"error": "user não possui município cadastrado"}), 400
+            return {"error": "user não possui município cadastrado"}, 400
 
         data_hoje = date.today()
         if user.is_aluno():
@@ -73,13 +73,13 @@ class ViagensService:
 
         viagem = Viagem.query.get(viagem_id)
         if not viagem:
-            return jsonify({"error": "Viagem não encontrada"}), 404
+            return {"error": "Viagem não encontrada"}, 404
     
         data = request.get_json()
         presente = data.get("presente")
     
         if presente not in [True, False]:
-            return jsonify({"error": "Campo 'presente' deve ser True ou False."}), 400
+            return {"error": "Campo 'presente' deve ser True ou False."}, 400
     
         presenca = ViagemAluno.query.filter_by(aluno_id=user.id, viagem_id=viagem.id).first()
     
@@ -91,7 +91,8 @@ class ViagensService:
     
         db.session.commit()
         estado = "confirmada" if presente else "cancelada"
-        return jsonify({"message": f"Presença {estado} com sucesso."}), 200
+
+        return {"message": f"Presença {estado} com sucesso."}, 200
 
 
     @staticmethod
@@ -102,7 +103,7 @@ class ViagensService:
     
         rota = Rota.query.get(rota_id)
         if not rota or not rota.municipio_id:
-            return jsonify({"error": "Rota inválida"}), 403
+            return {"error": "Rota inválida"}, 403
     
         # TODO: do jeito que esta, uma Viagem eh uma rota com mais infos
         #       sendo que uma viagem deveria ser criada AUTOMATICAMENTE a partir de uma viagem 
@@ -125,7 +126,7 @@ class ViagensService:
         db.session.add(viagem)
         db.session.commit()
     
-        return None
+        return {None}
         #return jsonify({
         #    "message": "Viagem criada com sucesso",
         #    "viagem": {
