@@ -12,19 +12,19 @@ class Viagem(BaseModel):
 
     rota_id = db.Column(db.Integer, db.ForeignKey("rotas.id"), nullable=False)
     motorista_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=False)
 
     rota = relationship("Rota", back_populates="viagens")
     motorista = relationship("User")
-    viagens_presenca = relationship("ViagemAluno", back_populates="viagem", cascade="all, delete-orphan")
+    viagens_presenca = relationship("ViagemAluno", back_populates="viagens", cascade="all, delete-orphan")
+    municipio_id = relationship("Municipio", back_populates="viagens")
 
 class ViagemAluno(BaseModel):
     __tablename__ = "viagens_alunos"
 
     aluno_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     viagem_id = db.Column(db.Integer, db.ForeignKey("viagens.id"), nullable=False)
-    confirmada = db.Column(db.Boolean, default=False)
-    cancelada = db.Column(db.Boolean, default=False)
-    timestamp = db.Column(db.DateTime, nullable=True)
+    presenca = db.Column(db.Boolean, default=False)
 
     aluno = relationship("User", back_populates="viagens_presenca")
     viagem = relationship("Viagem", back_populates="viagens_presenca")
