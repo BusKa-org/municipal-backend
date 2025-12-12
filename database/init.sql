@@ -122,9 +122,7 @@ CREATE TABLE IF NOT EXISTS viagens_alunos (
     id SERIAL PRIMARY KEY,
     aluno_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     viagem_id INTEGER NOT NULL REFERENCES viagens (id) ON DELETE CASCADE,
-    confirmada BOOLEAN DEFAULT FALSE,
-    cancelada BOOLEAN DEFAULT FALSE,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
+    presenca BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
     UNIQUE (aluno_id, viagem_id)
