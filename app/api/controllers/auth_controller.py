@@ -1,6 +1,7 @@
 from flask import request, jsonify
 
 from ...services.auth_service import AuthService
+from ...services.user_service import UserService
 
 
 class AuthController:
@@ -14,7 +15,7 @@ class AuthController:
     @staticmethod
     def register():
         data = request.get_json()
-        result, status = AuthService.register(data)
+        result, status = UserService.create_user(data)
         return jsonify(result), status
 
     @staticmethod
