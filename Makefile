@@ -5,7 +5,7 @@ run:
 # Populate the database
 initdb:
 	docker-compose -f infra/database.yml up -d db
-	sleep 5
+	sleep 2
 	uv run -- flask --app app init-db
 
 deletedb:
