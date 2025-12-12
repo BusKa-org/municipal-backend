@@ -44,6 +44,51 @@ class UserService:
         return {"message": "user updated successfully."}, 200
 
     @staticmethod
+    def create_user(data):
+        email = data.get("email", "").lower().strip()
+        password = data.get("password", "").strip()
+        nome = data.get("nome", "").strip()
+        municipio_name = data.get("municipio", "").upper().strip()
+
+        if not all([email, password, nome, municipio_name]):
+            return {"error": "Missing required field"}, 400
+
+        if User.query.filter_by(email=email).first():
+            return {"error": "User already exists"}, 400
+
+        municipio = Municipio.query.filter_by(nome=municipio_name).first()
+        if not municipio:
+            return {"error": f"Municipio with name '{municipio_name}' not found"}, 404
+
+        hashed_pw = generate_password_hash(password)
+
+        new_user = User(
+            nome=nome,
+            email=email,
+            senha_hash=hashed_pw,
+            role="aluno",
+            municipio=municipio,
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return {
+            "message": "User registered successfully.",
+            "user": {
+                "id": new_user.id,
+                "nome": new_user.nome,
+                "email": new_user.email,
+                "role": new_user.role,
+                "municipio": {
+                    "id": municipio.id,
+                    "nome": municipio.nome,
+                    "uf": municipio.uf
+                }
+            }
+        }, 201
+
+    @staticmethod
     def create_motorista(gestor_id, data):
         """Create a new motorista (driver) for this municipality."""
         user = User.query.get(gestor_id)
