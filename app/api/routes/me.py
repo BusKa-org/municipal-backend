@@ -26,12 +26,12 @@ def update_user():
 @self_bp.route("/rotas", methods=["GET"])
 @swag_from(docs_prefix + "aluno-listar_rotas.yml")
 @jwt_required()
-def listar_rotas():
+def list_my_rotas():
     return RotasController.list_my_rotas()
 
 @self_bp.route("/viagens", methods=["GET"])
 @swag_from(docs_prefix + "aluno-listar_viagens.yml")
 @jwt_required()
-def listar_rotas():
+def list_my_viagens():
     return ViagensController.list_my_viagens()
 
