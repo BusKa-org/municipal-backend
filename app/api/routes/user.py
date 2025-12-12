@@ -11,7 +11,7 @@ docs_prefix = '../../../../../docs/endpoints/'
 
 
 @user_bp.route("/motorista", methods=["POST"])
-@swag_from(docs_prefix + 'user-me.yml')
+@swag_from(docs_prefix + 'gestor-criar_motoristas.yml')
 @jwt_required()
 def create_motorista():
     return UserController.create_motorista()
