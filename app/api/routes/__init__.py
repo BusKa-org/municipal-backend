@@ -11,5 +11,5 @@ def register_routes(app):
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(user_bp, url_prefix="/user")
     app.register_blueprint(me_bp, url_prefix="/me")
-    app.register_blueprint(self_bp, url_prefix="/rotas")
-    app.register_blueprint(self_bp, url_prefix="/viagens")
+    app.register_blueprint(rotas_bp, url_prefix="/rotas")
+    app.register_blueprint(viagens_bp, url_prefix="/viagens")
