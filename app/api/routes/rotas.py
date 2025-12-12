@@ -28,7 +28,7 @@ def criar_rota():
 def adicionar_ponto(rota_id):
     return RotasController.add_ponto(rota_id)
 
-@aluno_bp.route("/<int:rota_id>/inscricao", methods=["PUT"])
+@rotas_bp.route("/<int:rota_id>/inscricao", methods=["PUT"])
 @swag_from(docs_prefix+'aluno-inscricao_rota.yml')
 @jwt_required()
 def adicionar_ponto(rota_id):
