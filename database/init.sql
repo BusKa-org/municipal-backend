@@ -106,7 +106,8 @@ CREATE TABLE IF NOT EXISTS viagens (
     horario_fim TIMESTAMP WITH TIME ZONE,     -- set when driver finishes (UTC)
     tipo tipo_viagem NOT NULL,
     rota_id INTEGER NOT NULL REFERENCES rotas (id) ON DELETE CASCADE,
-    motorista_id INTEGER NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
+    motorista_id UUID NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
+    municipio_id INTEGER NOT NULL REFERENCES municipios (id) ON DELETE RESTRICT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
 );
@@ -114,6 +115,7 @@ CREATE TABLE IF NOT EXISTS viagens (
 CREATE INDEX IF NOT EXISTS idx_viagens_rota ON viagens (rota_id);
 CREATE INDEX IF NOT EXISTS idx_viagens_motorista ON viagens (motorista_id);
 CREATE INDEX IF NOT EXISTS idx_viagens_data ON viagens (data);
+CREATE INDEX IF NOT EXISTS idx_viagens_municipio ON viagens (municipio_id);
 
 -- Presencas (attendance/confirmation)
 CREATE TABLE IF NOT EXISTS viagens_alunos (
