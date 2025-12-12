@@ -77,11 +77,11 @@ class RotasService:
     
         elif acao == "desinscrever":
             if not inscricao:
-                return jsonify({"message": "Aluno não está inscrito nesta rota."}), 200
+                return {"message": "Aluno não está inscrito nesta rota."}, 200
 
             db.session.delete(inscricao)
             db.session.commit()
-            return {"message": "Aluno desinscrito da rota com sucesso."}), 200
+            return {"message": "Aluno desinscrito da rota com sucesso."}, 200
 
     @staticmethod
     def create_rota(gestor_id, data):
