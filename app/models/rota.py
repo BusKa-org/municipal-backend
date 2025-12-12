@@ -13,8 +13,8 @@ class Rota(BaseModel):
     # Relationships
     municipio = relationship("Municipio", back_populates="rotas")
     motorista = relationship("User", back_populates="rotas")
-    pontos = relationship("Ponto", back_populates="rotas", cascade="all, delete-orphan")
-    viagens = relationship("Viagem", back_populates="rotas", cascade="all, delete-orphan")
+    pontos = relationship("Ponto", back_populates="rota", cascade="all, delete-orphan")
+    viagens = relationship("Viagem", back_populates="rota", cascade="all, delete-orphan")
     alunos_inscritos = relationship("RotaAluno", back_populates="rota", cascade="all, delete-orphan")
 
 class Ponto(BaseModel):
