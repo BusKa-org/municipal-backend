@@ -45,6 +45,7 @@ class UserService:
     @staticmethod
     def create_motorista(user_id, data):
         """Create a new motorista (driver) for this municipality."""
+        user = User.query.get(gestor_id)
     
         if not user or not user.is_gestor():
             return jsonify({"error": "Access restricted to gestores"}), 403
