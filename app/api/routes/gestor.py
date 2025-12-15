@@ -26,13 +26,19 @@ def listar_rotas_gestor():
     if not user.municipio_id:
         return jsonify({"error": "Gestor não possui município cadastrado"}), 400
 
-    rotas = Rota.query.filter_by(municipio_id=user.municipio_id).all()
+    rotas = (
+        db.session.query(Rota)
+        .join(Municipio, Rota.municipio_id == Municipio.id)
+        .filter(Rota.municipio_id == user.municipio_id)
+        .all()
+    )
     return jsonify([
         {
             "id": r.id,
             "nome": r.nome,
             "motorista_id": r.motorista_id,
             "municipio_id": r.municipio_id,
+            "municipio_nome": r.municipio.nome if r.municipio else None
         } for r in rotas
     ]), 200
 

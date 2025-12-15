@@ -35,13 +35,23 @@ def login():
 
     access_token = create_access_token(identity=str(user.id))
 
+    municipio_data = None
+    if user.municipio:
+        municipio_data = {
+            "id": user.municipio.id,
+            "nome": user.municipio.nome,
+            "uf": user.municipio.uf
+        }
+
     return jsonify({
         "access_token": access_token,
         "user": {
             "id": user.id,
             "email": user.email,
             "nome": user.nome,
-            "role": user.role
+            "role": user.role,
+            "municipio": municipio_data,
+            "municipio_id": user.municipio_id
         }
     }), 200
 

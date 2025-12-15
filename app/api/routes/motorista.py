@@ -2,10 +2,12 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flasgger import swag_from
 from datetime import datetime
+from sqlalchemy import func
 from ...models.base import db
 from ...models.user import User
-from ...models.rota import Rota, Ponto
-from ...models.viagem import Viagem
+from ...models.rota import Rota, Ponto, RotaAluno
+from ...models.viagem import Viagem, Presenca
+from ...models.municipio import Municipio
 
 motorista_bp = Blueprint("motorista", __name__)
 
@@ -22,12 +24,18 @@ def listar_rotas_motorista():
     if not user or not user.is_motorista():
         return jsonify({"error": "Access restricted to motoristas"}), 403
 
-    rotas = Rota.query.filter_by(motorista_id=user.id).all()
+    rotas = (
+        db.session.query(Rota)
+        .join(Municipio, Rota.municipio_id == Municipio.id)
+        .filter(Rota.motorista_id == user.id)
+        .all()
+    )
     return jsonify([
         {
             "id": r.id,
             "nome": r.nome,
-            "municipio_id": r.municipio_id
+            "municipio_id": r.municipio_id,
+            "municipio_nome": r.municipio.nome if r.municipio else None
         } for r in rotas
     ]), 200
 
@@ -77,6 +85,40 @@ def criar_rota():
             "motorista_id": rota.motorista_id
         }
     }), 201
+
+@motorista_bp.route("/rotas/<int:rota_id>/pontos", methods=["GET"])
+@swag_from('../../../../../docs/motorista-listar_pontos.yml')
+@jwt_required()
+def listar_pontos_rota(rota_id):
+    """List all points for a specific route"""
+    identity = get_jwt_identity()
+    user = User.query.get(int(identity))
+
+    if not user or not user.is_motorista():
+        return jsonify({"error": "Access restricted to motoristas"}), 403
+
+    rota = Rota.query.filter_by(id=rota_id, motorista_id=user.id).first()
+    if not rota:
+        return jsonify({"error": "Rota não encontrada"}), 404
+
+    pontos = Ponto.query.filter_by(rota_id=rota_id).all()
+    
+    # Extrair latitude e longitude da geometria POINT
+    pontos_data = []
+    for ponto in pontos:
+        # A localizacao é uma Geometry POINT, precisamos extrair lat/lon
+        # Usando ST_X e ST_Y do PostGIS
+        lon = db.session.scalar(func.ST_X(ponto.localizacao))
+        lat = db.session.scalar(func.ST_Y(ponto.localizacao))
+        
+        pontos_data.append({
+            "id": ponto.id,
+            "nome": ponto.nome,
+            "latitude": float(lat) if lat is not None else None,
+            "longitude": float(lon) if lon is not None else None,
+        })
+    
+    return jsonify(pontos_data), 200
 
 @motorista_bp.route("/rotas/<int:rota_id>/ponto", methods=["POST"])
 @swag_from('../../../../../docs/motorista-adicionar_ponto.yml')
@@ -157,6 +199,57 @@ def listar_viagens_motorista():
         } for v in viagens
     ]), 200
 
+@motorista_bp.route("/viagens", methods=["POST"])
+@swag_from('../../../../../docs/motorista-criar_viagem.yml')
+@jwt_required()
+def criar_viagem_motorista():
+    """Allow motorista to create a trip for their routes"""
+    data = request.get_json()
+    identity = get_jwt_identity()
+    user = User.query.get(int(identity))
+
+    if not user or not user.is_motorista():
+        return jsonify({"error": "Access restricted to motoristas"}), 403
+
+    rota_id = data.get("rota_id")
+    data_viagem = data.get("data")
+    horario_inicio = data.get("horario_inicio")
+    horario_fim = data.get("horario_fim")
+    tipo = data.get("tipo")  # "IDA" or "VOLTA"
+
+    if not all([rota_id, data_viagem, horario_inicio, tipo]):
+        return jsonify({"error": "Campos obrigatórios ausentes"}), 400
+
+    # Verificar se a rota pertence ao motorista
+    rota = Rota.query.filter_by(id=rota_id, motorista_id=user.id).first()
+    if not rota:
+        return jsonify({"error": "Rota não encontrada ou não pertence a este motorista"}), 404
+
+    viagem = Viagem(
+        data=datetime.strptime(data_viagem, "%Y-%m-%d").date(),
+        horario_inicio=datetime.strptime(horario_inicio, "%H:%M").time(),
+        horario_fim=datetime.strptime(horario_fim, "%H:%M").time() if horario_fim else None,
+        tipo=tipo,
+        rota_id=rota_id,
+        motorista_id=user.id
+    )
+
+    db.session.add(viagem)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Viagem criada com sucesso",
+        "viagem": {
+            "id": viagem.id,
+            "data": viagem.data.isoformat(),
+            "horario_inicio": viagem.horario_inicio.isoformat(),
+            "horario_fim": viagem.horario_fim.isoformat() if viagem.horario_fim else None,
+            "tipo": viagem.tipo,
+            "rota_id": viagem.rota_id,
+            "motorista_id": viagem.motorista_id
+        }
+    }), 201
+
 
 @motorista_bp.route("/viagens/<int:viagem_id>/iniciar", methods=["POST"])
 @swag_from('../../../../../docs/motorista-iniciar_viagem.yml')
@@ -198,3 +291,46 @@ def finalizar_viagem(viagem_id):
     db.session.commit()
 
     return jsonify({"message": "Viagem finalizada com sucesso."}), 200
+
+@motorista_bp.route("/viagens/<int:viagem_id>/alunos", methods=["GET"])
+@swag_from('../../../../../docs/motorista-listar_alunos_viagem.yml')
+@jwt_required()
+def listar_alunos_viagem(viagem_id):
+    """List confirmed students for a trip"""
+    identity = get_jwt_identity()
+    user = User.query.get(int(identity))
+
+    if not user or not user.is_motorista():
+        return jsonify({"error": "Access restricted to motoristas"}), 403
+
+    viagem = Viagem.query.filter_by(id=viagem_id, motorista_id=user.id).first()
+    if not viagem:
+        return jsonify({"error": "Viagem não encontrada"}), 404
+
+    # Buscar total de alunos inscritos na rota
+    total_alunos = RotaAluno.query.filter_by(rota_id=viagem.rota_id).count()
+    
+    # Buscar alunos confirmados na viagem
+    # Presenca tem campos confirmada e cancelada
+    presencas = Presenca.query.filter_by(viagem_id=viagem_id).all()
+    
+    # Filtrar apenas presencas confirmadas (confirmada=True e não cancelada)
+    presencas_confirmadas = [
+        p for p in presencas 
+        if p.confirmada and not p.cancelada
+    ]
+    
+    alunos_confirmados = len(presencas_confirmadas)
+
+    return jsonify({
+        "total_alunos": total_alunos,
+        "alunos_confirmados": alunos_confirmados,
+        "alunos": [
+            {
+                "id": p.aluno.id,
+                "nome": p.aluno.nome,
+                "email": p.aluno.email,
+            }
+            for p in presencas_confirmadas
+        ]
+    }), 200

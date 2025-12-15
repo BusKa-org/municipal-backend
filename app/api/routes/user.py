@@ -20,11 +20,20 @@ def get_current_user():
     if not user:
         return jsonify({"error": "user not found"}), 404
 
+    municipio_data = None
+    if user.municipio:
+        municipio_data = {
+            "id": user.municipio.id,
+            "nome": user.municipio.nome,
+            "uf": user.municipio.uf
+        }
+
     return jsonify({
         "id": user.id,
         "nome": user.nome,
         "email": user.email,
-        "municipio": user.municipio_id,
+        "municipio": municipio_data,
+        "municipio_id": user.municipio_id,
         "role": user.role
     }), 200
 

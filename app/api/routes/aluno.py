@@ -6,8 +6,10 @@ from datetime import datetime
 
 from ...models.base import db
 from ...models.user import User
-from ...models.rota import Rota, RotaAluno
+from ...models.rota import Rota, RotaAluno, Ponto
 from ...models.viagem import Viagem, Presenca
+from ...models.municipio import Municipio
+from sqlalchemy import func
 
 aluno_bp = Blueprint("aluno", __name__)
 
@@ -28,14 +30,20 @@ def listar_rotas():
     if not user.municipio_id:
         return jsonify({"error": "Aluno não possui município cadastrado"}), 400
 
-    rotas = Rota.query.filter_by(municipio_id=user.municipio_id).all()
+    rotas = (
+        db.session.query(Rota)
+        .join(Municipio, Rota.municipio_id == Municipio.id)
+        .filter(Rota.municipio_id == user.municipio_id)
+        .all()
+    )
 
     return jsonify([
         {
             "id": r.id,
             "nome": r.nome,
             "motorista_id": r.motorista_id,
-            "municipio_id": r.municipio_id
+            "municipio_id": r.municipio_id,
+            "municipio_nome": r.municipio.nome if r.municipio else None
         } for r in rotas
     ]), 200
 
@@ -55,6 +63,7 @@ def listar_rotas_aluno():
     inscricoes = (
         db.session.query(Rota)
         .join(RotaAluno, Rota.id == RotaAluno.rota_id)
+        .join(Municipio, Rota.municipio_id == Municipio.id)
         .filter(RotaAluno.aluno_id == user.id)
         .all()
     )
@@ -64,10 +73,61 @@ def listar_rotas_aluno():
             "id": r.id,
             "nome": r.nome,
             "motorista_id": r.motorista_id,
-            "municipio_id": r.municipio_id
+            "municipio_id": r.municipio_id,
+            "municipio_nome": r.municipio.nome if r.municipio else None
         } for r in inscricoes
     ]), 200
 
+
+@aluno_bp.route("/rotas/<int:rota_id>/pontos", methods=["GET"])
+@jwt_required()
+def listar_pontos_rota(rota_id):
+    """
+    Lista todos os pontos de uma rota na qual o aluno está inscrito.
+    """
+    identity = get_jwt_identity()
+    user = User.query.get(int(identity))
+
+    if not user or not user.is_aluno():
+        return jsonify({"error": "Access restricted to alunos"}), 403
+
+    # Verificar se o aluno está inscrito na rota
+    inscricao = RotaAluno.query.filter_by(aluno_id=user.id, rota_id=rota_id).first()
+    if not inscricao:
+        return jsonify({"error": "Aluno não está inscrito nesta rota"}), 403
+
+    rota = Rota.query.get(rota_id)
+    if not rota:
+        return jsonify({"error": "Rota não encontrada"}), 404
+
+    pontos = Ponto.query.filter_by(rota_id=rota_id).all()
+    
+    # Extrair latitude e longitude da geometria POINT
+    pontos_data = []
+    for ponto in pontos:
+        # A localizacao é uma Geometry POINT, precisamos extrair lat/lon
+        # Usando ST_X e ST_Y do PostGIS
+        lon = db.session.scalar(func.ST_X(ponto.localizacao))
+        lat = db.session.scalar(func.ST_Y(ponto.localizacao))
+        
+        # Determinar o tipo do ponto (primeiro = origem, último = destino, outros = paradas)
+        pontos_data.append({
+            "id": ponto.id,
+            "nome": ponto.nome,
+            "latitude": float(lat) if lat is not None else None,
+            "longitude": float(lon) if lon is not None else None,
+        })
+    
+    # Marcar o primeiro ponto como origem e o último como destino
+    if pontos_data:
+        pontos_data[0]["tipo"] = "origem"
+        if len(pontos_data) > 1:
+            pontos_data[-1]["tipo"] = "destino"
+            # Marcar os pontos intermediários como paradas
+            for i in range(1, len(pontos_data) - 1):
+                pontos_data[i]["tipo"] = "parada"
+    
+    return jsonify(pontos_data), 200
 
 @aluno_bp.route("/rotas/<int:rota_id>/inscricao", methods=["PUT"])
 @swag_from('../../../../../docs/aluno-inscricao_rota.yml')
@@ -146,6 +206,37 @@ def listar_viagens():
         } for v in viagens
     ]), 200
 
+@aluno_bp.route("/viagens/<int:viagem_id>/presenca", methods=["GET"])
+@jwt_required()
+def obter_presenca_viagem(viagem_id):
+    """
+    Obtém o status de presença do aluno em uma viagem.
+    """
+    identity = get_jwt_identity()
+    user = User.query.get(int(identity))
+
+    if not user or not user.is_aluno():
+        return jsonify({"error": "Access restricted to alunos"}), 403
+
+    viagem = Viagem.query.get(viagem_id)
+    if not viagem:
+        return jsonify({"error": "Viagem não encontrada"}), 404
+
+    presenca = Presenca.query.filter_by(aluno_id=user.id, viagem_id=viagem.id).first()
+
+    if not presenca:
+        return jsonify({
+            "presente": False,
+            "confirmada": False,
+            "cancelada": False
+        }), 200
+
+    return jsonify({
+        "presente": presenca.confirmada and not presenca.cancelada,
+        "confirmada": presenca.confirmada,
+        "cancelada": presenca.cancelada
+    }), 200
+
 @aluno_bp.route("/viagens/<int:viagem_id>/presenca", methods=["PUT"])
 @swag_from('../../../../../docs/aluno-presenca_viagem.yml')
 @jwt_required()
@@ -172,10 +263,16 @@ def alterar_presenca_viagem(viagem_id):
     presenca = Presenca.query.filter_by(aluno_id=user.id, viagem_id=viagem.id).first()
 
     if not presenca:
-        presenca = Presenca(aluno_id=user.id, viagem_id=viagem.id, presente=presente)
+        presenca = Presenca(
+            aluno_id=user.id,
+            viagem_id=viagem.id,
+            confirmada=presente,
+            cancelada=not presente
+        )
         db.session.add(presenca)
     else:
-        presenca.presente = presente
+        presenca.confirmada = presente
+        presenca.cancelada = not presente
 
     db.session.commit()
     estado = "confirmada" if presente else "cancelada"
