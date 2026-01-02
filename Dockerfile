@@ -1,0 +1,55 @@
+# Multi-stage build for production Flask API
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files and application code
+COPY pyproject.toml ./
+COPY app/ ./app/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -e .
+
+# Production stage
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY app/ ./app/
+COPY database/ ./database/
+COPY docs/ ./docs/
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    FLASK_APP=app \
+    DB_HOST=db \
+    DB_PORT=5432 \
+    DB_USER=buska_user \
+    DB_PASSWORD=buska_pass \
+    DB_NAME=buska_db
+
+EXPOSE 5000
+
+# Use gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "app:create_app()"]
