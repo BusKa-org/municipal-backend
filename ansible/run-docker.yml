@@ -16,7 +16,7 @@
 
     - name: Fail if Docker is not running
       fail:
-        msg: "❌ Docker is not running. Please start Docker Desktop and try again."
+        msg: "Docker is not running. Please start Docker Desktop and try again."
       when: docker_check.rc != 0
 
     - name: Check if .env.prod exists
@@ -28,8 +28,8 @@
       shell: |
         cd {{ project_dir }}
         cp .env.example {{ env_file }}
-        echo "✅ Created .env.prod from .env.example"
-        echo "⚠️  Please edit {{ env_file }} with your actual credentials"
+        echo "Created .env.prod from .env.example"
+        echo "Please edit {{ env_file }} with your actual credentials"
       args:
         executable: /bin/bash
       when: not env_file_check.stat.exists

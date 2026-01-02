@@ -108,7 +108,7 @@ buska-backend/
 └── pyproject.toml        # Dependências Python
 ```
 
-## 🔧 Variáveis de Ambiente
+## Variáveis de Ambiente
 
 Copie `.env.example` para `.env.prod` e configure:
 
