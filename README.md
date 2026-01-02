@@ -7,167 +7,156 @@ API Flask para gerenciamento de rotas e viagens de transporte escolar.
 ### Pré-requisitos
 - Python 3.12+
 - Docker + Docker Compose
-- PostgreSQL client
+- Ansible (para automação)
 
-### Passo a passo rápido
+### Opção 1: Setup Automatizado (Recomendado)
 
 ```bash
+# Clone o repositório e entre no diretório
+git clone https://github.com/BusKa-org/buska-backend.git
+cd buska-backend
 
-chmod +x setup.sh
-./setup.sh
+# Setup completo (venv + dependências + banco + docker)
+chmod +x setup.sh start.sh
+./start.sh
 
-source .venv/bin/activate
-make run
+# Para reinicializar o banco de dados
+./start.sh -e clean_database=true
 ```
 
 A API estará disponível em: **http://localhost:5001/apidocs**
 
 ---
 
-## Setup Local - Manual
-
-Se preferir fazer passo a passo:
+### Opção 2: Setup Manual
 
 ```bash
+# 1. Criar ambiente virtual
 python3 -m venv .venv
-source .venv/bin/activate  # No Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
+# 2. Instalar dependências
+make install
+
+# 3. Iniciar banco de dados (em outro terminal)
+docker compose -f infra/database.yml up -d
+
+# 4. Popular banco de dados
 make initdb
+
+# 5. Rodar servidor
 make run
 ```
 
-A API estará disponível em:
-- **http://localhost:5001**
-- **http://localhost:5001/apidocs** (Swagger UI)
+A API estará em: **http://localhost:5001** | Swagger: **http://localhost:5001/apidocs**
 
-### Comandos úteis
+---
+
+## Comandos Disponíveis
+
+### Desenvolvimento Local
 
 ```bash
-make install       # Instalar apenas as dependências
-make run          # Rodar servidor de desenvolvimento
-make initdb       # Criar/popular banco de dados
-make deletedb     # Limpar banco de dados (apaga volumes)
+make install       # Instalar dependências
+make run          # Rodar servidor (porta 5001)
+make initdb       # Criar e popular banco de dados
+make deletedb     # Limpar banco de dados
 make bdcon        # Conectar ao banco via psql
+```
 
-# Docker (Produção)
-make docker-build    # Buildar imagem Docker
-make docker-up       # Subir containers em produção
+### Docker (Produção)
+
+```bash
+make docker-build    # Buildar imagem
+make docker-up       # Subir containers (porta 5001)
 make docker-down     # Parar containers
 make docker-logs     # Ver logs em tempo real
-make docker-rebuild  # Rebuild completo
 make docker-clean    # Limpar tudo (volumes + imagens)
 ```
-
-## Setup com Docker 
-
-```bash
-# 1. Configurar variáveis de ambiente
-cp .env.example .env.prod
-
-make docker-build
-make docker-up
-
-make docker-logs
-```
-
-A API estará disponível em: **http://localhost:5001/apidocs**
-
----
-
-## Automação com Ansible
-
-O Ansible permite automatizar todo o setup com um único comando.
-
-### Setup via Ansible
-
-```bash
-./setup.sh
-
-# Reinicializar banco de dados (APAGA dados - use em dev)
-./setup.sh -e clean_database=true
-
-# Rodar playbook manualmente
-ansible-playbook -i ansible/hosts.ini ansible/setup-dev.yml
-# caso queira apagar o banco
-ansible-playbook -i ansible/hosts.ini ansible/setup-dev.yml -e clean_database=true
-```
-
----
-
-## Estrutura do Projeto
-
-# 2. Buildar e subir containers
-make docker-build
-make docker-up
-
-# 3. Verificar logs
-make docker-logs
-```
-
-A API estará disponível em **http://localhost:5000**
 
 ## 📁 Estrutura do Projeto
 
 ```
 buska-backend/
-├── app/                    # Código da aplicação
-│   ├── api/               # Controllers e rotas
-│   ├── core/              # Configurações
-│   ├── models/            # Modelos SQLAlchemy
-│   ├── services/          # Lógica de negócio
-│   └── utils/             # Utilitários
-├── database/              # Scripts SQL
-│   ├── init.sql          # Schema inicial
-│   └── populate.sql      # Dados de teste
-├── infra/                 # Infraestrutura
-│   ├── database.yml      # Docker Compose (dev)
-│   └── terraform/        # Provisionamento OpenStack
-├── ansible/              # Playbooks de automação
-├── tests/                 # Testes
-├── Dockerfile            # Build de produção
-├── docker-compose.prod.yml  # Orquestração produção
-├── Makefile              # Automação de comandos
-├── setup.sh              # Setup automatizado com Ansible
+├── app/                      # Código da aplicação
+│   ├── api/
+│   │   ├── controllers/      # Lógica dos endpoints
+│   │   └── routes/           # Definição das rotas
+│   ├── core/
+│   │   ├── auth.py          # Autenticação JWT
+│   │   └── config.py        # Configurações
+│   ├── models/              # Modelos SQLAlchemy
+│   └── services/            # Serviços de negócio
+├── database/                # Scripts SQL
+│   ├── init.sql            # Schema e extensões
+│   └── populate.sql        # Dados iniciais
+├── docs/                    # Documentação da API
+│   └── endpoints/          # Specs YAML (Swagger)
+├── infra/
+│   ├── database.yml        # Docker Compose (dev)
+│   └── terraform/          # Infraestrutura (OpenStack)
+├── ansible/                 # Playbooks de automação
+│   ├── setup-dev.yml       # Setup local
+│   ├── run-docker.yml      # Deploy Docker
+│   └── deploy-prod.yml     # Deploy OpenStack
+├── tests/                   # Testes automatizados
+├── Dockerfile              # Build de produção
+├── docker-compose.prod.yml # Orquestração (prod)
+├── Makefile               # Automação de comandos
+├── setup.sh               # Setup automatizado
+├── start.sh              # Setup + Docker
 └── pyproject.toml        # Dependências Python
 ```
 
 ## 🔧 Variáveis de Ambiente
 
-Principais variáveis (`.env.prod`):
+Copie `.env.example` para `.env.prod` e configure:
 
 ```bash
 # Database
 DB_USER=buska_user
-DB_PASSWORD=seu_password_seguro
+DB_PASSWORD=senha_segura_aqui
 DB_NAME=buska_db
 
 # API
-API_PORT=5000
+API_PORT=5001
 JWT_SECRET_KEY=chave_jwt_longa_e_aleatoria
 JWT_EXPIRES_HOURS=2
 ```
 
-## 🚢 Deploy no OpenStack
+## 📚 Documentação da API
 
-Documentação em desenvolvimento. Infraestrutura gerenciada via Terraform em `infra/terraform/`.
+A documentação completa e interativa está disponível em:
+- **Swagger UI**: http://localhost:5001/apidocs
+- **ReDoc**: http://localhost:5001/redoc
 
-## 📝 API Endpoints
-
-Principais rotas (veja documentação completa em `/apidocs`):
-
-- `POST /auth/login` - Login
-- `POST /auth/register` - Registro
+Principais endpoints:
+- `POST /auth/login` - Autenticar
+- `POST /auth/register` - Criar conta
 - `GET /rotas` - Listar rotas
 - `GET /viagens` - Listar viagens
 - `GET /me` - Dados do usuário autenticado
 
-## 🧪 Testes
+## 🚢 Deployment
+
+### OpenStack (Terraform + Ansible)
 
 ```bash
-# Em desenvolvimento
-pytest tests/
+cd infra/terraform
+terraform init
+terraform plan
+terraform apply
+
+# Depois, deploy via Ansible
+ansible-playbook ansible/deploy-prod.yml
 ```
 
-## 📄 Licença
+### Docker Local
 
-[A definir]
+```bash
+./start.sh
+```
+
+Containers iniciados:
+- `buska_api` - Flask API com Gunicorn (porta 5001)
+- `buska_db_prod` - PostgreSQL + PostGIS (porta 5432)
