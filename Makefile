@@ -15,7 +15,7 @@ run:
 # Populate the database
 initdb:
 	$(DOCKER) -f infra/database.yml up -d db
-	sleep 2
+	sleep 5 
 	uv run -- flask --app app init-db
 
 deletedb:
