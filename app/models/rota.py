@@ -1,41 +1,98 @@
-from .base import db, BaseModel
+import uuid
+from app import db
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-from geoalchemy2 import Geometry
+from .enum import SentidoViagem, DiaDaSemana
 
-class Rota(BaseModel):
-    __tablename__ = "rotas"
 
-    nome = db.Column(db.String(120), nullable=False)
-    municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=False)
-    motorista_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+class Rota(db.Model):
+    __tablename__ = "rota"
 
-    # Relationships
-    municipio = relationship("Municipio", back_populates="rotas")
-    motorista = relationship("User", back_populates="rotas")
-    pontos = relationship("Ponto", back_populates="rota", cascade="all, delete-orphan")
-    viagens = relationship("Viagem", back_populates="rota", cascade="all, delete-orphan")
-    alunos_inscritos = relationship("RotaAluno", back_populates="rota", cascade="all, delete-orphan")
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nome = db.Column(db.String(100), nullable=False)
 
-class Ponto(BaseModel):
-    __tablename__ = "pontos"
-
-    nome = db.Column(db.String(120), nullable=False)
-    localizacao = db.Column(Geometry("POINT", srid=4326), nullable=False)
-    rota_id = db.Column(db.Integer, db.ForeignKey("rotas.id"), nullable=False)
-
-    rota = relationship("Rota", back_populates="pontos")
-
-class RotaAluno(BaseModel):
-    __tablename__ = "rotas_alunos"
-
-    aluno_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
-    rota_id = db.Column(db.Integer, db.ForeignKey("rotas.id"), nullable=False)
-
-    # Relationships
-    aluno = relationship("User", back_populates="rotas_inscritas")
-    rota = relationship("Rota", back_populates="alunos_inscritos")
-
-    __table_args__ = (
-        db.UniqueConstraint("aluno_id", "rota_id", name="uq_aluno_rota"),
+    motorista_padrao_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("motorista.usuario_id")
     )
+
+    veiculo_padrao_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("onibus.id")
+    )
+
+    motorista_padrao = relationship("Motorista")
+    veiculo_padrao = relationship("Onibus")
+
+    pontos_padrao = relationship(
+        "RotaPonto",
+        back_populates="rota",
+        order_by="RotaPonto.ordem",
+        cascade="all, delete-orphan"
+    )
+
+    grade_horarios = relationship(
+        "HorarioRota",
+        back_populates="rota",
+        cascade="all, delete-orphan"
+    )
+
+
+class RotaPonto(db.Model):
+    __tablename__ = "rota_ponto"
+
+    rota_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("rota.id"),
+        primary_key=True
+    )
+
+    ponto_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("ponto.id"),
+        primary_key=True
+    )
+
+    ordem = db.Column(db.Integer, nullable=False)
+
+    rota = relationship("Rota", back_populates="pontos_padrao")
+    ponto = relationship("Ponto")
+
+
+class HorarioRota(db.Model):
+    __tablename__ = "horario_rota"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    rota_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("rota.id"),
+        nullable=False
+    )
+
+    horario_saida = db.Column(db.Time, nullable=False)
+    sentido = db.Column(db.Enum(SentidoViagem), nullable=False)
+
+    rota = relationship("Rota", back_populates="grade_horarios")
+
+    dias = relationship(
+        "DiasOperacao",
+        back_populates="horario",
+        cascade="all, delete-orphan"
+    )
+
+
+class DiasOperacao(db.Model):
+    __tablename__ = "dias_operacao"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    horario_rota_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("horario_rota.id"),
+        nullable=False
+    )
+
+    dia = db.Column(db.Enum(DiaDaSemana), nullable=False)
+
+    horario = relationship("HorarioRota", back_populates="dias")
