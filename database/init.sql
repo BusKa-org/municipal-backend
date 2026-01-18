@@ -48,7 +48,7 @@ CREATE TYPE status_viagem AS ENUM (
 
 -- Users
 CREATE TABLE usuario (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),    
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(120) NOT NULL UNIQUE,
     senha_hash VARCHAR(255) NOT NULL,
@@ -59,7 +59,7 @@ CREATE TABLE usuario (
 );
 
 CREATE TABLE aluno (
-    usuario_id INTEGER PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
+    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
     matricula VARCHAR(50),
     nome_pai VARCHAR(100),
     nome_mae VARCHAR(100)
@@ -67,20 +67,20 @@ CREATE TABLE aluno (
 
 -- Perfil: Motorista
 CREATE TABLE motorista (
-    usuario_id INTEGER PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
+    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
     cnh VARCHAR(20) NOT NULL UNIQUE
 );
 
 -- Perfil: Gestor
 CREATE TABLE gestor (
-    usuario_id INTEGER PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
+    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
     matricula VARCHAR(50),
     salario NUMERIC(10, 2)
 );
 
 -- Pontos (pickup points) - use PostGIS geometry POINT
 CREATE TABLE ponto (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     latitude NUMERIC(10, 8) NOT NULL,
     longitude NUMERIC(11, 8) NOT NULL,
     apelido VARCHAR(100),
@@ -90,24 +90,24 @@ CREATE TABLE ponto (
 CREATE INDEX idx_ponto_geom ON ponto USING GIST (geom);
 
 CREATE TABLE endereco (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     logradouro VARCHAR(150),
     numero VARCHAR(20),
     bairro VARCHAR(100),
     cidade VARCHAR(100),
     cep VARCHAR(10),
-    ponto_id INTEGER REFERENCES ponto(id) ON DELETE SET NULL
+    ponto_id UUID REFERENCES ponto(id) ON DELETE SET NULL
 );
 
 CREATE TABLE instituicao (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(150) NOT NULL,
     cnpj VARCHAR(20) NOT NULL UNIQUE,
-    ponto_id INTEGER NOT NULL REFERENCES ponto(id) ON DELETE RESTRICT
+    ponto_id UUID NOT NULL REFERENCES ponto(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE onibus (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     placa VARCHAR(10) NOT NULL UNIQUE,
     modelo VARCHAR(50),
     capacidade INTEGER NOT NULL,
@@ -115,44 +115,42 @@ CREATE TABLE onibus (
 );
 
 CREATE TABLE rota (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(100) NOT NULL,
-    motorista_padrao_id INTEGER REFERENCES motorista(usuario_id) ON DELETE SET NULL,
-    veiculo_padrao_id INTEGER REFERENCES onibus(id) ON DELETE SET NULL,
+    motorista_padrao_id UUID REFERENCES motorista(usuario_id) ON DELETE SET NULL,
+    veiculo_padrao_id UUID REFERENCES onibus(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
 );
 
 CREATE TABLE rota_ponto (
-    rota_id INTEGER REFERENCES rota(id) ON DELETE CASCADE,
-    ponto_id INTEGER REFERENCES ponto(id) ON DELETE RESTRICT,
+    rota_id UUID REFERENCES rota(id) ON DELETE CASCADE,
+    ponto_id UUID REFERENCES ponto(id) ON DELETE RESTRICT,
     ordem INTEGER NOT NULL,
     PRIMARY KEY (rota_id, ponto_id)
 );
 
 CREATE TABLE horario_rota (
-    id SERIAL PRIMARY KEY,
-    rota_id INTEGER NOT NULL REFERENCES rota(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    rota_id UUID NOT NULL REFERENCES rota(id) ON DELETE CASCADE,
     horario_saida TIME NOT NULL,
     sentido sentido_viagem NOT NULL
 );
 
 CREATE TABLE dias_operacao (
-    id SERIAL PRIMARY KEY,
-    horario_rota_id INTEGER NOT NULL REFERENCES horario_rota(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    horario_rota_id UUID NOT NULL REFERENCES horario_rota(id) ON DELETE CASCADE,
     dia dia_da_semana NOT NULL
 );
 
 -- Viagens (trips)
 CREATE TABLE viagem (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     data DATE NOT NULL,
     
-    -- Origem do agendamento
-    horario_rota_id INTEGER REFERENCES horario_rota(id) ON DELETE SET NULL,
-    
-    motorista_id INTEGER REFERENCES motorista(usuario_id) ON DELETE RESTRICT,
-    veiculo_id INTEGER REFERENCES onibus(id) ON DELETE RESTRICT,
+    horario_rota_id UUID REFERENCES horario_rota(id) ON DELETE SET NULL,
+    motorista_id UUID REFERENCES motorista(usuario_id) ON DELETE RESTRICT,
+    veiculo_id UUID REFERENCES onibus(id) ON DELETE RESTRICT,
     
     status status_viagem DEFAULT 'AGENDADA',
     inicio_real TIMESTAMP WITH TIME ZONE,
@@ -164,8 +162,8 @@ CREATE TABLE viagem (
 );
 
 CREATE TABLE viagem_ponto (
-    viagem_id INTEGER REFERENCES viagem(id) ON DELETE CASCADE,
-    ponto_id INTEGER REFERENCES ponto(id) ON DELETE RESTRICT,
+    viagem_id UUID REFERENCES viagem(id) ON DELETE CASCADE,
+    ponto_id UUID REFERENCES ponto(id) ON DELETE RESTRICT,
     ordem INTEGER NOT NULL,
     visitado BOOLEAN DEFAULT FALSE,
     chegada_estimada TIMESTAMP WITH TIME ZONE,
@@ -175,18 +173,18 @@ CREATE TABLE viagem_ponto (
 
 -- Presencas (attendance/confirmation)
 CREATE TABLE alunos_confirmados (
-    viagem_id INTEGER REFERENCES viagem(id) ON DELETE CASCADE,
-    aluno_id INTEGER REFERENCES aluno(usuario_id) ON DELETE CASCADE,
+    viagem_id UUID REFERENCES viagem(id) ON DELETE CASCADE,
+    aluno_id UUID REFERENCES aluno(usuario_id) ON DELETE CASCADE,
     confirmacao BOOLEAN DEFAULT TRUE,
-    ponto_embarque_id INTEGER REFERENCES ponto(id),
-    ponto_destino_id INTEGER REFERENCES ponto(id),
+    ponto_embarque_id UUID REFERENCES ponto(id),
+    ponto_destino_id UUID REFERENCES ponto(id),
     PRIMARY KEY (viagem_id, aluno_id)
 );
 
 -- Notificacoes
-CREATE TABLE IF NOT EXISTS notificacoes (
-    id SERIAL PRIMARY KEY,
-    usuario_id INTEGER NOT NULL REFERENCES usuario (id) ON DELETE CASCADE, 
+CREATE TABLE notificacoes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    usuario_id UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
     titulo VARCHAR(120) NOT NULL,
     mensagem TEXT NOT NULL,
     enviada BOOLEAN DEFAULT FALSE,
@@ -195,7 +193,7 @@ CREATE TABLE IF NOT EXISTS notificacoes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
 );
 
-CREATE INDEX IF NOT EXISTS idx_notificacoes_usuario ON notificacoes (usuario_id);
+CREATE INDEX idx_notificacoes_usuario ON notificacoes (usuario_id);
 
 -- --------- Triggers to update updated_at ----------
 CREATE TRIGGER set_timestamp_usuario BEFORE UPDATE ON usuario FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
@@ -205,5 +203,4 @@ CREATE TRIGGER set_timestamp_viagem BEFORE UPDATE ON viagem FOR EACH ROW EXECUTE
 -- --------- Grants ----------
 GRANT ALL PRIVILEGES ON DATABASE buska_db TO buska_user;
 GRANT USAGE, SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public TO buska_user;
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO buska_user;
 
