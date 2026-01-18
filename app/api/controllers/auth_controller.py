@@ -1,25 +1,29 @@
 from flask import request, jsonify
+from flask_restx import Resource, Namespace
+from app.services.auth_service import AuthService
+from app.schemas.user_schema import UserCreateSchema
 
-from ...services.auth_service import AuthService
-from ...services.user_service import UserService
+api = Namespace('auth', description='Authentication operations')
+user_schema = UserCreateSchema()
 
 
-class AuthController:
+@api.route('/register')
+class Register(Resource):
+    def post(self):
+        json_data = request.get_json()
+        
+        errors = user_schema.validate(json_data)
+        if errors:
+            return {"error": "Validation failed", "details": errors}, 400
+            
+        return AuthService.register_user(json_data)
 
-    @staticmethod
-    def login():
+@api.route('/login')
+class Login(Resource):
+    def post(self):
         data = request.get_json()
-        result, status = AuthService.login(data)
-        return jsonify(result), status
-
-    @staticmethod
-    def register():
-        data = request.get_json()
-        result, status = UserService.create_user(data)
-        return jsonify(result), status
-
-    @staticmethod
-    def register_dev():
-        data = request.get_json()
-        result, status = AuthService.register_dev(data)
-        return jsonify(result), status
+        # Validação simples de login não precisa de schema complexo
+        if not data.get('email') or not data.get('password'):
+            return {"error": "Email and password required"}, 400
+            
+        return AuthService.login_user(data)
