@@ -12,7 +12,7 @@ class User(db.Model):
     senha_hash = db.Column(db.String(255), nullable=False)
     telefone = db.Column(db.String(20))
     cpf = db.Column(db.String(14), unique=True)
-
+    notificacoes = relationship("Notificacao", back_populates="usuario", cascade="all, delete-orphan")
     # Relationship 1:1 (uselist=False)
     aluno = relationship(
         "Aluno", 
