@@ -44,12 +44,6 @@ CREATE TYPE status_viagem AS ENUM (
     'CANCELADA'
 );
 
-CREATE TYPE ponto_tipo AS ENUM (
-    'ESCOLA',
-    'PARADA',
-    'GARAGEM'
-);
-
 -- --------- Tables ----------
 
 -- Users
