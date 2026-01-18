@@ -1,5 +1,5 @@
 import uuid
-from app import db
+from .base import db
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .enum import StatusViagem
