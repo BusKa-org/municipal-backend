@@ -32,9 +32,9 @@ CREATE TYPE dia_da_semana AS ENUM (
 );
 
 CREATE TYPE sentido_viagem AS ENUM (
-    'LEVAR', -- Levar para Instituição
-    'BUSCAR', -- Buscar para Casa
-    'LEVAR_E_TRAZER' -- Circular
+    'IDA', -- Levar para Instituição
+    'VOLTA', -- Buscar para Casa
+    'CIRCULAR' -- Circular
 );
 
 CREATE TYPE status_viagem AS ENUM (
