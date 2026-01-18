@@ -1,22 +1,18 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
-from flasgger import Swagger
-from geoalchemy2 import Geometry
+from flask_restx import Api
 from datetime import timedelta
 from dotenv import load_dotenv
 from sqlalchemy import text
-
-from .api.routes import register_routes
 from .core.config import get_settings
 from .models.base import db
+from .api.controllers.auth_controller import api as auth_ns
 
 jwt = JWTManager()
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    swagger = Swagger(app)
 
     settings = get_settings()
     load_dotenv()
@@ -30,17 +26,28 @@ def create_app() -> Flask:
     db.init_app(app)
     jwt.init_app(app)
 
-    register_routes(app)
+    api = Api(app, 
+              title='BusKá API', 
+              version='1.0', 
+              description='Buská API',
+              doc='/docs')
+    
+    api.add_namespace(auth_ns, path='/auth')
 
     @app.cli.command("init-db")
     def init_db():
         """ Initialize database tables """
         with app.app_context():
-            db.create_all()
-            with open("database/populate.sql", "r", encoding="utf-8") as f:
-                sql_commands = f.read()
-            db.session.execute(text(sql_commands))
-            db.session.commit()
-            print("[*] Database initialized successfully.")
+            try:
+                print("[*] Executing population script...")
+                with open("database/populate.sql", "r", encoding="utf-8") as f:
+                    sql_commands = f.read()
+                db.session.execute(text(sql_commands))
+                db.session.commit()
+                print("[*] Database initialized successfully.")
+            except FileNotFoundError:
+                print("[!] Warning: database/populate.sql not found.")
+            except Exception as e:
+                print(f"[!] Error populating database: {e}")
 
     return app
