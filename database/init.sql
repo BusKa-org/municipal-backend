@@ -149,6 +149,13 @@ CREATE TABLE rota_ponto (
     PRIMARY KEY (rota_id, ponto_id)
 );
 
+CREATE TABLE rota_aluno (
+    rota_id UUID REFERENCES rota(id) ON DELETE CASCADE,
+    aluno_id UUID REFERENCES aluno(usuario_id) ON DELETE CASCADE,
+    data_inscricao TIMESTAMP DEFAULT (now() AT TIME ZONE 'UTC'),
+    PRIMARY KEY (rota_id, aluno_id)
+);
+
 CREATE TABLE horario_rota (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     rota_id UUID NOT NULL REFERENCES rota(id) ON DELETE CASCADE,
