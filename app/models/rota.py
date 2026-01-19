@@ -96,3 +96,11 @@ class DiasOperacao(db.Model):
     dia = db.Column(db.Enum(DiaDaSemana), nullable=False)
 
     horario = relationship("HorarioRota", back_populates="dias")
+
+class RotaAluno(db.Model):
+    __tablename__ = "rota_aluno"
+
+    rota_id = db.Column(UUID(as_uuid=True), db.ForeignKey("rota.id"), primary_key=True)
+    aluno_id = db.Column(UUID(as_uuid=True), db.ForeignKey("aluno.usuario_id"), primary_key=True)
+    
+    data_inscricao = db.Column(db.DateTime, default=db.func.now())
