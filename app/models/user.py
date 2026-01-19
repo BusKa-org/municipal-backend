@@ -7,6 +7,7 @@ class User(db.Model):
     __tablename__ = 'usuario'
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    prefeitura_id = db.Column(UUID(as_uuid=True), db.ForeignKey('prefeitura.id'), nullable=False)
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     senha_hash = db.Column(db.String(255), nullable=False)

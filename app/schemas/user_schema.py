@@ -1,6 +1,10 @@
 from marshmallow import Schema, fields, validate
 
 class UserCreateSchema(Schema):
+    prefeitura_id = fields.String(
+        required=True, 
+        metadata={"description": "UUID da Prefeitura"}
+    )
     nome = fields.String(required=True)
     email = fields.Email(required=True)
     password = fields.String(required=True, load_only=True)
@@ -24,6 +28,7 @@ class UserCreateSchema(Schema):
 
 class UserResponseSchema(Schema):
     id = fields.String()
+    prefeitura_id = fields.String()
     nome = fields.String()
     email = fields.String()
     telefone = fields.String()
