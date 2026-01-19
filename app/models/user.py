@@ -53,7 +53,15 @@ class Aluno(User):
     usuario_id = db.Column(UUID(as_uuid=True), db.ForeignKey('usuario.id'), primary_key=True)
     matricula = db.Column(db.String(50))
     nome_pai = db.Column(db.String(100))
-    nome_mae = db.Column(db.String(100))
+    nome_mae = db.Column(db.String(100))    
+    cpf_pai = db.Column(db.String(14))
+    cpf_mae = db.Column(db.String(14))
+
+    instituicao_id = db.Column(UUID(as_uuid=True), db.ForeignKey('instituicao.id'))
+    ponto_casa_id = db.Column(UUID(as_uuid=True), db.ForeignKey('ponto.id'))
+    
+    instituicao = db.relationship("Instituicao")
+    ponto_casa = db.relationship("Ponto")
 
     __mapper_args__ = {
         'polymorphic_identity': UserRole.ALUNO,

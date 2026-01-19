@@ -87,11 +87,15 @@ CREATE TABLE usuario (
 CREATE INDEX idx_usuario_prefeitura ON usuario(prefeitura_id);
 
 -- 3. Tabelas Filhas (Herança)
-CREATE TABLE aluno (
+CREATE TABLE IF NOT EXISTS aluno (
     usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
     matricula VARCHAR(50),
     nome_pai VARCHAR(100),
-    nome_mae VARCHAR(100)
+    cpf_pai VARCHAR(14),
+    nome_mae VARCHAR(100),
+    cpf_mae VARCHAR(14),
+    instituicao_id UUID REFERENCES instituicao(id),
+    ponto_casa_id UUID REFERENCES ponto(id)
 );
 
 CREATE TABLE motorista (
