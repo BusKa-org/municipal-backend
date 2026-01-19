@@ -19,3 +19,12 @@ class StatusViagem(enum.Enum):
     EM_ANDAMENTO = "EM_ANDAMENTO"
     FINALIZADA = "FINALIZADA"
     CANCELADA = "CANCELADA"
+
+class UserRole(enum.Enum):
+    USER = "USER"
+    ALUNO = "ALUNO"
+    MOTORISTA = "MOTORISTA"
+    GESTOR = "GESTOR"
+    
+    def __str__(self):
+        return self.value

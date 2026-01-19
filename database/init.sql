@@ -44,6 +44,13 @@ CREATE TYPE status_viagem AS ENUM (
     'CANCELADA'
 );
 
+CREATE TYPE user_role AS ENUM (
+    'USER',
+    'ALUNO', 
+    'MOTORISTA', 
+    'GESTOR'
+);
+
 -- --------- Tables ----------
 
 -- Users
@@ -53,7 +60,8 @@ CREATE TABLE usuario (
     email VARCHAR(120) NOT NULL UNIQUE,
     senha_hash VARCHAR(255) NOT NULL,
     telefone VARCHAR(20),
-    cpf VARCHAR(14) NOT NULL UNIQUE,
+    cpf VARCHAR(14) NOT NULL UNIQUE,    
+    role user_role NOT NULL DEFAULT 'ALUNO',    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
 );
@@ -195,7 +203,7 @@ CREATE TABLE notificacoes (
 
 CREATE INDEX idx_notificacoes_usuario ON notificacoes (usuario_id);
 
--- --------- Triggers to update updated_at ----------
+-- --------- Triggers ----------
 CREATE TRIGGER set_timestamp_usuario BEFORE UPDATE ON usuario FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE TRIGGER set_timestamp_rota BEFORE UPDATE ON rota FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE TRIGGER set_timestamp_viagem BEFORE UPDATE ON viagem FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
@@ -206,5 +214,3 @@ GRANT ALL PRIVILEGES ON SCHEMA public TO buska_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO buska_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO buska_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO buska_user;
-GRANT USAGE, SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public TO buska_user;
-

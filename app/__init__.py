@@ -8,6 +8,7 @@ from sqlalchemy import text
 from .core.config import get_settings
 from .models.base import db
 from .api.controllers.auth_controller import api as auth_ns
+from .api.controllers.user_controller import api as user_ns
 
 jwt = JWTManager()
 
@@ -25,14 +26,27 @@ def create_app() -> Flask:
     CORS(app)
     db.init_app(app)
     jwt.init_app(app)
+    
+    authorizations = {
+        'Bearer': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': "Digite no campo: Bearer <seu_token>"
+        }
+    }
 
     api = Api(app, 
-              title='BusKá API', 
-              version='1.0', 
-              description='Buská API',
-              doc='/docs')
+        title='BusKá API', 
+        version='1.0', 
+        description='Buská API',
+        doc='/docs',
+        authorizations=authorizations,
+        security='Bearer'
+    )
     
     api.add_namespace(auth_ns, path='/auth')
+    api.add_namespace(user_ns, path='/users')
 
     @app.cli.command("init-db")
     def init_db():
