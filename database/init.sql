@@ -136,6 +136,7 @@ CREATE TABLE onibus (
 
 CREATE TABLE rota (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    prefeitura_id UUID NOT NULL REFERENCES prefeitura(id) ON DELETE CASCADE,    
     nome VARCHAR(100) NOT NULL,
     motorista_padrao_id UUID REFERENCES motorista(usuario_id) ON DELETE SET NULL,
     veiculo_padrao_id UUID REFERENCES onibus(id) ON DELETE SET NULL,

@@ -1,10 +1,10 @@
 from datetime import datetime
 from flask import request
-
-from ..models.user import User
-from ..models.geo import Ponto
-from ..models.rota import Rota, RotaAluno, RotaPonto 
-from ..models.base import db
+from app.models.user import User
+from app.models.geo import Ponto
+from app.models.rota import Rota, RotaAluno, RotaPonto, HorarioRota, DiasOperacao
+from app.models.base import db
+from app.models.enum import SentidoViagem, DiaDaSemana
 
 class RotasService:
     
@@ -14,13 +14,13 @@ class RotasService:
         if not user:
             return {"error": "User nao existe"}, 403
 
-        rotas = Rota.query.all()
+        rotas = Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
 
         return ([
             {
-                "id": r.id, 
+                "id": str(r.id), 
                 "nome": r.nome, 
-                "motorista_id": r.motorista_padrao_id
+                "motorista_id": str(r.motorista_padrao_id) if r.motorista_padrao_id else None
             }
             for r in rotas
         ], 200)
@@ -42,13 +42,13 @@ class RotasService:
             rotas = Rota.query.filter_by(motorista_padrao_id=user.id).all()
 
         elif str(user.role) == 'GESTOR':
-            rotas = Rota.query.all()
+            rotas = Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
 
         return ([
             {
-                "id": r.id, 
+                "id": str(r.id), 
                 "nome": r.nome, 
-                "motorista_id": r.motorista_padrao_id
+                "motorista_id": str(r.motorista_padrao_id) if r.motorista_padrao_id else None
             }
             for r in rotas
         ], 200)
@@ -62,6 +62,9 @@ class RotasService:
         rota = Rota.query.get(rota_id)
         if not rota:
             return {"error": "Rota não encontrada"}, 404
+            
+        if rota.prefeitura_id != user.prefeitura_id:
+             return {"error": "Acesso negado a esta rota"}, 403
     
         data = request.get_json()
         acao = data.get("acao", "").lower()
@@ -99,10 +102,13 @@ class RotasService:
             return {"error": "Nome da rota é obrigatório"}, 400
 
         user_m_id = data.get("motorista_id")
+        veiculo_id = data.get("veiculo_id")
 
         rota = Rota(
             nome=nome,
             motorista_padrao_id=user_m_id,
+            veiculo_padrao_id=veiculo_id,
+            prefeitura_id=user.prefeitura_id # VINCULO OBRIGATÓRIO
         )
 
         db.session.add(rota)
@@ -111,9 +117,9 @@ class RotasService:
         return ({
             "message": "Rota criada com sucesso",
             "rota": {
-                "id": rota.id,
+                "id": str(rota.id),
                 "nome": rota.nome,
-                "motorista_id": rota.motorista_padrao_id,
+                "motorista_id": str(rota.motorista_padrao_id) if rota.motorista_padrao_id else None
             }
         }, 201)
 
@@ -124,9 +130,12 @@ class RotasService:
         if not user or str(user.role) not in ['GESTOR', 'MOTORISTA']:
             return {"error": "Permissão negada"}, 403
 
-        rota = Rota.query.filter_by(id=rota_id).first()
+        rota = Rota.query.get(rota_id)
         if not rota:
             return {"error": "Rota não encontrada"}, 404
+            
+        if rota.prefeitura_id != user.prefeitura_id:
+             return {"error": "Acesso negado"}, 403
 
         pontos = data.get("pontos", [])
         if not pontos or not isinstance(pontos, list):
@@ -162,3 +171,124 @@ class RotasService:
         db.session.commit()
 
         return ({"message": "Pontos adicionados à rota com sucesso"}, 200)
+
+    @staticmethod
+    def add_horario(gestor_id, rota_id, data):
+        user = User.query.get(gestor_id)
+        if not user or str(user.role) != 'GESTOR':
+            return {"error": "Apenas gestores gerenciam horários"}, 403
+
+        rota = Rota.query.get(rota_id)
+        if not rota:
+            return {"error": "Rota não encontrada"}, 404
+        
+        if rota.prefeitura_id != user.prefeitura_id:
+            return {"error": "Acesso negado"}, 403
+
+        horario_saida = data.get("horario_saida")
+        sentido_str = data.get("sentido")
+        dias_list = data.get("dias", [])
+
+        if not dias_list:
+            return {"error": "Selecione pelo menos um dia da semana"}, 400
+
+        novo_horario = HorarioRota(
+            rota_id=rota.id,
+            horario_saida=horario_saida,
+            sentido=SentidoViagem(sentido_str)
+        )
+        db.session.add(novo_horario)
+        db.session.flush()
+
+        for dia_str in dias_list:
+            novo_dia = DiasOperacao(
+                horario_rota_id=novo_horario.id,
+                dia=DiaDaSemana(dia_str)
+            )
+            db.session.add(novo_dia)
+
+        db.session.commit()
+        return novo_horario, 201
+
+    @staticmethod
+    def get_horarios(user_id, rota_id):
+        user = User.query.get(user_id)
+        rota = Rota.query.get(rota_id)
+        if not rota: return {"error": "Rota 404"}, 404
+        
+        if str(user.role) in ['GESTOR', 'MOTORISTA'] and rota.prefeitura_id != user.prefeitura_id:
+            return {"error": "Forbidden"}, 403
+            
+        return rota.grade_horarios, 200
+    
+    @staticmethod
+    def get_by_id(user_id, rota_id):
+        """Busca detalhes de uma rota específica"""
+        user = User.query.get(user_id)
+        rota = Rota.query.get(rota_id)
+
+        if not rota:
+            return {"error": "Rota não encontrada"}, 404
+
+        # Segurança Multi-tenant
+        if str(user.role) in ['GESTOR', 'MOTORISTA'] and rota.prefeitura_id != user.prefeitura_id:
+            return {"error": "Acesso negado"}, 403
+
+        return {
+            "id": str(rota.id),
+            "nome": rota.nome,
+            "motorista_id": str(rota.motorista_padrao_id) if rota.motorista_padrao_id else None,
+            "veiculo_id": str(rota.veiculo_padrao_id) if rota.veiculo_padrao_id else None,
+            "prefeitura_id": str(rota.prefeitura_id)
+        }, 200
+
+    @staticmethod
+    def update_rota(user_id, rota_id, data):
+        """Atualiza nome, motorista ou veículo da rota"""
+        user = User.query.get(user_id)
+        
+        # Apenas Gestor edita
+        if not user or str(user.role) != 'GESTOR':
+            return {"error": "Permissão negada"}, 403
+
+        rota = Rota.query.get(rota_id)
+        if not rota:
+            return {"error": "Rota não encontrada"}, 404
+
+        # Garante que não está editando rota de outra prefeitura
+        if rota.prefeitura_id != user.prefeitura_id:
+            return {"error": "Acesso negado"}, 403
+
+        # Atualização dos campos
+        if "nome" in data:
+            rota.nome = data.get("nome")
+        
+        if "motorista_id" in data:
+            rota.motorista_padrao_id = data.get("motorista_id")
+            
+        if "veiculo_id" in data:
+            rota.veiculo_padrao_id = data.get("veiculo_id")
+
+        db.session.commit()
+        
+        return {"message": "Rota atualizada com sucesso"}, 200
+
+    @staticmethod
+    def delete_rota(user_id, rota_id):
+        """Remove a rota"""
+        user = User.query.get(user_id)
+        
+        if not user or str(user.role) != 'GESTOR':
+            return {"error": "Permissão negada"}, 403
+
+        rota = Rota.query.get(rota_id)
+        if not rota:
+            return {"error": "Rota não encontrada"}, 404
+
+        if rota.prefeitura_id != user.prefeitura_id:
+            return {"error": "Acesso negado"}, 403
+
+        db.session.delete(rota)
+        db.session.commit()
+
+        return {"message": "Rota removida com sucesso"}, 200

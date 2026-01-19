@@ -9,6 +9,7 @@ class Rota(db.Model):
     __tablename__ = "rota"
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    prefeitura_id = db.Column(UUID(as_uuid=True), db.ForeignKey('prefeitura.id'), nullable=False)    
     nome = db.Column(db.String(100), nullable=False)
 
     motorista_padrao_id = db.Column(
@@ -36,6 +37,7 @@ class Rota(db.Model):
         back_populates="rota",
         cascade="all, delete-orphan"
     )
+    alunos_inscritos = relationship("RotaAluno", backref="rota", cascade="all, delete-orphan")
 
 
 class RotaPonto(db.Model):
