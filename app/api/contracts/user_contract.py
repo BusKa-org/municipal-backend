@@ -7,6 +7,11 @@ class UserContract:
         'id': fields.String(description='ID único UUID'),
         'nome': fields.String(description='Nome completo'),
         'email': fields.String(description='Email'),
+        'prefeitura_id': fields.String(
+                required=True, 
+                description='UUID da Prefeitura', 
+                example='5d241870-a556-41f8-bbb3-3b168d7ff0c8'
+        ),
         'cpf': fields.String(description='CPF'),
         'telefone': fields.String(description='Telefone'),
         'role': fields.String(
