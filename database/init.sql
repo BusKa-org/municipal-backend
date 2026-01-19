@@ -127,6 +127,7 @@ CREATE TABLE instituicao (
 -- 5. Frota e Rotas
 CREATE TABLE onibus (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    prefeitura_id UUID NOT NULL REFERENCES prefeitura(id) ON DELETE CASCADE,
     placa VARCHAR(10) NOT NULL UNIQUE,
     modelo VARCHAR(50),
     capacidade INTEGER NOT NULL,

@@ -9,6 +9,7 @@ from .core.config import get_settings
 from .models.base import db
 from .api.controllers.auth_controller import api as auth_ns
 from .api.controllers.user_controller import api as user_ns
+from .api.controllers.onibus_controller import api as onibus_ns
 
 jwt = JWTManager()
 
@@ -47,6 +48,7 @@ def create_app() -> Flask:
     
     api.add_namespace(auth_ns, path='/auth')
     api.add_namespace(user_ns, path='/users')
+    api.add_namespace(onibus_ns)
 
     @app.cli.command("init-db")
     def init_db():
