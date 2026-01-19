@@ -48,6 +48,15 @@ CREATE TYPE user_role AS ENUM (
     'GESTOR'
 );
 
+CREATE TYPE tipo_instituicao AS ENUM (
+    'INSTITUTO_FEDERAL',
+    'UNIVERSIDADE_PUBLICA',
+    'UNIVERSIDADE_PRIVADA',
+    'ESCOLA_PUBLICA',
+    'ESCOLA_PRIVADA',
+    'ESCOLA_COMUNITARIA'
+);
+
 -- --------- 1. PREFEITURA (A Dona dos Dados) ----------
 CREATE TABLE prefeitura (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -121,8 +130,9 @@ CREATE TABLE endereco (
 CREATE TABLE instituicao (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(150) NOT NULL,
-    cnpj VARCHAR(20) NOT NULL UNIQUE,
-    ponto_id UUID NOT NULL REFERENCES ponto(id) ON DELETE RESTRICT
+    cnpj VARCHAR(20),
+    tipo tipo_instituicao NOT NULL DEFAULT 'ESCOLA_PUBLICA', -- Default ajustado
+    ponto_id UUID NOT NULL REFERENCES ponto(id) ON DELETE CASCADE
 );
 
 -- 5. Frota e Rotas

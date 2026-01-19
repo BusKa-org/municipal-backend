@@ -2,6 +2,7 @@ import uuid
 from .base import db
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
+from .enum import TipoInstituicao
 
 class Ponto(db.Model):
     __tablename__ = "ponto"
@@ -60,6 +61,8 @@ class Instituicao(db.Model):
     id  = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     nome = db.Column(db.String(150), nullable=False)
     cnpj = db.Column(db.String(20))
+    
+    tipo = db.Column(db.Enum(TipoInstituicao, native_enum=False), default=TipoInstituicao.ESCOLA_PUBLICA, nullable=False)
     
     ponto_id = db.Column(
         UUID(as_uuid=True),
