@@ -14,4 +14,5 @@ class Notificacao(db.Model):
     enviada = db.Column(db.Boolean, default=False)
     data_envio = db.Column(db.DateTime)
     
-    usuario = db.relationship("User", back_populates="notificacoes")
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
