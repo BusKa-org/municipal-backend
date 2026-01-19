@@ -9,37 +9,23 @@ class Viagem(db.Model):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     data = db.Column(db.Date, nullable=False)
+    horario_rota_id = db.Column(UUID(as_uuid=True), db.ForeignKey("horario_rota.id"), nullable=True)
+    
+    motorista_id = db.Column(UUID(as_uuid=True), db.ForeignKey("motorista.usuario_id"), nullable=True)
+    veiculo_id = db.Column(UUID(as_uuid=True), db.ForeignKey("onibus.id"), nullable=True)
+    
+    status = db.Column(db.Enum(StatusViagem, native_enum=False), default=StatusViagem.AGENDADA)
+    
+    inicio_real = db.Column(db.DateTime, nullable=True)
+    fim_real = db.Column(db.DateTime, nullable=True)
+    km_real = db.Column(db.Numeric(10, 2), nullable=True)
 
-    horario_rota_id = db.Column(
-        UUID(as_uuid=True),
-        db.ForeignKey("horario_rota.id")
-    )
-
-    motorista_id = db.Column(
-        UUID(as_uuid=True),
-        db.ForeignKey("motorista.usuario_id")
-    )
-
-    veiculo_id = db.Column(
-        UUID(as_uuid=True),
-        db.ForeignKey("onibus.id")
-    )
-
-    status = db.Column(
-        db.Enum(StatusViagem),
-        default=StatusViagem.AGENDADA,
-        nullable=False
-    )
-
-    inicio_real = db.Column(db.DateTime)
-    fim_real = db.Column(db.DateTime)
-    km_real = db.Column(db.Float)
-
+    horario_rota = relationship("HorarioRota")
     motorista = relationship("Motorista")
     veiculo = relationship("Onibus")
-
-    pontos_execucao = relationship(
-        "ViagemPonto",
+    
+    pontos_visitados = relationship(
+        "ViagemPonto", 
         back_populates="viagem",
         order_by="ViagemPonto.ordem",
         cascade="all, delete-orphan"
@@ -51,28 +37,22 @@ class Viagem(db.Model):
         cascade="all, delete-orphan"
     )
 
-
 class ViagemPonto(db.Model):
+    """
+    Controla o progresso da viagem ponto a ponto.
+    """
     __tablename__ = "viagem_ponto"
 
-    viagem_id = db.Column(
-        UUID(as_uuid=True),
-        db.ForeignKey("viagem.id"),
-        primary_key=True
-    )
-
-    ponto_id = db.Column(
-        UUID(as_uuid=True),
-        db.ForeignKey("ponto.id"),
-        primary_key=True
-    )
-
+    viagem_id = db.Column(UUID(as_uuid=True), db.ForeignKey("viagem.id"), primary_key=True)
+    ponto_id = db.Column(UUID(as_uuid=True), db.ForeignKey("ponto.id"), primary_key=True)
+    
     ordem = db.Column(db.Integer, nullable=False)
     visitado = db.Column(db.Boolean, default=False)
-    chegada_estimada = db.Column(db.DateTime)
-    chegada_real = db.Column(db.DateTime)
+    
+    chegada_estimada = db.Column(db.DateTime, nullable=True)
+    chegada_real = db.Column(db.DateTime, nullable=True)
 
-    viagem = relationship("Viagem", back_populates="pontos_execucao")
+    viagem = relationship("Viagem", back_populates="pontos_visitados")
     ponto = relationship("Ponto")
 
 class AlunosConfirmados(db.Model):
