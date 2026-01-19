@@ -1,173 +1,159 @@
 from datetime import datetime
-
-from ..models.user import User
-from ..models.viagem import Viagem
-from ..models.base import db
-
+from app.models.viagem import Viagem, ViagemPonto
+from app.models.rota import Rota, HorarioRota, RotaPonto
+from app.models.user import User
+from app.models.base import db
+from app.models.enum import StatusViagem, SentidoViagem
 
 class ViagensService:
+    
     @staticmethod
-    def list_all_viagens(user_id):
-        """ Lista todas as viagens daquele municipio """
-
+    def gerar_viagem(user_id, data_input):
+        """
+        Gera uma viagem aplicando a lógica de sentido (IDA/VOLTA).
+        """
         user = User.query.get(user_id)
+        if not user or str(user.role) not in ['GESTOR', 'MOTORISTA']:
+            return {"error": "Permissão negada"}, 403
 
-        viagens = Viagem.query.all(municipio_id=user.municipio_id)
-
-        return ([
-            {
-                "id": v.id,
-                "rota_id": v.rota_id,
-                "municipio_id": v.municipio_id,
-                "motorista_id": v.motorista_id,
-                "tipo":v.tipo,
-                "horario de inicio": v.horario_inicio.isoformat() if v.horario_inicio else None,
-                "previsao horario fim":  v.horario_fim if v.horario_fim else None, }
-            for v in viagens
-        ], 200)
-
-    @staticmethod
-    def list_my_viagens(user_id):
-        """ Lista as viagens naquele dia """
-
-        user = User.query.get(user_id)
-        if not user:
-            return {"error": "User nao existe"}, 403
-        if not user.municipio_id:
-            return {"error": "user não possui município cadastrado"}, 400
-
-        data_hoje = date.today()
-        if user.is_aluno():
-            rotas = Viagem.query.join(ViagemAluno).filter(
-                    ViagemAluno.aluno_id == user.id,
-                    Viagem.data == data_hoje
-            ).all()
-
-        elif user.is_motorista():
-            rotas = Viagem.query.filter_by(user_id=user.id,data=data_hoje).all()
-
-        elif user.is_gestor():
-            rotas = Viagem.query.all(data=data_hoje, municipio_id=user.municipio_id)
-
-        return ([
-            {
-                "id": v.id,
-                "rota_id": v.rota_id,
-                "municipio_id": v.municipio_id,
-                "motorista_id": v.motorista_id,
-                "tipo":v.tipo,
-                "horario de inicio": v.horario_inicio.isoformat() if v.horario_inicio else None,
-                "previsao horario fim":  v.horario_fim if v.horario_fim else None, }
-            for v in viagens
-        ], 200)
-
-    @staticmethod
-    def presenca_aluno_viagem(aluno_id, viagem_id):
-        """
-        Permite que o aluno confirme ou cancele sua presença em uma viagem
-        """
-        user = User.query.get(aluno_id)
-
-        if not user or not user.is_aluno():
-            return {"error": "Access restricted to alunos"}, 403
-
-        viagem = Viagem.query.get(viagem_id)
-        if not viagem:
-            return {"error": "Viagem não encontrada"}, 404
-    
-        data = request.get_json()
-        presente = data.get("presente")
-    
-        if presente not in [True, False]:
-            return {"error": "Campo 'presente' deve ser True ou False."}, 400
-    
-        presenca = ViagemAluno.query.filter_by(aluno_id=user.id, viagem_id=viagem.id).first()
-    
-        if not presenca:
-            presenca = ViagemAluno(aluno_id=user.id, viagem_id=viagem.id, presenca=presente)
-            db.session.add(presenca)
-        else:
-            presenca.presente = presente
-    
-        db.session.commit()
-        estado = "confirmada" if presente else "cancelada"
-
-        return {"message": f"Presença {estado} com sucesso."}, 200
-
-
-    @staticmethod
-    def start_viagem(rota_id):
-        """
-        Permite que uma viagem associada a uma rota seja criada.
-        """
-    
+        rota_id = data_input.get('rota_id')
+        data_str = data_input.get('data') # YYYY-MM-DD
+        
         rota = Rota.query.get(rota_id)
-        if not rota or not rota.municipio_id:
-            return {"error": "Rota inválida"}, 403
-    
-        # TODO: do jeito que esta, uma Viagem eh uma rota com mais infos
-        #       sendo que uma viagem deveria ser criada AUTOMATICAMENTE a partir de uma viagem 
-        #       logo, quem vai adicionar essas 'mais infos' 'a Viagem ? 
-        #       Solucoes:
-        #           i. Rota e Viagem devem compartilhar os mesmos atributos
-        #           ii. Devemos repensar essa logica
+        if not rota: return {"error": "Rota não encontrada"}, 404
+        
+        if rota.prefeitura_id != user.prefeitura_id:
+            return {"error": "Acesso negado"}, 403
 
-        #viagem = Viagem(
-        #    data=datetime.strptime(data_viagem, "%Y-%m-%d").date(),
-        #    horario_inicio=datetime.strptime(horario_inicio, "%H:%M").time(),
-        #    horario_fim=datetime.strptime(horario_fim, "%H:%M").time() if horario_fim else None,
-        #    tipo=tipo,
-        #    rota_id=rota_id,
-        #    motorista_id=rota.motorista_id,
-        #    municipio_id=rota.motorista_id
-        #)
-        viagem = None
-    
-        db.session.add(viagem)
+        if 'horario_id' in data_input:
+            horario = HorarioRota.query.get(data_input['horario_id'])
+        else:
+            horario = HorarioRota.query.filter_by(rota_id=rota.id).first()
+
+        if not horario:
+            return {"error": "Rota não possui horários ou horário inválido"}, 400
+
+        nova_viagem = Viagem(
+            data=data_str,
+            horario_rota_id=horario.id,
+            motorista_id=rota.motorista_padrao_id,
+            veiculo_id=rota.veiculo_padrao_id,
+            status=StatusViagem.AGENDADA
+        )
+        db.session.add(nova_viagem)
+        db.session.flush()
+
+        pontos_rota = RotaPonto.query.filter_by(rota_id=rota.id).order_by(RotaPonto.ordem.asc()).all()
+
+        if horario.sentido == SentidoViagem.VOLTA:
+            pontos_processados = list(reversed(pontos_rota))
+        else:
+            pontos_processados = pontos_rota
+
+        ordem_atual = 1
+        for rp in pontos_processados:
+            vp = ViagemPonto(
+                viagem_id=nova_viagem.id,
+                ponto_id=rp.ponto_id,
+                
+                ordem=ordem_atual, 
+                
+                visitado=False
+            )
+            db.session.add(vp)
+            ordem_atual += 1
+        
         db.session.commit()
-    
-        return {None}
-        #return jsonify({
-        #    "message": "Viagem criada com sucesso",
-        #    "viagem": {
-        #        "id": viagem.id,
-        #        "data": viagem.data.isoformat(),
-        #        "horario_inicio": viagem.horario_inicio.isoformat(),
-        #        "horario_fim": viagem.horario_fim.isoformat() if viagem.horario_fim else None,
-        #        "tipo": viagem.tipo,
-        #        "rota_id": viagem.rota_id,
-        #        "motorista_id": viagem.motorista_id
-        #    }
-        #}), 201
-
-
+        
+        return {
+            "message": "Viagem gerada com sucesso",
+            "id": str(nova_viagem.id),
+            "sentido": str(horario.sentido.value),
+            "pontos_count": len(pontos_processados)
+        }, 201
 
     @staticmethod
-    def start_viagem(motorista_id, viagem_id):
-        user = User.query.get(motorista_id)
-        if not user or not user.is_motorista():
-            return {"error": "Access restricted to motoristas"}, 403
-
-        viagem = Viagem.query.filter_by(id=viagem_id, motorista_id=user.id).first()
-        if not viagem:
-            return {"error": "Viagem não encontrada"}, 404
-
-        viagem.horario_inicio = datetime.utcnow()
-        db.session.commit()
-
-        return {"message": "Viagem iniciada com sucesso"}, 200
+    def list_viagens_motorista(user_id):
+        viagens = Viagem.query.filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
+        return viagens, 200
 
     @staticmethod
-    def end_viagem(motorista_id, viagem_id):
-        user = User.query.get(motorista_id)
-        if not user or not user.is_motorista():
-            return {"error": "Access restricted to motoristas"}, 403
+    def controlar_viagem(user_id, viagem_id, data_action):
+        viagem = Viagem.query.get(viagem_id)
+        if not viagem: return {"error": "Viagem 404"}, 404
 
-        viagem = Viagem.query.filter_by(id=viagem_id, motorista_id=user.id).first()
-        if not viagem:
-            return {"error": "Viagem não encontrada"}, 404
+        user = User.query.get(user_id)
+        if not user: return {"error": "Usuário inválido"}, 403
 
-        viagem.horario_fim = datetime.utcnow()
+        is_driver = str(viagem.motorista_id) == str(user.id)
+
+        is_gestor_autorizado = False
+        if str(user.role) == 'GESTOR':
+            if viagem.horario_rota and viagem.horario_rota.rota:
+                 if viagem.horario_rota.rota.prefeitura_id == user.prefeitura_id:
+                     is_gestor_autorizado = True
+            elif viagem.motorista:
+                 if viagem.motorista.prefeitura_id == user.prefeitura_id:
+                     is_gestor_autorizado = True
+            elif not viagem.horario_rota and not viagem.motorista:
+                 is_gestor_autorizado = True
+
+        if not (is_driver or is_gestor_autorizado):
+            return {"error": "Permissão negada: Apenas o motorista responsável ou gestor da prefeitura podem alterar esta viagem"}, 403
+        
+        acao = data_action.get('acao')
+        
+        if acao == 'INICIAR':
+            if viagem.status != StatusViagem.AGENDADA:
+                return {"error": "Viagem já iniciada ou finalizada"}, 400
+            viagem.status = StatusViagem.EM_ANDAMENTO
+            viagem.inicio_real = datetime.utcnow()
+            
+        elif acao == 'FINALIZAR':
+            viagem.status = StatusViagem.FINALIZADA
+            viagem.fim_real = datetime.utcnow()
+            
+        elif acao == 'REGISTRAR_PONTO':
+            ponto_id = data_action.get('ponto_id')
+            vp = ViagemPonto.query.filter_by(viagem_id=viagem.id, ponto_id=ponto_id).first()
+            if vp:
+                vp.visitado = True
+                vp.chegada_real = datetime.utcnow()
+            else:
+                return {"error": "Ponto não pertence a esta viagem"}, 400
+
         db.session.commit()
+        return viagem, 200
 
-        return {"message": "Viagem finalizada com sucesso"}, 200
+    @staticmethod
+    def list_viagens_gestor(user_id, filters):
+        """
+        Lista todas as viagens da prefeitura do gestor, com filtros opcionais.
+        SEGURANÇA: Faz o Join para garantir que só traga dados da prefeitura correta.
+        """
+        user = User.query.get(user_id)
+        if not user or str(user.role) != 'GESTOR':
+            return {"error": "Apenas gestores podem acessar o histórico completo"}, 403
+
+        query = Viagem.query
+        query = query.join(HorarioRota).join(Rota)
+        query = query.filter(Rota.prefeitura_id == user.prefeitura_id)
+        
+        if filters.get('data_inicio'):
+            query = query.filter(Viagem.data >= filters.get('data_inicio'))
+        
+        if filters.get('data_fim'):
+            query = query.filter(Viagem.data <= filters.get('data_fim'))
+
+        if filters.get('status'):
+            query = query.filter(Viagem.status == StatusViagem(filters.get('status')))
+
+        if filters.get('motorista_id'):
+            query = query.filter(Viagem.motorista_id == filters.get('motorista_id'))
+
+        if filters.get('rota_id'):
+            query = query.filter(Rota.id == filters.get('rota_id'))
+
+        viagens = query.order_by(Viagem.data.desc(), Viagem.horario_rota_id).all()
+
+        return viagens, 200

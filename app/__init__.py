@@ -12,6 +12,7 @@ from .api.controllers.user_controller import api as user_ns
 from .api.controllers.onibus_controller import api as onibus_ns
 from .api.controllers.rotas_controller import api as rotas_ns
 from .api.controllers.pontos_controller import api as pontos_ns
+from .api.controllers.viagens_controller import api as viagem_ns
 
 jwt = JWTManager()
 
@@ -53,6 +54,7 @@ def create_app() -> Flask:
     api.add_namespace(onibus_ns, path='/onibus')
     api.add_namespace(rotas_ns, path='/rotas')
     api.add_namespace(pontos_ns, path='/pontos')
+    api.add_namespace(viagem_ns, path='/viagens')
 
     @app.cli.command("init-db")
     def init_db():
