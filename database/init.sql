@@ -99,6 +99,7 @@ CREATE TABLE gestor (
 -- 4. Infraestrutura
 CREATE TABLE ponto (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    prefeitura_id UUID NOT NULL REFERENCES prefeitura(id) ON DELETE CASCADE,
     latitude NUMERIC(10, 8) NOT NULL,
     longitude NUMERIC(11, 8) NOT NULL,
     apelido VARCHAR(100),

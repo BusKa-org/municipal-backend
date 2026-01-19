@@ -7,20 +7,34 @@ class Ponto(db.Model):
     __tablename__ = "ponto"
 
     id  = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    prefeitura_id = db.Column(UUID(as_uuid=True), db.ForeignKey('prefeitura.id'), nullable=False)    
     latitude = db.Column(db.Numeric(10, 8), nullable=False)
     longitude = db.Column(db.Numeric(11, 8), nullable=False)
     apelido = db.Column(db.String(100))
 
     endereco = relationship(
         "Endereco", 
-        uselist=False,
-        back_populates="ponto"
+        back_populates="ponto", 
+        uselist=False, 
+        cascade="all, delete-orphan"
     )
     instituicao = relationship(
         "Instituicao", 
+        back_populates="ponto", 
         uselist=False, 
-        back_populates="ponto"
+        cascade="all, delete-orphan"
     )
+    
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "apelido": self.apelido,
+            "latitude": float(self.latitude),
+            "longitude": float(self.longitude),
+            # Opcional: retornar dados extras se existirem
+            "endereco": self.endereco.logradouro if self.endereco else None,
+            "instituicao": self.instituicao.nome if self.instituicao else None
+        }
 
 class Endereco(db.Model):
     __tablename__ = "endereco"
