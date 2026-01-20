@@ -1,6 +1,7 @@
 from app.models.geo import Instituicao, Endereco, Ponto
 from app.models.user import User
 from app.models.base import db
+from app.models.enum import TipoInstituicao
 
 class InstituicaoService:
     
