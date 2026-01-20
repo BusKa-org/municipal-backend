@@ -1,7 +1,7 @@
 from datetime import datetime
-from app.models.viagem import Viagem, ViagemPonto
-from app.models.rota import Rota, HorarioRota, RotaPonto
-from app.models.user import User
+from app.models.viagem import Viagem, ViagemPonto, AlunosConfirmados
+from app.models.rota import Rota, HorarioRota, RotaPonto, RotaAluno
+from app.models.user import User, Aluno
 from app.models.base import db
 from app.models.enum import StatusViagem, SentidoViagem
 
@@ -10,14 +10,16 @@ class ViagensService:
     @staticmethod
     def gerar_viagem(user_id, data_input):
         """
-        Gera uma viagem aplicando a lógica de sentido (IDA/VOLTA).
+        Gera uma viagem combinando:
+        1. Pontos fixos da Rota (Bairros)
+        2. Pontos dinâmicos das Instituições (baseado nos alunos inscritos)
         """
         user = User.query.get(user_id)
         if not user or str(user.role) not in ['GESTOR', 'MOTORISTA']:
             return {"error": "Permissão negada"}, 403
 
         rota_id = data_input.get('rota_id')
-        data_str = data_input.get('data') # YYYY-MM-DD
+        data_str = data_input.get('data') 
         
         rota = Rota.query.get(rota_id)
         if not rota: return {"error": "Rota não encontrada"}, 404
@@ -28,10 +30,10 @@ class ViagensService:
         if 'horario_id' in data_input:
             horario = HorarioRota.query.get(data_input['horario_id'])
         else:
-            horario = HorarioRota.query.filter_by(rota_id=rota.id).first()
+            horario = rota.grade_horarios[0] if rota.grade_horarios else None
 
         if not horario:
-            return {"error": "Rota não possui horários ou horário inválido"}, 400
+            return {"error": "Rota sem horários"}, 400
 
         nova_viagem = Viagem(
             data=data_str,
@@ -43,33 +45,84 @@ class ViagensService:
         db.session.add(nova_viagem)
         db.session.flush()
 
-        pontos_rota = RotaPonto.query.filter_by(rota_id=rota.id).order_by(RotaPonto.ordem.asc()).all()
+        inscricoes = RotaAluno.query.filter_by(rota_id=rota.id).all()
+        
+        alunos_na_viagem = []
+        pontos_instituicoes = set()
+        
+        for inscricao in inscricoes:
+            aluno = Aluno.query.get(inscricao.aluno_id)
+            if aluno:
+                alunos_na_viagem.append(aluno)
+                if aluno.instituicao and aluno.instituicao.ponto_id:
+                    pontos_instituicoes.add(aluno.instituicao.ponto_id)
 
-        if horario.sentido == SentidoViagem.VOLTA:
-            pontos_processados = list(reversed(pontos_rota))
+
+        pontos_fixos_objs = RotaPonto.query.filter_by(rota_id=rota.id).order_by(RotaPonto.ordem.asc()).all()
+        ids_pontos_fixos = [p.ponto_id for p in pontos_fixos_objs]
+
+        lista_final_pontos = []
+
+        if horario.sentido == SentidoViagem.IDA:
+            
+            lista_final_pontos.extend(ids_pontos_fixos)
+            
+            for p_inst_id in pontos_instituicoes:
+                if p_inst_id not in ids_pontos_fixos:
+                    lista_final_pontos.append(p_inst_id)
+                    
+        elif horario.sentido == SentidoViagem.VOLTA:
+
+            for p_inst_id in pontos_instituicoes:
+                if p_inst_id not in ids_pontos_fixos:
+                    lista_final_pontos.append(p_inst_id)
+            
+            lista_final_pontos.extend(reversed(ids_pontos_fixos))
+            
         else:
-            pontos_processados = pontos_rota
+            lista_final_pontos.extend(ids_pontos_fixos)
 
-        ordem_atual = 1
-        for rp in pontos_processados:
+        ordem = 1
+        for p_id in lista_final_pontos:
             vp = ViagemPonto(
                 viagem_id=nova_viagem.id,
-                ponto_id=rp.ponto_id,
-                
-                ordem=ordem_atual, 
-                
+                ponto_id=p_id,
+                ordem=ordem,
                 visitado=False
             )
             db.session.add(vp)
-            ordem_atual += 1
-        
+            ordem += 1
+
+        count_alunos = 0
+        for aluno in alunos_na_viagem:
+            p_embarque = None
+            p_destino = None
+
+            if horario.sentido == SentidoViagem.IDA:
+                p_embarque = aluno.ponto_casa_id
+                p_destino = aluno.instituicao.ponto_id if aluno.instituicao else None
+            elif horario.sentido == SentidoViagem.VOLTA:
+                p_embarque = aluno.instituicao.ponto_id if aluno.instituicao else None
+                p_destino = aluno.ponto_casa_id
+
+            confirmado = AlunosConfirmados(
+                viagem_id=nova_viagem.id,
+                aluno_id=aluno.usuario_id,
+                confirmacao=False, 
+                ponto_embarque_id=p_embarque,
+                ponto_destino_id=p_destino
+            )
+            db.session.add(confirmado)
+            count_alunos += 1
+
         db.session.commit()
         
         return {
             "message": "Viagem gerada com sucesso",
             "id": str(nova_viagem.id),
-            "sentido": str(horario.sentido.value),
-            "pontos_count": len(pontos_processados)
+            "sentido": str(horario.sentido.name),
+            "pontos_count": len(lista_final_pontos),
+            "alunos_agendados": count_alunos
         }, 201
 
     @staticmethod
@@ -85,9 +138,10 @@ class ViagensService:
         user = User.query.get(user_id)
         if not user: return {"error": "Usuário inválido"}, 403
 
+        # Validação de Permissão
         is_driver = str(viagem.motorista_id) == str(user.id)
-
         is_gestor_autorizado = False
+        
         if str(user.role) == 'GESTOR':
             if viagem.horario_rota and viagem.horario_rota.rota:
                  if viagem.horario_rota.rota.prefeitura_id == user.prefeitura_id:
@@ -99,7 +153,7 @@ class ViagensService:
                  is_gestor_autorizado = True
 
         if not (is_driver or is_gestor_autorizado):
-            return {"error": "Permissão negada: Apenas o motorista responsável ou gestor da prefeitura podem alterar esta viagem"}, 403
+            return {"error": "Permissão negada"}, 403
         
         acao = data_action.get('acao')
         
@@ -127,10 +181,6 @@ class ViagensService:
 
     @staticmethod
     def list_viagens_gestor(user_id, filters):
-        """
-        Lista todas as viagens da prefeitura do gestor, com filtros opcionais.
-        SEGURANÇA: Faz o Join para garantir que só traga dados da prefeitura correta.
-        """
         user = User.query.get(user_id)
         if not user or str(user.role) != 'GESTOR':
             return {"error": "Apenas gestores podem acessar o histórico completo"}, 403
