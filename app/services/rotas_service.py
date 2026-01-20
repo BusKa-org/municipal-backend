@@ -1,10 +1,10 @@
 from datetime import datetime
 from flask import request
-from app.models.user import User
+from app.models.user import User, Aluno
 from app.models.geo import Ponto
 from app.models.rota import Rota, RotaAluno, RotaPonto, HorarioRota, DiasOperacao
 from app.models.base import db
-from app.models.enum import SentidoViagem, DiaDaSemana
+from app.models.enum import SentidoViagem, DiaDaSemana, UserRole
 
 class RotasService:
     
@@ -292,3 +292,66 @@ class RotasService:
         db.session.commit()
 
         return {"message": "Rota removida com sucesso"}, 200
+    
+    @staticmethod
+    def listar_rotas_para_aluno(aluno_id):
+        """
+        Lista rotas da prefeitura do aluno e indica se ele está inscrito.
+        """
+        aluno = Aluno.query.get(aluno_id)
+        if not aluno: return {"error": "Aluno não encontrado"}, 404
+        
+        rotas = Rota.query.filter_by(prefeitura_id=aluno.prefeitura_id).all()
+        
+        resultado = []
+        for r in rotas:
+            inscricao = RotaAluno.query.filter_by(
+                rota_id=r.id, 
+                aluno_id=aluno.usuario_id
+            ).first()
+
+            resultado.append({
+                "id": str(r.id),
+                "nome": r.nome,
+                "inscrito": inscricao is not None,
+                "data_inscricao": str(inscricao.data_inscricao) if inscricao else None
+            })
+            
+        return resultado, 200
+
+    @staticmethod
+    def inscrever_aluno(aluno_id, rota_id):
+        """Cria o registro na tabela RotaAluno"""
+        aluno = Aluno.query.get(aluno_id)
+        rota = Rota.query.get(rota_id)
+        
+        if not aluno or not rota: return {"error": "Dados inválidos"}, 404
+        
+        if aluno.prefeitura_id != rota.prefeitura_id:
+            return {"error": "Rota pertence a outra prefeitura"}, 403
+
+        existe = RotaAluno.query.filter_by(rota_id=rota.id, aluno_id=aluno.usuario_id).first()
+        if existe:
+            return {"message": "Aluno já inscrito nesta rota"}, 200
+
+        nova_inscricao = RotaAluno(
+            rota_id=rota.id,
+            aluno_id=aluno.usuario_id
+        )
+        
+        db.session.add(nova_inscricao)
+        db.session.commit()
+        
+        return {"message": "Inscrição realizada com sucesso"}, 201
+
+    @staticmethod
+    def sair_da_rota(aluno_id, rota_id):
+        """Remove o registro da tabela RotaAluno"""
+        inscricao = RotaAluno.query.filter_by(rota_id=rota_id, aluno_id=aluno_id).first()
+        
+        if inscricao:
+            db.session.delete(inscricao)
+            db.session.commit()
+            return {"message": "Removido da rota com sucesso"}, 200
+        
+        return {"error": "Inscrição não encontrada"}, 404

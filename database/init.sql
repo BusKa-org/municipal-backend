@@ -66,49 +66,6 @@ CREATE TABLE prefeitura (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
 );
 
--- --------- 2. USERS (Vinculados à Prefeitura) ----------
-CREATE TABLE usuario (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),    
-    
-    -- Multi-tenancy: Todo mundo pertence a uma prefeitura
-    prefeitura_id UUID NOT NULL REFERENCES prefeitura(id) ON DELETE CASCADE,
-    
-    nome VARCHAR(100) NOT NULL,
-    email VARCHAR(120) NOT NULL UNIQUE,
-    senha_hash VARCHAR(255) NOT NULL,
-    telefone VARCHAR(20),
-    cpf VARCHAR(14) NOT NULL UNIQUE,
-    role user_role NOT NULL DEFAULT 'ALUNO',
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
-);
-
-CREATE INDEX idx_usuario_prefeitura ON usuario(prefeitura_id);
-
--- 3. Tabelas Filhas (Herança)
-CREATE TABLE IF NOT EXISTS aluno (
-    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
-    matricula VARCHAR(50),
-    nome_pai VARCHAR(100),
-    cpf_pai VARCHAR(14),
-    nome_mae VARCHAR(100),
-    cpf_mae VARCHAR(14),
-    instituicao_id UUID REFERENCES instituicao(id),
-    ponto_casa_id UUID REFERENCES ponto(id)
-);
-
-CREATE TABLE motorista (
-    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
-    cnh VARCHAR(20) NOT NULL UNIQUE
-);
-
-CREATE TABLE gestor (
-    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
-    matricula VARCHAR(50),
-    salario NUMERIC(10, 2)
-);
-
 -- 4. Infraestrutura
 CREATE TABLE ponto (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -169,7 +126,7 @@ CREATE TABLE rota_ponto (
 CREATE TABLE rota_aluno (
     rota_id UUID REFERENCES rota(id) ON DELETE CASCADE,
     aluno_id UUID REFERENCES aluno(usuario_id) ON DELETE CASCADE,
-    data_inscricao TIMESTAMP DEFAULT (now() AT TIME ZONE 'UTC'),
+    data_inscricao TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (rota_id, aluno_id)
 );
 
@@ -246,3 +203,25 @@ GRANT ALL PRIVILEGES ON SCHEMA public TO buska_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO buska_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO buska_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO buska_user;
+
+ALTER TABLE prefeitura OWNER TO buska_user;
+ALTER TABLE usuario OWNER TO buska_user;
+ALTER TABLE aluno OWNER TO buska_user;
+ALTER TABLE motorista OWNER TO buska_user;
+ALTER TABLE gestor OWNER TO buska_user;
+ALTER TABLE ponto OWNER TO buska_user;
+ALTER TABLE endereco OWNER TO buska_user;
+ALTER TABLE instituicao OWNER TO buska_user;
+ALTER TABLE onibus OWNER TO buska_user;
+ALTER TABLE rota OWNER TO buska_user;
+ALTER TABLE rota_ponto OWNER TO buska_user;
+ALTER TABLE rota_aluno OWNER TO buska_user;
+ALTER TABLE horario_rota OWNER TO buska_user;
+ALTER TABLE dias_operacao OWNER TO buska_user;
+ALTER TABLE viagem OWNER TO buska_user;
+ALTER TABLE viagem_ponto OWNER TO buska_user;
+ALTER TABLE alunos_confirmados OWNER TO buska_user;
+ALTER TABLE ocorrencia OWNER TO buska_user;
+ALTER TABLE notificacoes OWNER TO buska_user;
+
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO buska_user;
