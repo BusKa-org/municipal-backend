@@ -1,4 +1,4 @@
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from ..models.user import User, Motorista, Aluno, Gestor
 from ..models.base import db
 from ..models.enum import UserRole 
@@ -123,3 +123,31 @@ class UserService:
         db.session.commit()
     
         return {"message": "Motorista criado com sucesso."}, 201
+
+    @staticmethod
+    def change_password(user_id, data):
+        """
+        Permite que qualquer usuário logado troque sua própria senha.
+        Exige a senha atual por segurança.
+        """
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+
+        if not current_password or not new_password:
+            return {"error": "Senha atual e nova senha são obrigatórias"}, 400
+
+        user = User.query.get(user_id)
+        if not user:
+            return {"error": "Usuário não encontrado"}, 404
+
+        if not check_password_hash(user.senha_hash, current_password):
+            return {"error": "A senha atual está incorreta"}, 401
+
+        user.senha_hash = generate_password_hash(new_password)
+        
+        try:
+            db.session.commit()
+            return {"message": "Senha alterada com sucesso"}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {"error": "Erro ao atualizar senha", "details": str(e)}, 500
