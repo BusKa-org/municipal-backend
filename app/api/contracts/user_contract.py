@@ -29,3 +29,10 @@ class UserContract:
             'cnh': fields.String(required=True, description='CNH Obrigatória', example='12345678900'),
             'telefone': fields.String(required=True, example='11999999999')
         })
+        
+    @staticmethod
+    def change_password_model(api):
+        return api.model('ChangePassword', {
+            'current_password': fields.String(required=True, description='Senha atual para validação', example='senhaAntiga123'),
+            'new_password': fields.String(required=True, description='Nova senha desejada', example='novaSenhaForte456')
+        })

@@ -12,6 +12,7 @@ user_list_schema = UserResponseSchema(many=True)
 
 user_model = UserContract.user_response_model(api)
 motorista_create_model = UserContract.motorista_create_model(api)
+change_password_model = UserContract.change_password_model(api)
 
 @api.route('')
 class UserList(Resource):
@@ -65,3 +66,19 @@ class MotoristaCreateResource(Resource):
         data = request.get_json()
         
         return UserService.create_motorista(current_user_id, data)
+    
+@api.route('/change-password')
+class UserChangePassword(Resource):
+    @api.doc('change_user_password')
+    @api.expect(change_password_model)
+    @api.expect(jwt_required=True)
+    @jwt_required()
+    def post(self):
+        """
+        Altera a senha do usuário logado (Requer senha atual).
+        Funciona para Gestor, Motorista e Aluno.
+        """
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        return UserService.change_password(current_user_id, data)
