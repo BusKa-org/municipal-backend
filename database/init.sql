@@ -23,41 +23,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- --------- Custom enum type for viagens ----------
-CREATE TYPE dia_da_semana AS ENUM (
-    'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'
-);
+CREATE TYPE dia_da_semana AS ENUM ('SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM');
+CREATE TYPE sentido_viagem AS ENUM ('IDA', 'VOLTA', 'CIRCULAR');
+CREATE TYPE status_viagem AS ENUM ('AGENDADA', 'EM_ANDAMENTO', 'FINALIZADA', 'CANCELADA');
+CREATE TYPE user_role AS ENUM ('USER', 'ALUNO', 'MOTORISTA', 'GESTOR');
+CREATE TYPE tipo_instituicao AS ENUM ('INSTITUTO_FEDERAL','UNIVERSIDADE_PUBLICA','UNIVERSIDADE_PRIVADA','ESCOLA_PUBLICA','ESCOLA_PRIVADA','ESCOLA_COMUNITARIA');
 
-CREATE TYPE sentido_viagem AS ENUM (
-    'IDA', -- Levar para Instituição
-    'VOLTA', -- Buscar para Casa
-    'CIRCULAR' -- Circular
-);
-
-CREATE TYPE status_viagem AS ENUM (
-    'AGENDADA',
-    'EM_ANDAMENTO',
-    'FINALIZADA',
-    'CANCELADA'
-);
-
-CREATE TYPE user_role AS ENUM (
-    'USER',
-    'ALUNO', 
-    'MOTORISTA', 
-    'GESTOR'
-);
-
-CREATE TYPE tipo_instituicao AS ENUM (
-    'INSTITUTO_FEDERAL',
-    'UNIVERSIDADE_PUBLICA',
-    'UNIVERSIDADE_PRIVADA',
-    'ESCOLA_PUBLICA',
-    'ESCOLA_PRIVADA',
-    'ESCOLA_COMUNITARIA'
-);
-
--- --------- 1. PREFEITURA (A Dona dos Dados) ----------
 CREATE TABLE prefeitura (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(150) NOT NULL,
@@ -66,7 +37,6 @@ CREATE TABLE prefeitura (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
 );
 
--- 4. Infraestrutura
 CREATE TABLE ponto (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     prefeitura_id UUID NOT NULL REFERENCES prefeitura(id) ON DELETE CASCADE,
@@ -92,11 +62,46 @@ CREATE TABLE instituicao (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nome VARCHAR(150) NOT NULL,
     cnpj VARCHAR(20),
-    tipo tipo_instituicao NOT NULL DEFAULT 'ESCOLA_PUBLICA', -- Default ajustado
+    tipo tipo_instituicao NOT NULL DEFAULT 'ESCOLA_PUBLICA',
     ponto_id UUID NOT NULL REFERENCES ponto(id) ON DELETE CASCADE
 );
 
--- 5. Frota e Rotas
+CREATE TABLE usuario (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),    
+    prefeitura_id UUID NOT NULL REFERENCES prefeitura(id) ON DELETE CASCADE,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(120) NOT NULL UNIQUE,
+    senha_hash VARCHAR(255) NOT NULL,
+    telefone VARCHAR(20),
+    cpf VARCHAR(14) NOT NULL UNIQUE,
+    role user_role NOT NULL DEFAULT 'ALUNO',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
+);
+CREATE INDEX idx_usuario_prefeitura ON usuario(prefeitura_id);
+
+CREATE TABLE motorista (
+    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
+    cnh VARCHAR(20) NOT NULL UNIQUE
+);
+
+CREATE TABLE gestor (
+    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
+    matricula VARCHAR(50),
+    salario NUMERIC(10, 2)
+);
+
+CREATE TABLE aluno (
+    usuario_id UUID PRIMARY KEY REFERENCES usuario(id) ON DELETE CASCADE,
+    matricula VARCHAR(50),
+    nome_pai VARCHAR(100),
+    cpf_pai VARCHAR(14),
+    nome_mae VARCHAR(100),
+    cpf_mae VARCHAR(14),
+    instituicao_id UUID REFERENCES instituicao(id),
+    ponto_casa_id UUID REFERENCES ponto(id)
+);
+
 CREATE TABLE onibus (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     prefeitura_id UUID NOT NULL REFERENCES prefeitura(id) ON DELETE CASCADE,
@@ -143,20 +148,16 @@ CREATE TABLE dias_operacao (
     dia dia_da_semana NOT NULL
 );
 
--- 6. Viagens
 CREATE TABLE viagem (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     data DATE NOT NULL,
-    
     horario_rota_id UUID REFERENCES horario_rota(id) ON DELETE SET NULL,
     motorista_id UUID REFERENCES motorista(usuario_id) ON DELETE RESTRICT,
     veiculo_id UUID REFERENCES onibus(id) ON DELETE RESTRICT,
-    
     status status_viagem DEFAULT 'AGENDADA',
     inicio_real TIMESTAMP WITH TIME ZONE,
     fim_real TIMESTAMP WITH TIME ZONE,
     km_real NUMERIC(10, 2),
-    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC'),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT (now() AT TIME ZONE 'UTC')
 );
@@ -180,7 +181,7 @@ CREATE TABLE alunos_confirmados (
     PRIMARY KEY (viagem_id, aluno_id)
 );
 
--- 7. Notificações
+-- 6. EXTRAS & TRIGGERS
 CREATE TABLE notificacoes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     usuario_id UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
@@ -193,7 +194,6 @@ CREATE TABLE notificacoes (
 );
 CREATE INDEX idx_notificacoes_usuario ON notificacoes (usuario_id);
 
--- Triggers
 CREATE TRIGGER set_timestamp_usuario BEFORE UPDATE ON usuario FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE TRIGGER set_timestamp_rota BEFORE UPDATE ON rota FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE TRIGGER set_timestamp_viagem BEFORE UPDATE ON viagem FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
@@ -202,6 +202,7 @@ GRANT ALL PRIVILEGES ON DATABASE buska_db TO buska_user;
 GRANT ALL PRIVILEGES ON SCHEMA public TO buska_user;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO buska_user;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO buska_user;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO buska_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO buska_user;
 
 ALTER TABLE prefeitura OWNER TO buska_user;
@@ -223,5 +224,3 @@ ALTER TABLE viagem_ponto OWNER TO buska_user;
 ALTER TABLE alunos_confirmados OWNER TO buska_user;
 ALTER TABLE ocorrencia OWNER TO buska_user;
 ALTER TABLE notificacoes OWNER TO buska_user;
-
-GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO buska_user;
