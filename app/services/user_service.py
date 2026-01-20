@@ -89,40 +89,43 @@ class UserService:
 
     @staticmethod
     def create_motorista(gestor_id, data):
-        gestor = User.query.get(gestor_id)
-        if not gestor or not gestor.is_gestor(): 
-            return {"error": "Apenas gestores podem criar motoristas"}, 403
-    
-        nome = data.get("nome", "").strip()
-        email = data.get("email", "").strip()
-        password = data.get("password", "").strip()
-        cpf = data.get("cpf", "").strip()
-        cnh = data.get("cnh", "").strip()
+        gestor = db.session.get(User, gestor_id)
+        
+        if not gestor or str(gestor.role) != 'GESTOR':
+            return {"error": "Apenas gestores podem cadastrar motoristas"}, 403
 
-        if not all([nome, email, password, cpf, cnh]):
-            return {"error": "Nome, email, senha, CPF e CNH são obrigatórios"}, 400
-    
-        if User.query.filter((User.email == email) | (User.cpf == cpf)).first():
-            return {"error": "Usuário já existe"}, 400
+        prefeitura_id_obrigatorio = gestor.prefeitura_id
 
-        if Motorista.query.filter_by(cnh=cnh).first():
-             return {"error": "CNH já cadastrada"}, 400      
+        try:
+            if User.query.filter((User.email == data['email']) | (User.cpf == data['cpf'])).first():
+                return {"error": "Email ou CPF já cadastrado"}, 400
+            
+            if Motorista.query.filter_by(cnh=data['cnh']).first():
+                return {"error": "CNH já cadastrada"}, 400
 
-        hashed_pw = generate_password_hash(password)
-    
-        novo_motorista = Motorista(
-            nome=nome,
-            email=email.lower(),
-            cpf=cpf,
-            senha_hash=hashed_pw,
-            role=UserRole.MOTORISTA,
-            cnh=cnh 
-        )
-    
-        db.session.add(novo_motorista)
-        db.session.commit()
-    
-        return {"message": "Motorista criado com sucesso."}, 201
+            novo_motorista = Motorista(
+                prefeitura_id=prefeitura_id_obrigatorio,
+                nome=data['nome'],
+                email=data['email'],
+                senha_hash=generate_password_hash(data['password']),
+                cpf=data['cpf'],
+                telefone=data['telefone'],
+                role=UserRole.MOTORISTA,
+                
+                cnh=data['cnh']
+            )
+
+            db.session.add(novo_motorista)
+            db.session.commit()
+
+            return {
+                "message": "Motorista cadastrado com sucesso",
+                "id": str(novo_motorista.usuario_id)
+            }, 201
+
+        except Exception as e:
+            db.session.rollback()
+            return {"error": str(e)}, 500
 
     @staticmethod
     def change_password(user_id, data):
