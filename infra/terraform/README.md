@@ -1,24 +1,36 @@
-# Infraestrutura OpenStack
+# OpenStack Infrastructure
 
-## Estrutura
-- `versions.tf`: versões mínimas do Terraform e provider.
-- `providers.tf`: configuração do provider OpenStack via `cloud_name` definido no `clouds.yaml` local.
-- `main.tf`: recursos da VM.
-- `variables.tf`: variáveis de entrada.
-- `outputs.tf`: saídas úteis (ID, nome e IPv4).
-- `terraform.tfvars.example`: exemplo de parametrização.
-- `clouds.yaml` (ignorado no git): credenciais do OpenStack.
+## File Structure
 
-## Pré-requisitos
-- Terraform >= 1.5
-- Um `clouds.yaml` válido com a entrada usada em `cloud_name` (padrão `openstack`). Coloque-o em `~/.config/openstack/clouds.yaml` ou mantenha-o no diretório e exporte `OS_CLIENT_CONFIG_FILE=$(pwd)/clouds.yaml`.
+This Terraform configuration consists of the following files:
 
-## Uso
-1. Copie `terraform.tfvars.example` para `terraform.tfvars` e preencha os valores.
-2. Opcional: ajuste `cloud_name` para outra entrada do seu `clouds.yaml`.
-3. `terraform init`
-4. `terraform plan`
-5. `terraform apply`
+- **`versions.tf`** – Specifies minimum Terraform and provider versions
+- **`providers.tf`** – Configures the OpenStack provider using the `cloud_name` from your local `clouds.yaml`
+- **`main.tf`** – Defines all infrastructure resources (VMs, networks, etc.)
+- **`variables.tf`** – Declares input variables
+- **`outputs.tf`** – Exports useful values (instance ID, name, and IPv4 address)
+- **`terraform.tfvars.example`** – Example configuration template
+- **`clouds.yaml`** – OpenStack credentials (git-ignored, must be created locally)
 
-## Boas práticas
-- Não commitar `terraform.tfvars`, `clouds.yaml` ou *tfstate*. Já estão no `.gitignore`.
+## Prerequisites
+
+- Terraform 1.5 or higher
+- A valid `clouds.yaml` file with OpenStack credentials
+
+Place your `clouds.yaml` in one of these locations:
+- `~/.config/openstack/clouds.yaml` (recommended)
+- Current directory with `OS_CLIENT_CONFIG_FILE=$(pwd)/clouds.yaml` exported
+
+## Getting Started
+
+1. Copy `terraform.tfvars.example` to `terraform.tfvars` and update the values
+2. (Optional) Update the `cloud_name` if using a non-default OpenStack cloud entry
+3. Initialize Terraform: `terraform init`
+4. Preview changes: `terraform plan`
+5. Apply configuration: `terraform apply`
+
+## Best Practices
+
+- Never commit `terraform.tfvars`, `clouds.yaml`, or `.tfstate` files – these are already excluded in `.gitignore`
+- Always review `terraform plan` output before applying changes
+- Use meaningful variable values and consider using remote state for team environments
