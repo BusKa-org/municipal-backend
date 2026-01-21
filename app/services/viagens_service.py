@@ -17,7 +17,6 @@ class ViagensService:
     def _popular_dados_da_viagem(viagem_obj, rota_obj, horario_obj):
         """
         Função Auxiliar que copia os Alunos e Pontos da Rota para a Viagem.
-        Evita repetição de código.
         """
         inscricoes = RotaAluno.query.filter_by(rota_id=rota_obj.id).all()
         
@@ -102,8 +101,7 @@ class ViagensService:
             horario_rota_id=horario_selecionado.id,
             motorista_id=rota.motorista_padrao_id,
             veiculo_id=rota.veiculo_padrao_id,
-            status=StatusViagem.AGENDADA,
-            rota_id=rota.id
+            status=StatusViagem.AGENDADA
         )
         db.session.add(nova_viagem)
         db.session.flush()
@@ -119,30 +117,109 @@ class ViagensService:
         }, 201
 
     @staticmethod
+    def gerar_viagens_em_lote(user_id, data_str):
+        """
+        Gera viagens para TODAS as rotas da prefeitura em uma data específica.
+        """
+        user = db.session.get(User, user_id)
+        if not user or str(user.role) != 'GESTOR':
+            return {"error": "Permissão negada. Apenas gestores podem gerar lote."}, 403
+
+        try:
+            data_viagem = datetime.strptime(data_str, '%Y-%m-%d').date()
+        except ValueError:
+            return {"error": "Data inválida. Use YYYY-MM-DD"}, 400
+
+        dia_semana = ViagensService._get_dia_semana_enum(data_viagem)
+
+        rotas = Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
+        
+        relatorio = {
+            "total_rotas_analisadas": len(rotas),
+            "viagens_criadas": 0,
+            "detalhes": []
+        }
+
+        for rota in rotas:
+            horarios_validos = (
+                db.session.query(HorarioRota)
+                .join(DiasOperacao)
+                .filter(
+                    HorarioRota.rota_id == rota.id,
+                    DiasOperacao.dia == dia_semana
+                )
+                .all()
+            )
+
+            if not horarios_validos:
+                continue 
+
+            for horario in horarios_validos:
+                if Viagem.query.filter_by(data=data_viagem, horario_rota_id=horario.id).first():
+                    continue 
+
+                # CORREÇÃO: Removido 'rota_id' aqui também
+                nova_viagem = Viagem(
+                    data=data_viagem,
+                    horario_rota_id=horario.id,
+                    motorista_id=rota.motorista_padrao_id,
+                    veiculo_id=rota.veiculo_padrao_id,
+                    status=StatusViagem.AGENDADA
+                )
+                db.session.add(nova_viagem)
+                db.session.flush()
+
+                ViagensService._popular_dados_da_viagem(nova_viagem, rota, horario)
+
+                relatorio["viagens_criadas"] += 1
+                relatorio["detalhes"].append(f"Viagem criada: {rota.nome} - {horario.horario_saida}")
+
+        db.session.commit()
+        return relatorio, 201
+
+    @staticmethod
     def list_viagens_motorista(user_id):
         viagens = Viagem.query.filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
         return viagens, 200
 
     @staticmethod
-    def controlar_viagem(viagem_id, acao):
+    def controlar_viagem(user_id, viagem_id, data):
+        """
+        Inicia ou Finaliza viagem.
+        """
+        user = db.session.get(User, user_id)
         viagem = db.session.get(Viagem, viagem_id)
+        
         if not viagem: return {"error": "Viagem not found"}, 404
+        
+        if str(user.role) == 'MOTORISTA' and viagem.motorista_id != str(user.id):
+             return {"error": "Esta viagem não pertence a você"}, 403
+
+        acao = data.get('acao')
+        if not acao:
+            return {"error": "Campo 'acao' obrigatório"}, 400
 
         if acao == 'INICIAR':
+            if viagem.status != StatusViagem.AGENDADA:
+                 return {"error": f"Não é possível iniciar viagem com status {viagem.status.name}"}, 400
             viagem.status = StatusViagem.EM_ANDAMENTO
             viagem.inicio_real = datetime.utcnow()
+            
         elif acao == 'FINALIZAR':
+            if viagem.status != StatusViagem.EM_ANDAMENTO:
+                 return {"error": "A viagem precisa estar em andamento para ser finalizada"}, 400
             viagem.status = StatusViagem.FINALIZADA
             viagem.fim_real = datetime.utcnow()
         else:
-            return {"error": "Ação inválida"}, 400
+            return {"error": "Ação inválida. Use INICIAR ou FINALIZAR"}, 400
             
         db.session.commit()
-        return {"message": f"Viagem {acao} com sucesso", "status": viagem.status.name}, 200
+        
+        return viagem, 200
 
     @staticmethod
     def list_viagens_gestor(user_id, filters):
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user or str(user.role) != 'GESTOR':
             return {"error": "Apenas gestores podem acessar o histórico completo"}, 403
 

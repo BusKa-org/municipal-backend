@@ -14,6 +14,7 @@ list_response_schema = ViagemResponseSchema(many=True)
 create_model = ViagemContract.create_model(api)
 action_model = ViagemContract.action_model(api)
 filter_parser = ViagemContract.filter_parser()
+lote_input_model = ViagemContract.gerar_lote_input(api)
 
 @api.route('/')
 class ViagemListResource(Resource):
@@ -47,6 +48,27 @@ class ViagemListResource(Resource):
         
         return result, 201
 
+@api.route('/gerar-lote')
+class ViagemLoteResource(Resource):
+    
+    @api.doc('gerar_viagens_lote')
+    @api.expect(lote_input_model, jwt_required=True)
+    @jwt_required()
+    def post(self):
+        """
+        Gera viagens em lote para TODAS as rotas da prefeitura no dia especificado.
+        Verifica dias de operação e evita duplicidades.
+        """
+        user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or 'data' not in data:
+             return {"error": "O campo 'data' é obrigatório"}, 400
+
+        result, status = ViagensService.gerar_viagens_em_lote(user_id, data['data'])
+        
+        return result, status
+
 @api.route('/minhas')
 class MinhasViagensResource(Resource):
     @api.doc('list_my_viagens')
@@ -74,4 +96,7 @@ class ViagemAcaoResource(Resource):
         result, status = ViagensService.controlar_viagem(user_id, id, data)
         if status != 200: return result, status
         
-        return response_schema.dump(result), 200
+        try:
+            return response_schema.dump(result), 200
+        except:
+            return result, 200
