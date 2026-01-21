@@ -1,5 +1,5 @@
 from flask import request
-from flask_restx import Resource, Namespace, fields
+from flask_restx import Resource, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.rotas_service import RotasService
 from app.api.contracts.rota_contract import RotaContract
@@ -10,7 +10,7 @@ horario_response = HorarioResponseSchema()
 horario_list_response = HorarioResponseSchema(many=True)
 api = Namespace('rotas', description='Gestão de Rotas')
 
-rota_model = RotaContract.create_model(api)
+rota_model = RotaContract.rota_input_model(api)
 horario_model = RotaContract.horario_model(api)
 
 @api.route('/')
@@ -19,7 +19,7 @@ class RotasListResource(Resource):
     @api.expect(jwt_required=True)
     @jwt_required()
     def get(self):
-        """Lista todas as rotas disponíveis na prefeitura"""
+        """Lista todas as rotas"""
         current_user_id = get_jwt_identity()
         return RotasService.list_all_rotas(current_user_id)
 
@@ -27,7 +27,7 @@ class RotasListResource(Resource):
     @api.expect(rota_model, jwt_required=True)
     @jwt_required()
     def post(self):
-        """Cria uma nova rota"""
+        """Cria nova rota completa (Pontos + Horários + Dias)"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
         return RotasService.create_rota(current_user_id, data)

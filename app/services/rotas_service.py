@@ -93,7 +93,7 @@ class RotasService:
 
     @staticmethod
     def create_rota(gestor_id, data):
-        user = User.query.get(gestor_id)
+        user = db.session.get(User, gestor_id)
         if not user or str(user.role) not in ['GESTOR', 'MOTORISTA']:
             return {"error": "Permissão negada"}, 403
 
@@ -101,13 +101,10 @@ class RotasService:
         if not nome:
             return {"error": "Nome da rota é obrigatório"}, 400
 
-        motorista_id = data.get("motorista_padrao_id")
-        veiculo_id = data.get("veiculo_padrao_id")
-
         rota = Rota(
             nome=nome,
-            motorista_padrao_id=motorista_id,
-            veiculo_padrao_id=veiculo_id,
+            motorista_padrao_id=data.get("motorista_padrao_id"),
+            veiculo_padrao_id=data.get("veiculo_padrao_id"),
             prefeitura_id=user.prefeitura_id
         )
 
@@ -116,13 +113,13 @@ class RotasService:
 
         if 'pontos' in data:
             for p_data in data['pontos']:
-                if 'ordem' not in p_data or 'latitude' not in p_data:
+                if 'latitude' not in p_data or 'longitude' not in p_data: 
                     continue
                 novo_ponto = Ponto(
                     prefeitura_id=user.prefeitura_id,
                     latitude=p_data['latitude'],
                     longitude=p_data['longitude'],
-                    apelido=p_data.get('apelido', f"Ponto {p_data['ordem']}")
+                    apelido=p_data.get('apelido', f"Ponto {p_data.get('ordem')}")
                 )
                 db.session.add(novo_ponto)
                 db.session.flush()
@@ -130,7 +127,7 @@ class RotasService:
                 rota_ponto = RotaPonto(
                     rota_id=rota.id,
                     ponto_id=novo_ponto.id,
-                    ordem=p_data['ordem']
+                    ordem=p_data.get('ordem', 0)
                 )
                 db.session.add(rota_ponto)
 
@@ -142,22 +139,23 @@ class RotasService:
                     sentido=h_data['sentido']
                 )
                 db.session.add(novo_horario)
+                db.session.flush()
+
+                dias_list = h_data.get('dias', [])
+                for dia_str in dias_list:
+                    if dia_str in ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']:
+                        novo_dia = DiasOperacao(
+                            horario_rota_id=novo_horario.id,
+                            dia=dia_str
+                        )
+                        db.session.add(novo_dia)
 
         try:
             db.session.commit()
-            
-            return ({
-                "message": "Rota criada com sucesso",
-                "rota": {
-                    "id": str(rota.id),
-                    "nome": rota.nome,
-                    "motorista_padrao_id": str(rota.motorista_padrao_id) if rota.motorista_padrao_id else None
-                }
-            }, 201)
-            
+            return {"message": "Rota criada com sucesso", "id": str(rota.id)}, 201
         except Exception as e:
             db.session.rollback()
-            return {"error": f"Erro ao salvar rota: {str(e)}"}, 500
+            return {"error": f"Erro ao criar rota: {str(e)}"}, 500
 
     @staticmethod
     def add_ponto(gestor_id, rota_id, data):

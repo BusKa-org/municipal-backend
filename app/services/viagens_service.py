@@ -1,6 +1,6 @@
 from datetime import datetime
 from app.models.viagem import Viagem, ViagemPonto, AlunosConfirmados
-from app.models.rota import Rota, HorarioRota, RotaPonto, RotaAluno
+from app.models.rota import DiasOperacao, Rota, HorarioRota, RotaPonto, RotaAluno
 from app.models.user import User, Aluno
 from app.models.base import db
 from app.models.enum import StatusViagem, SentidoViagem
@@ -8,121 +8,114 @@ from app.models.enum import StatusViagem, SentidoViagem
 class ViagensService:
     
     @staticmethod
+    def _get_dia_semana_enum(data_obj):
+        """Converte data (0=SEG) para Enum (SEG, TER...)"""
+        dias_map = {0: 'SEG', 1: 'TER', 2: 'QUA', 3: 'QUI', 4: 'SEX', 5: 'SAB', 6: 'DOM'}
+        return dias_map.get(data_obj.weekday())
+    
+    @staticmethod
+    def _popular_dados_da_viagem(viagem_obj, rota_obj, horario_obj):
+        """
+        Função Auxiliar que copia os Alunos e Pontos da Rota para a Viagem.
+        Evita repetição de código.
+        """
+        inscricoes = RotaAluno.query.filter_by(rota_id=rota_obj.id).all()
+        
+        for inscricao in inscricoes:
+            aluno = db.session.get(Aluno, inscricao.aluno_id)
+            if not aluno: continue
+
+            p_embarque = None
+            p_destino = None
+            
+            if horario_obj.sentido == SentidoViagem.IDA:
+                p_embarque = aluno.ponto_casa_id
+                p_destino = aluno.instituicao.ponto_id if aluno.instituicao else None
+            
+            elif horario_obj.sentido == SentidoViagem.VOLTA:
+                p_embarque = aluno.instituicao.ponto_id if aluno.instituicao else None
+                p_destino = aluno.ponto_casa_id
+
+            conf = AlunosConfirmados(
+                viagem_id=viagem_obj.id, 
+                aluno_id=aluno.usuario_id, 
+                confirmacao=False,
+                ponto_embarque_id=p_embarque,
+                ponto_destino_id=p_destino
+            )
+            db.session.add(conf)
+
+        pontos_rota = RotaPonto.query.filter_by(rota_id=rota_obj.id).order_by(RotaPonto.ordem).all()
+        
+        ordem_real = 1
+        for pr in pontos_rota:
+            vp = ViagemPonto(
+                viagem_id=viagem_obj.id, 
+                ponto_id=pr.ponto_id, 
+                ordem=ordem_real, 
+                visitado=False
+            )
+            db.session.add(vp)
+            ordem_real += 1
+    
+    @staticmethod
     def gerar_viagem(user_id, data_input):
-        """
-        Gera uma viagem combinando:
-        1. Pontos fixos da Rota (Bairros)
-        2. Pontos dinâmicos das Instituições (baseado nos alunos inscritos)
-        """
-        user = User.query.get(user_id)
+        """Gera UMA viagem para UMA rota específica (Modo Manual)"""
+        user = db.session.get(User, user_id)
         if not user or str(user.role) not in ['GESTOR', 'MOTORISTA']:
             return {"error": "Permissão negada"}, 403
 
         rota_id = data_input.get('rota_id')
         data_str = data_input.get('data') 
         
-        rota = Rota.query.get(rota_id)
+        rota = db.session.get(Rota, rota_id)
         if not rota: return {"error": "Rota não encontrada"}, 404
         
         if rota.prefeitura_id != user.prefeitura_id:
             return {"error": "Acesso negado"}, 403
 
-        if 'horario_id' in data_input:
-            horario = HorarioRota.query.get(data_input['horario_id'])
-        else:
-            horario = rota.grade_horarios[0] if rota.grade_horarios else None
+        try:
+            data_viagem = datetime.strptime(data_str, '%Y-%m-%d').date()
+        except ValueError:
+            return {"error": "Data inválida. Use YYYY-MM-DD"}, 400
 
-        if not horario:
-            return {"error": "Rota sem horários"}, 400
+        dia_semana = ViagensService._get_dia_semana_enum(data_viagem)
+
+        horario_selecionado = (
+            db.session.query(HorarioRota)
+            .join(DiasOperacao)
+            .filter(
+                HorarioRota.rota_id == rota.id,
+                DiasOperacao.dia == dia_semana
+            )
+            .first()
+        )
+
+        if not horario_selecionado:
+            return {"error": f"Esta rota não opera em {dia_semana}"}, 400
+
+        if Viagem.query.filter_by(data=data_viagem, horario_rota_id=horario_selecionado.id).first():
+             return {"error": "Viagem já gerada para este dia/horário"}, 409
 
         nova_viagem = Viagem(
-            data=data_str,
-            horario_rota_id=horario.id,
+            data=data_viagem,
+            horario_rota_id=horario_selecionado.id,
             motorista_id=rota.motorista_padrao_id,
             veiculo_id=rota.veiculo_padrao_id,
-            status=StatusViagem.AGENDADA
+            status=StatusViagem.AGENDADA,
+            rota_id=rota.id
         )
         db.session.add(nova_viagem)
         db.session.flush()
 
-        inscricoes = RotaAluno.query.filter_by(rota_id=rota.id).all()
-        
-        alunos_na_viagem = []
-        pontos_instituicoes = set()
-        
-        for inscricao in inscricoes:
-            aluno = Aluno.query.get(inscricao.aluno_id)
-            if aluno:
-                alunos_na_viagem.append(aluno)
-                if aluno.instituicao and aluno.instituicao.ponto_id:
-                    pontos_instituicoes.add(aluno.instituicao.ponto_id)
-
-
-        pontos_fixos_objs = RotaPonto.query.filter_by(rota_id=rota.id).order_by(RotaPonto.ordem.asc()).all()
-        ids_pontos_fixos = [p.ponto_id for p in pontos_fixos_objs]
-
-        lista_final_pontos = []
-
-        if horario.sentido == SentidoViagem.IDA:
-            
-            lista_final_pontos.extend(ids_pontos_fixos)
-            
-            for p_inst_id in pontos_instituicoes:
-                if p_inst_id not in ids_pontos_fixos:
-                    lista_final_pontos.append(p_inst_id)
-                    
-        elif horario.sentido == SentidoViagem.VOLTA:
-
-            for p_inst_id in pontos_instituicoes:
-                if p_inst_id not in ids_pontos_fixos:
-                    lista_final_pontos.append(p_inst_id)
-            
-            lista_final_pontos.extend(reversed(ids_pontos_fixos))
-            
-        else:
-            lista_final_pontos.extend(ids_pontos_fixos)
-
-        ordem = 1
-        for p_id in lista_final_pontos:
-            vp = ViagemPonto(
-                viagem_id=nova_viagem.id,
-                ponto_id=p_id,
-                ordem=ordem,
-                visitado=False
-            )
-            db.session.add(vp)
-            ordem += 1
-
-        count_alunos = 0
-        for aluno in alunos_na_viagem:
-            p_embarque = None
-            p_destino = None
-
-            if horario.sentido == SentidoViagem.IDA:
-                p_embarque = aluno.ponto_casa_id
-                p_destino = aluno.instituicao.ponto_id if aluno.instituicao else None
-            elif horario.sentido == SentidoViagem.VOLTA:
-                p_embarque = aluno.instituicao.ponto_id if aluno.instituicao else None
-                p_destino = aluno.ponto_casa_id
-
-            confirmado = AlunosConfirmados(
-                viagem_id=nova_viagem.id,
-                aluno_id=aluno.usuario_id,
-                confirmacao=False, 
-                ponto_embarque_id=p_embarque,
-                ponto_destino_id=p_destino
-            )
-            db.session.add(confirmado)
-            count_alunos += 1
+        ViagensService._popular_dados_da_viagem(nova_viagem, rota, horario_selecionado)
 
         db.session.commit()
         
         return {
             "message": "Viagem gerada com sucesso",
             "id": str(nova_viagem.id),
-            "sentido": str(horario.sentido.name),
-            "pontos_count": len(lista_final_pontos),
-            "alunos_agendados": count_alunos
+            "dia": dia_semana
         }, 201
 
     @staticmethod
@@ -131,53 +124,21 @@ class ViagensService:
         return viagens, 200
 
     @staticmethod
-    def controlar_viagem(user_id, viagem_id, data_action):
-        viagem = Viagem.query.get(viagem_id)
-        if not viagem: return {"error": "Viagem 404"}, 404
+    def controlar_viagem(viagem_id, acao):
+        viagem = db.session.get(Viagem, viagem_id)
+        if not viagem: return {"error": "Viagem not found"}, 404
 
-        user = User.query.get(user_id)
-        if not user: return {"error": "Usuário inválido"}, 403
-
-        # Validação de Permissão
-        is_driver = str(viagem.motorista_id) == str(user.id)
-        is_gestor_autorizado = False
-        
-        if str(user.role) == 'GESTOR':
-            if viagem.horario_rota and viagem.horario_rota.rota:
-                 if viagem.horario_rota.rota.prefeitura_id == user.prefeitura_id:
-                     is_gestor_autorizado = True
-            elif viagem.motorista:
-                 if viagem.motorista.prefeitura_id == user.prefeitura_id:
-                     is_gestor_autorizado = True
-            elif not viagem.horario_rota and not viagem.motorista:
-                 is_gestor_autorizado = True
-
-        if not (is_driver or is_gestor_autorizado):
-            return {"error": "Permissão negada"}, 403
-        
-        acao = data_action.get('acao')
-        
         if acao == 'INICIAR':
-            if viagem.status != StatusViagem.AGENDADA:
-                return {"error": "Viagem já iniciada ou finalizada"}, 400
             viagem.status = StatusViagem.EM_ANDAMENTO
             viagem.inicio_real = datetime.utcnow()
-            
         elif acao == 'FINALIZAR':
             viagem.status = StatusViagem.FINALIZADA
             viagem.fim_real = datetime.utcnow()
+        else:
+            return {"error": "Ação inválida"}, 400
             
-        elif acao == 'REGISTRAR_PONTO':
-            ponto_id = data_action.get('ponto_id')
-            vp = ViagemPonto.query.filter_by(viagem_id=viagem.id, ponto_id=ponto_id).first()
-            if vp:
-                vp.visitado = True
-                vp.chegada_real = datetime.utcnow()
-            else:
-                return {"error": "Ponto não pertence a esta viagem"}, 400
-
         db.session.commit()
-        return viagem, 200
+        return {"message": f"Viagem {acao} com sucesso", "status": viagem.status.name}, 200
 
     @staticmethod
     def list_viagens_gestor(user_id, filters):
