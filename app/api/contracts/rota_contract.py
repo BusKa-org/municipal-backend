@@ -2,6 +2,12 @@ from flask_restx import fields
 
 class RotaContract:
     @staticmethod
+    def inscricao_model(api):
+        return api.model('InscricaoRotaInput', {
+            'acao': fields.String(required=True, description="Ação a realizar", enum=['inscrever', 'desinscrever'], example='inscrever')
+        })
+    
+    @staticmethod
     def ponto_model(api):
         return api.model('PontoRotaInput', {
             'latitude': fields.Float(required=True, example=-23.5505),

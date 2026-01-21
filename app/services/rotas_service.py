@@ -54,43 +54,39 @@ class RotasService:
         ], 200)
 
     @staticmethod
-    def inscricao_aluno_rota(user_id, rota_id):
-        user = User.query.get(user_id)
-        if not user or str(user.role) != 'ALUNO':
-            return {"error": "Apenas alunos podem se inscrever"}, 403
-    
-        rota = Rota.query.get(rota_id)
-        if not rota:
-            return {"error": "Rota não encontrada"}, 404
-            
-        if rota.prefeitura_id != user.prefeitura_id:
-             return {"error": "Acesso negado a esta rota"}, 403
-    
-        data = request.get_json()
-        acao = data.get("acao", "").lower()
-    
-        if acao not in ["inscrever", "desinscrever"]:
-            return {"error": "Ação inválida. Use 'inscrever' ou 'desinscrever'."}, 400
-    
-        inscricao = RotaAluno.query.filter_by(aluno_id=user.id, rota_id=rota.id).first()
-    
-        if acao == "inscrever":
-            if inscricao:
-                return {"message": "Aluno já inscrito nesta rota."}, 200
+    def gerenciar_inscricao_aluno(user_id, rota_id, data):
+        aluno = db.session.get(User, user_id)
+        if not aluno or getattr(aluno, 'role', None) != UserRole.ALUNO:
+            if str(getattr(aluno, 'role', '')) != 'ALUNO':
+                return {"error": "Apenas alunos podem se inscrever"}, 403
 
-            nova_inscricao = RotaAluno(aluno_id=user.id, rota_id=rota.id)
+        rota = db.session.get(Rota, rota_id)
+        if not rota: 
+            return {"error": "Rota não encontrada"}, 404
+        
+        acao = data.get('acao')
+        if not acao or acao not in ['inscrever', 'desinscrever']:
+            return {"error": "Ação inválida. Use 'inscrever' ou 'desinscrever'."}, 400
+
+        inscricao_existente = RotaAluno.query.filter_by(rota_id=rota.id, aluno_id=aluno.id).first()
+
+        if acao == 'inscrever':
+            if inscricao_existente:
+                return {"message": "Aluno já inscrito nesta rota"}, 200
+            
+            nova_inscricao = RotaAluno(rota_id=rota.id, aluno_id=aluno.id)
             db.session.add(nova_inscricao)
             db.session.commit()
-            return {"message": "Aluno inscrito na rota com sucesso."}, 200
-    
-        elif acao == "desinscrever":
-            if not inscricao:
-                return {"message": "Aluno não está inscrito nesta rota."}, 200
+            return {"message": "Inscrição realizada com sucesso"}, 201
 
-            db.session.delete(inscricao)
+        elif acao == 'desinscrever':
+            if not inscricao_existente:
+                return {"error": "Aluno não está inscrito nesta rota"}, 404
+            
+            db.session.delete(inscricao_existente)
             db.session.commit()
-            return {"message": "Aluno desinscrito da rota com sucesso."}, 200
-
+            return {"message": "Inscrição removida com sucesso"}, 200
+        
     @staticmethod
     def create_rota(gestor_id, data):
         user = db.session.get(User, gestor_id)
