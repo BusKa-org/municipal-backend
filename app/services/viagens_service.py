@@ -24,23 +24,12 @@ class ViagensService:
             aluno = db.session.get(Aluno, inscricao.aluno_id)
             if not aluno: continue
 
-            p_embarque = None
-            p_destino = None
-            
-            if horario_obj.sentido == SentidoViagem.IDA:
-                p_embarque = aluno.ponto_casa_id
-                p_destino = aluno.instituicao.ponto_id if aluno.instituicao else None
-            
-            elif horario_obj.sentido == SentidoViagem.VOLTA:
-                p_embarque = aluno.instituicao.ponto_id if aluno.instituicao else None
-                p_destino = aluno.ponto_casa_id
-
             conf = AlunosConfirmados(
                 viagem_id=viagem_obj.id, 
                 aluno_id=aluno.usuario_id, 
                 confirmacao=False,
-                ponto_embarque_id=p_embarque,
-                ponto_destino_id=p_destino
+                ponto_embarque_id=None,
+                ponto_destino_id=None
             )
             db.session.add(conf)
 
