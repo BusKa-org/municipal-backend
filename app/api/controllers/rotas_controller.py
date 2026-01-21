@@ -12,6 +12,7 @@ api = Namespace('rotas', description='Gestão de Rotas')
 
 rota_model = RotaContract.rota_input_model(api)
 horario_model = RotaContract.horario_model(api)
+inscricao_model = RotaContract.inscricao_model(api)
 
 @api.route('/')
 class RotasListResource(Resource):
@@ -43,14 +44,16 @@ class MyRotasResource(Resource):
         return RotasService.list_my_rotas(current_user_id)
 
 @api.route('/<string:id>/inscricao')
+@api.param('id', 'UUID da Rota')
 class RotaInscricaoResource(Resource):
-    @api.doc('inscrever_rota')
-    @api.expect(jwt_required=True)
+    @api.doc('inscrever_aluno')
+    @api.expect(inscricao_model, jwt_required=True)
     @jwt_required()
-    def put(self, id):
-        """Inscrever ou desinscrever aluno na rota"""
+    def post(self, id):
+        """Aluno se inscreve ou remove inscrição na rota"""
         current_user_id = get_jwt_identity()
-        return RotasService.inscricao_aluno_rota(current_user_id, id)
+        data = request.get_json()
+        return RotasService.gerenciar_inscricao_aluno(current_user_id, id, data)
 
 @api.route('/<string:id>/pontos')
 class RotaPontosResource(Resource):
