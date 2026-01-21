@@ -24,3 +24,20 @@ class ViagemContract:
         parser.add_argument('motorista_id', type=str, required=False, help='UUID do motorista')
         parser.add_argument('rota_id', type=str, required=False, help='UUID da rota')
         return parser
+    
+    from flask_restx import fields
+
+    @staticmethod
+    def criar_viagem_input(api):
+        """Modelo para criar viagem manual (rota específica)"""
+        return api.model('ViagemInput', {
+            'rota_id': fields.String(required=True, description='UUID da Rota'),
+            'data': fields.String(required=True, description='Data da viagem (YYYY-MM-DD)', example="2026-02-04")
+        })
+
+    @staticmethod
+    def gerar_lote_input(api):
+        """Modelo para o botão GERAR LOTE (apenas data)"""
+        return api.model('GerarLoteInput', {
+            'data': fields.String(required=True, description='Data para gerar as viagens (YYYY-MM-DD)', example="2026-02-04")
+        })
