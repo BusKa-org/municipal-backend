@@ -41,3 +41,11 @@ class ViagemContract:
         return api.model('GerarLoteInput', {
             'data': fields.String(required=True, description='Data para gerar as viagens (YYYY-MM-DD)', example="2026-02-04")
         })
+        
+    @staticmethod
+    def confirmacao_input(api):
+        """Modelo para o Aluno confirmar presença e escolher o ponto"""
+        return api.model('ConfirmacaoInput', {
+            'confirmacao': fields.Boolean(required=True, description='Confirmar (true) ou Cancelar (false)', example=True),
+            'ponto_embarque_id': fields.String(required=False, description='UUID do Ponto de Embarque (Obrigatório se confirmação=true)', example="uuid-do-ponto")
+        })    
