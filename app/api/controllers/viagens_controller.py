@@ -15,6 +15,24 @@ create_model = ViagemContract.create_model(api)
 action_model = ViagemContract.action_model(api)
 filter_parser = ViagemContract.filter_parser()
 lote_input_model = ViagemContract.gerar_lote_input(api)
+confirmacao_model = ViagemContract.confirmacao_input(api)
+
+@api.route('/<string:id>/confirmacao')
+class ViagemConfirmacaoResource(Resource):
+    @api.doc('confirmar_presenca')
+    @api.expect(confirmacao_model, jwt_required=True)
+    @api.expect(jwt_required=True) # Reforço
+    @jwt_required()
+    def put(self, id):
+        """
+        Aluno confirma presença na viagem e seleciona ponto de embarque.
+        O ponto deve pertencer à rota da viagem.
+        """
+        user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        result, status = ViagensService.confirmar_presenca_aluno(user_id, id, data)
+        return result, status
 
 @api.route('/')
 class ViagemListResource(Resource):

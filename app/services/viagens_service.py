@@ -8,6 +8,53 @@ from app.models.enum import StatusViagem, SentidoViagem
 class ViagensService:
     
     @staticmethod
+    def confirmar_presenca_aluno(user_id, viagem_id, data):
+        """
+        Permite ao aluno confirmar participação e escolher o ponto de embarque.
+        """
+        aluno = db.session.get(User, user_id)
+        if not aluno or str(aluno.role) != 'ALUNO':
+            return {"error": "Apenas alunos podem confirmar presença"}, 403
+
+        viagem = db.session.get(Viagem, viagem_id)
+        if not viagem:
+            return {"error": "Viagem não encontrada"}, 404
+
+        registro = AlunosConfirmados.query.filter_by(
+            viagem_id=viagem.id, 
+            aluno_id=aluno.id
+        ).first()
+
+        if not registro:
+            return {"error": "Você não está inscrito para esta viagem"}, 403
+
+        confirmacao = data.get('confirmacao')
+        ponto_embarque_id = data.get('ponto_embarque_id')
+
+        if confirmacao:
+            if not ponto_embarque_id:
+                return {"error": "Para confirmar, é necessário selecionar um ponto de embarque"}, 400
+
+            ponto_valido = RotaPonto.query.filter_by(
+                rota_id=viagem.rota_id,
+                ponto_id=ponto_embarque_id
+            ).first()
+
+            if not ponto_valido:
+                return {"error": "Este ponto não pertence à rota desta viagem"}, 400
+            registro.confirmacao = True
+            registro.ponto_embarque_id = ponto_embarque_id
+        else:
+            registro.confirmacao = False
+            registro.ponto_embarque_id = None
+            registro.ponto_destino_id = None
+
+        db.session.commit()
+
+        status_str = "confirmada" if confirmacao else "cancelada"
+        return {"message": f"Presença {status_str} com sucesso"}, 200
+    
+    @staticmethod
     def _get_dia_semana_enum(data_obj):
         """Converte data (0=SEG) para Enum (SEG, TER...)"""
         dias_map = {0: 'SEG', 1: 'TER', 2: 'QUA', 3: 'QUI', 4: 'SEX', 5: 'SAB', 6: 'DOM'}
