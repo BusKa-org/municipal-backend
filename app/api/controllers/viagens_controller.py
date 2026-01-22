@@ -17,6 +17,21 @@ filter_parser = ViagemContract.filter_parser()
 lote_input_model = ViagemContract.gerar_lote_input(api)
 confirmacao_model = ViagemContract.confirmacao_input(api)
 
+@api.route('/aluno/agenda')
+class AlunoAgendaResource(Resource):
+    @api.doc('list_viagens_aluno')
+    @api.expect(jwt_required=True)
+    @jwt_required()
+    def get(self):
+        """
+        Lista as próximas viagens do aluno para que ele possa confirmar presença.
+        Retorna viagens futuras onde o aluno foi inscrito.
+        """
+        user_id = get_jwt_identity()
+        result, status = ViagensService.get_proximas_viagens_aluno(user_id)
+        
+        return result, status
+
 @api.route('/<string:id>/confirmacao')
 class ViagemConfirmacaoResource(Resource):
     @api.doc('confirmar_presenca')

@@ -8,6 +8,48 @@ from app.models.enum import StatusViagem
 class ViagensService:
     
     @staticmethod
+    def get_proximas_viagens_aluno(user_id):
+        """
+        Retorna as próximas viagens agendadas para o aluno logado.
+        Mostra status de confirmação, horário e rota.
+        """
+        aluno = db.session.get(User, user_id)
+        if not aluno or str(aluno.role) != 'ALUNO':
+            return {"error": "Apenas alunos podem ver sua agenda de viagens"}, 403
+        
+        hoje = datetime.utcnow().date()
+        
+        query = (
+            db.session.query(Viagem, AlunosConfirmados, HorarioRota, Rota)
+            .join(AlunosConfirmados, Viagem.id == AlunosConfirmados.viagem_id)
+            .join(HorarioRota, Viagem.horario_rota_id == HorarioRota.id)
+            .join(Rota, Viagem.rota_id == Rota.id)
+            .filter(
+                AlunosConfirmados.aluno_id == aluno.id,
+                Viagem.status == StatusViagem.AGENDADA,
+                Viagem.data >= hoje
+            )
+            .order_by(Viagem.data.asc(), HorarioRota.horario_saida.asc())
+        )
+        
+        resultados = query.all()
+        
+        agenda = []
+        for viagem, confirmacao, horario, rota in resultados:
+            agenda.append({
+                "viagem_id": str(viagem.id),
+                "data": str(viagem.data),
+                "dia_semana": ViagensService._get_dia_semana_enum(viagem.data),
+                "horario_saida": str(horario.horario_saida),
+                "sentido": horario.sentido.name, # IDA ou VOLTA
+                "rota_nome": rota.nome,
+                "status_confirmacao": confirmacao.confirmacao, # True/False
+                "ponto_embarque_id": str(confirmacao.ponto_embarque_id) if confirmacao.ponto_embarque_id else None
+            })
+            
+        return agenda, 200
+    
+    @staticmethod
     def confirmar_presenca_aluno(user_id, viagem_id, data):
         """
         Permite ao aluno confirmar participação e escolher o ponto de embarque.
