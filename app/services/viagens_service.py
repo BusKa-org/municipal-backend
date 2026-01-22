@@ -3,7 +3,7 @@ from app.models.viagem import Viagem, ViagemPonto, AlunosConfirmados
 from app.models.rota import DiasOperacao, Rota, HorarioRota, RotaPonto, RotaAluno
 from app.models.user import User, Aluno
 from app.models.base import db
-from app.models.enum import StatusViagem, SentidoViagem
+from app.models.enum import StatusViagem
 
 class ViagensService:
     
