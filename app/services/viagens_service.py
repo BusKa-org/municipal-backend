@@ -344,7 +344,7 @@ class ViagensService:
         
         if not viagem: return {"error": "Viagem not found"}, 404
         
-        if str(user.role) == 'MOTORISTA' and viagem.motorista_id != str(user.id):
+        if str(user.role) == 'MOTORISTA' and str(viagem.motorista_id) != str(user.id):
              return {"error": "Esta viagem não pertence a você"}, 403
 
         acao = data.get('acao')
