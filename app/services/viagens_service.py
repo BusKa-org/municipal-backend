@@ -3,98 +3,10 @@ from app.models.viagem import Viagem, ViagemPonto, AlunosConfirmados
 from app.models.rota import DiasOperacao, Rota, HorarioRota, RotaPonto, RotaAluno
 from app.models.user import User, Aluno
 from app.models.base import db
-from app.models.enum import StatusViagem
+from app.models.enum import StatusViagem, SentidoViagem
+from app.models.geo import Ponto
 
 class ViagensService:
-    
-    @staticmethod
-    def get_proximas_viagens_aluno(user_id):
-        """
-        Retorna as próximas viagens agendadas para o aluno logado.
-        Mostra status de confirmação, horário e rota.
-        """
-        aluno = db.session.get(User, user_id)
-        if not aluno or str(aluno.role) != 'ALUNO':
-            return {"error": "Apenas alunos podem ver sua agenda de viagens"}, 403
-        
-        hoje = datetime.utcnow().date()
-        
-        query = (
-            db.session.query(Viagem, AlunosConfirmados, HorarioRota, Rota)
-            .join(AlunosConfirmados, Viagem.id == AlunosConfirmados.viagem_id)
-            .join(HorarioRota, Viagem.horario_rota_id == HorarioRota.id)
-            .join(Rota, Viagem.rota_id == Rota.id)
-            .filter(
-                AlunosConfirmados.aluno_id == aluno.id,
-                Viagem.status == StatusViagem.AGENDADA,
-                Viagem.data >= hoje
-            )
-            .order_by(Viagem.data.asc(), HorarioRota.horario_saida.asc())
-        )
-        
-        resultados = query.all()
-        
-        agenda = []
-        for viagem, confirmacao, horario, rota in resultados:
-            agenda.append({
-                "viagem_id": str(viagem.id),
-                "data": str(viagem.data),
-                "dia_semana": ViagensService._get_dia_semana_enum(viagem.data),
-                "horario_saida": str(horario.horario_saida),
-                "sentido": horario.sentido.name, # IDA ou VOLTA
-                "rota_nome": rota.nome,
-                "status_confirmacao": confirmacao.confirmacao, # True/False
-                "ponto_embarque_id": str(confirmacao.ponto_embarque_id) if confirmacao.ponto_embarque_id else None
-            })
-            
-        return agenda, 200
-    
-    @staticmethod
-    def confirmar_presenca_aluno(user_id, viagem_id, data):
-        """
-        Permite ao aluno confirmar participação e escolher o ponto de embarque.
-        """
-        aluno = db.session.get(User, user_id)
-        if not aluno or str(aluno.role) != 'ALUNO':
-            return {"error": "Apenas alunos podem confirmar presença"}, 403
-
-        viagem = db.session.get(Viagem, viagem_id)
-        if not viagem:
-            return {"error": "Viagem não encontrada"}, 404
-
-        registro = AlunosConfirmados.query.filter_by(
-            viagem_id=viagem.id, 
-            aluno_id=aluno.id
-        ).first()
-
-        if not registro:
-            return {"error": "Você não está inscrito para esta viagem"}, 403
-
-        confirmacao = data.get('confirmacao')
-        ponto_embarque_id = data.get('ponto_embarque_id')
-
-        if confirmacao:
-            if not ponto_embarque_id:
-                return {"error": "Para confirmar, é necessário selecionar um ponto de embarque"}, 400
-
-            ponto_valido = RotaPonto.query.filter_by(
-                rota_id=viagem.rota_id,
-                ponto_id=ponto_embarque_id
-            ).first()
-
-            if not ponto_valido:
-                return {"error": "Este ponto não pertence à rota desta viagem"}, 400
-            registro.confirmacao = True
-            registro.ponto_embarque_id = ponto_embarque_id
-        else:
-            registro.confirmacao = False
-            registro.ponto_embarque_id = None
-            registro.ponto_destino_id = None
-
-        db.session.commit()
-
-        status_str = "confirmada" if confirmacao else "cancelada"
-        return {"message": f"Presença {status_str} com sucesso"}, 200
     
     @staticmethod
     def _get_dia_semana_enum(data_obj):
@@ -135,6 +47,168 @@ class ViagensService:
             db.session.add(vp)
             ordem_real += 1
     
+    @staticmethod
+    def get_proximas_viagens_aluno(user_id):
+        """
+        Retorna as próximas viagens agendadas para o aluno logado.
+        Mostra status de confirmação, horário e rota.
+        """
+        aluno = db.session.get(User, user_id)
+        if not aluno or str(aluno.role) != 'ALUNO':
+            return {"error": "Apenas alunos podem ver sua agenda de viagens"}, 403
+        
+        hoje = datetime.utcnow().date()
+        
+        query = (
+            db.session.query(Viagem, AlunosConfirmados, HorarioRota, Rota)
+            .join(AlunosConfirmados, Viagem.id == AlunosConfirmados.viagem_id)
+            .join(HorarioRota, Viagem.horario_rota_id == HorarioRota.id)
+            .join(Rota, HorarioRota.rota_id == Rota.id) 
+            .filter(
+                AlunosConfirmados.aluno_id == aluno.id,
+                Viagem.status == StatusViagem.AGENDADA,
+                Viagem.data >= hoje
+            )
+            .order_by(Viagem.data.asc(), HorarioRota.horario_saida.asc())
+        )
+        
+        resultados = query.all()
+        
+        agenda = []
+        for viagem, confirmacao, horario, rota in resultados:
+            agenda.append({
+                "viagem_id": str(viagem.id),
+                "data": str(viagem.data),
+                "dia_semana": ViagensService._get_dia_semana_enum(viagem.data),
+                "horario_saida": str(horario.horario_saida),
+                "sentido": horario.sentido.name,
+                "rota_id": str(rota.id),
+                "rota_nome": rota.nome,
+                "status_confirmacao": confirmacao.confirmacao,
+                "ponto_embarque_id": str(confirmacao.ponto_embarque_id) if confirmacao.ponto_embarque_id else None
+            })
+            
+        return agenda, 200
+    
+    @staticmethod
+    def confirmar_presenca_aluno(user_id, viagem_id, data):
+        """
+        Permite ao aluno confirmar participação.
+        Define o ponto de embarque (escolhido) e INFERE o ponto de destino (automático).
+        """
+        aluno = db.session.get(Aluno, user_id)
+        if not aluno:
+             aluno_user = db.session.get(User, user_id)
+             if aluno_user and str(aluno_user.role) == 'ALUNO':
+                 aluno = db.session.get(Aluno, user_id) 
+        
+        if not aluno:
+             return {"error": "Aluno não encontrado"}, 403
+
+        viagem = db.session.get(Viagem, viagem_id)
+        if not viagem:
+            return {"error": "Viagem não encontrada"}, 404
+
+        registro = AlunosConfirmados.query.filter_by(
+            viagem_id=viagem.id, 
+            aluno_id=aluno.usuario_id
+        ).first()
+        
+        if not registro:
+            AlunosConfirmados.query.filter_by(viagem_id=viagem.id, aluno_id=user_id).first()
+            return {"error": "Você não está inscrito para esta viagem"}, 403
+
+        confirmacao = data.get('confirmacao')
+        ponto_embarque_id = data.get('ponto_embarque_id')
+
+        if confirmacao:
+            if not ponto_embarque_id:
+                return {"error": "Para confirmar, é necessário selecionar um ponto de embarque"}, 400
+
+            horario = db.session.get(HorarioRota, viagem.horario_rota_id)
+            if not horario:
+                 return {"error": "Erro interno: Horário da viagem não encontrado"}, 500
+
+            ponto_valido = RotaPonto.query.filter_by(
+                rota_id=horario.rota_id,
+                ponto_id=ponto_embarque_id
+            ).first()
+
+            if not ponto_valido:
+                return {"error": "Este ponto não pertence à rota desta viagem"}, 400
+
+            ponto_destino_inferido = None
+            
+            if horario.sentido == SentidoViagem.IDA:
+                if aluno.instituicao and aluno.instituicao.ponto_id:
+                    ponto_destino_inferido = aluno.instituicao.ponto_id
+            
+            elif horario.sentido == SentidoViagem.VOLTA and aluno.ponto_casa_id:
+                ponto_destino_inferido = aluno.ponto_casa_id
+                
+            registro.confirmacao = True
+            registro.ponto_embarque_id = ponto_embarque_id
+            registro.ponto_destino_id = ponto_destino_inferido
+        else:
+            registro.confirmacao = False
+            registro.ponto_embarque_id = None
+            registro.ponto_destino_id = None
+
+        db.session.commit()
+
+        status_str = "confirmada" if confirmacao else "cancelada"
+        msg_extra = ""
+        if confirmacao and not registro.ponto_destino_id:
+            msg_extra = " (Aviso: Ponto de destino não detectado no cadastro do aluno)"
+
+        return {"message": f"Presença {status_str} com sucesso{msg_extra}"}, 200
+
+    @staticmethod
+    def listar_pontos_embarque(user_id, viagem_id):
+        """
+        Retorna os pontos de embarque disponíveis para uma viagem específica.
+        Faz JOIN entre RotaPonto e Ponto para trazer os detalhes (apelido, lat, long).
+        """
+        aluno = db.session.get(User, user_id)
+        if not aluno or str(aluno.role) != 'ALUNO':
+            return {"error": "Acesso restrito a alunos"}, 403
+
+        viagem = db.session.get(Viagem, viagem_id)
+        if not viagem:
+            return {"error": "Viagem não encontrada"}, 404
+
+        convite = AlunosConfirmados.query.filter_by(
+            viagem_id=viagem.id, 
+            aluno_id=aluno.id
+        ).first()
+
+        if not convite:
+            return {"error": "Você não está vinculado a esta viagem"}, 403
+
+        horario = db.session.get(HorarioRota, viagem.horario_rota_id)
+        if not horario:
+             return {"error": "Horário da rota não encontrado"}, 500
+
+        pontos_query = (
+            db.session.query(RotaPonto, Ponto)
+            .join(Ponto, RotaPonto.ponto_id == Ponto.id)
+            .filter(RotaPonto.rota_id == horario.rota_id)
+            .order_by(RotaPonto.ordem)
+            .all()
+        )
+        
+        resultado = []
+        for rp, ponto_obj in pontos_query:
+            resultado.append({
+                "ponto_id": str(ponto_obj.id),
+                "apelido": ponto_obj.apelido,
+                "latitude": float(ponto_obj.latitude),
+                "longitude": float(ponto_obj.longitude),
+                "ordem": rp.ordem
+            })
+            
+        return resultado, 200
+
     @staticmethod
     def gerar_viagem(user_id, data_input):
         """Gera UMA viagem para UMA rota específica (Modo Manual)"""

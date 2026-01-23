@@ -31,6 +31,21 @@ class AlunoAgendaResource(Resource):
         result, status = ViagensService.get_proximas_viagens_aluno(user_id)
         
         return result, status
+    
+@api.route('/<string:id>/pontos-embarque')
+class ViagemPontosResource(Resource):
+    @api.doc('list_pontos_embarque_viagem')
+    @api.expect(jwt_required=True)
+    @jwt_required()
+    def get(self, id):
+        """
+        Lista todos os pontos de embarque disponíveis para esta viagem específica.
+        O aluno usa isso para popular o mapa/lista antes de confirmar presença.
+        """
+        user_id = get_jwt_identity()
+        result, status = ViagensService.listar_pontos_embarque(user_id, id)
+        
+        return result, status
 
 @api.route('/<string:id>/confirmacao')
 class ViagemConfirmacaoResource(Resource):
