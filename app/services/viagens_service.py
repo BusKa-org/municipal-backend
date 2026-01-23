@@ -60,12 +60,13 @@ class ViagensService:
         hoje = datetime.utcnow().date()
         
         query = (
-            db.session.query(Viagem, AlunosConfirmados, HorarioRota, Rota)
-            .join(AlunosConfirmados, Viagem.id == AlunosConfirmados.viagem_id)
+            db.session.query(Viagem, HorarioRota, Rota, AlunosConfirmados)
             .join(HorarioRota, Viagem.horario_rota_id == HorarioRota.id)
-            .join(Rota, HorarioRota.rota_id == Rota.id) 
+            .join(Rota, HorarioRota.rota_id == Rota.id)
+            .join(RotaAluno, Rota.id == RotaAluno.rota_id) # <--- Vínculo Principal agora é a Rota
+            .outerjoin(AlunosConfirmados, (AlunosConfirmados.viagem_id == Viagem.id) & (AlunosConfirmados.aluno_id == aluno.id))
             .filter(
-                AlunosConfirmados.aluno_id == aluno.id,
+                RotaAluno.aluno_id == aluno.id,
                 Viagem.status == StatusViagem.AGENDADA,
                 Viagem.data >= hoje
             )
@@ -75,7 +76,10 @@ class ViagensService:
         resultados = query.all()
         
         agenda = []
-        for viagem, confirmacao, horario, rota in resultados:
+        for viagem, horario, rota, confirmacao in resultados:
+            status_conf = confirmacao.confirmacao if confirmacao else False
+            ponto_emb = str(confirmacao.ponto_embarque_id) if (confirmacao and confirmacao.ponto_embarque_id) else None
+
             agenda.append({
                 "viagem_id": str(viagem.id),
                 "data": str(viagem.data),
@@ -84,8 +88,8 @@ class ViagensService:
                 "sentido": horario.sentido.name,
                 "rota_id": str(rota.id),
                 "rota_nome": rota.nome,
-                "status_confirmacao": confirmacao.confirmacao,
-                "ponto_embarque_id": str(confirmacao.ponto_embarque_id) if confirmacao.ponto_embarque_id else None
+                "status_confirmacao": status_conf,
+                "ponto_embarque_id": ponto_emb
             })
             
         return agenda, 200
@@ -109,14 +113,23 @@ class ViagensService:
         if not viagem:
             return {"error": "Viagem não encontrada"}, 404
 
-        registro = AlunosConfirmados.query.filter_by(
-            viagem_id=viagem.id, 
-            aluno_id=aluno.usuario_id
-        ).first()
-        
+        registro = AlunosConfirmados.query.filter_by(viagem_id=viagem.id, aluno_id=aluno.usuario_id).first()
+
         if not registro:
-            AlunosConfirmados.query.filter_by(viagem_id=viagem.id, aluno_id=user_id).first()
-            return {"error": "Você não está inscrito para esta viagem"}, 403
+            horario_temp = db.session.get(HorarioRota, viagem.horario_rota_id)
+            inscricao = RotaAluno.query.filter_by(rota_id=horario_temp.rota_id, aluno_id=aluno.usuario_id).first()
+            
+            if not inscricao:
+                return {"error": "Você não está inscrito na rota desta viagem"}, 403
+            
+            registro = AlunosConfirmados(
+                viagem_id=viagem.id,
+                aluno_id=aluno.usuario_id,
+                confirmacao=False,
+                ponto_embarque_id=None,
+                ponto_destino_id=None
+            )
+            db.session.add(registro)
 
         confirmacao = data.get('confirmacao')
         ponto_embarque_id = data.get('ponto_embarque_id')
@@ -126,9 +139,7 @@ class ViagensService:
                 return {"error": "Para confirmar, é necessário selecionar um ponto de embarque"}, 400
 
             horario = db.session.get(HorarioRota, viagem.horario_rota_id)
-            if not horario:
-                 return {"error": "Erro interno: Horário da viagem não encontrado"}, 500
-
+            
             ponto_valido = RotaPonto.query.filter_by(
                 rota_id=horario.rota_id,
                 ponto_id=ponto_embarque_id
@@ -142,10 +153,10 @@ class ViagensService:
             if horario.sentido == SentidoViagem.IDA:
                 if aluno.instituicao and aluno.instituicao.ponto_id:
                     ponto_destino_inferido = aluno.instituicao.ponto_id
-            
-            elif horario.sentido == SentidoViagem.VOLTA and aluno.ponto_casa_id:
-                ponto_destino_inferido = aluno.ponto_casa_id
-                
+            elif horario.sentido == SentidoViagem.VOLTA:
+                if aluno.ponto_casa_id:
+                    ponto_destino_inferido = aluno.ponto_casa_id
+
             registro.confirmacao = True
             registro.ponto_embarque_id = ponto_embarque_id
             registro.ponto_destino_id = ponto_destino_inferido
@@ -157,11 +168,7 @@ class ViagensService:
         db.session.commit()
 
         status_str = "confirmada" if confirmacao else "cancelada"
-        msg_extra = ""
-        if confirmacao and not registro.ponto_destino_id:
-            msg_extra = " (Aviso: Ponto de destino não detectado no cadastro do aluno)"
-
-        return {"message": f"Presença {status_str} com sucesso{msg_extra}"}, 200
+        return {"message": f"Presença {status_str} com sucesso"}, 200
 
     @staticmethod
     def listar_pontos_embarque(user_id, viagem_id):
@@ -176,18 +183,17 @@ class ViagensService:
         viagem = db.session.get(Viagem, viagem_id)
         if not viagem:
             return {"error": "Viagem não encontrada"}, 404
+            
+        horario = db.session.get(HorarioRota, viagem.horario_rota_id)
+        if not horario: return {"error": "Horário não encontrado"}, 500
 
-        convite = AlunosConfirmados.query.filter_by(
-            viagem_id=viagem.id, 
+        inscricao = RotaAluno.query.filter_by(
+            rota_id=horario.rota_id, 
             aluno_id=aluno.id
         ).first()
 
-        if not convite:
-            return {"error": "Você não está vinculado a esta viagem"}, 403
-
-        horario = db.session.get(HorarioRota, viagem.horario_rota_id)
-        if not horario:
-             return {"error": "Horário da rota não encontrado"}, 500
+        if not inscricao:
+            return {"error": "Você não está inscrito na rota desta viagem"}, 403
 
         pontos_query = (
             db.session.query(RotaPonto, Ponto)
