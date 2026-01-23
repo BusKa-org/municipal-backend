@@ -24,3 +24,6 @@ deletedb:
 
 bdcon:
 	psql -h localhost -p 5432 -U buska_user -d buska_db
+
+seed:
+	uv run python seed.py
