@@ -1,21 +1,43 @@
+import logging
+
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..models.user import User, Motorista, Aluno, Gestor
 from ..models.base import db
-from ..models.enum import UserRole 
-import uuid
+from ..models.enum import UserRole
+from ..core.exceptions import (
+    AppError, NotFoundError, ValidationError, ForbiddenError, 
+    UnauthorizedError, ConflictError
+)
+
+logger = logging.getLogger(__name__)
+
 
 class UserService:
 
     @staticmethod
-    def get_all_users():
+    def get_all_users() -> list[User]:
+        """Returns all users."""
         return User.query.all()
 
     @staticmethod
-    def get_user_by_id(user_id: uuid):
-        return User.query.get(user_id)
+    def get_user_by_id(user_id: str) -> User:
+        """
+        Get user by ID.
+        
+        Raises: NotFoundError
+        """
+        user = User.query.get(user_id)
+        if not user:
+            raise NotFoundError("Usuário não encontrado")
+        return user
 
     @staticmethod
-    def create_user(data):
+    def create_user(data: dict) -> User:
+        """
+        Create a new user.
+        
+        Raises: ValidationError, ConflictError, AppError
+        """
         email = data.get("email", "").lower().strip()
         password = data.get("password", "").strip()
         nome = data.get("nome", "").strip()
@@ -26,42 +48,52 @@ class UserService:
         try:
             role_enum = UserRole(role_str)
         except ValueError:
-            return {"error": "Perfil inválido. Use: ALUNO, MOTORISTA, GESTOR"}, 400
+            raise ValidationError("Perfil inválido. Use: ALUNO, MOTORISTA, GESTOR")
 
         if not all([email, password, nome, cpf]):
-            return {"error": "Dados incompletos (Email, Senha, Nome, CPF)"}, 400
+            raise ValidationError("Dados incompletos (Email, Senha, Nome, CPF)")
 
         if User.query.filter((User.email == email) | (User.cpf == cpf)).first():
-            return {"error": "Usuário já existe (Email ou CPF duplicado)"}, 400
+            raise ConflictError("Usuário já existe (Email ou CPF duplicado)")
 
-        hashed_pw = generate_password_hash(password)
+        try:
+            hashed_pw = generate_password_hash(password)
 
-        if role_enum == UserRole.GESTOR:
-            new_user = Gestor(
-                nome=nome, email=email, senha_hash=hashed_pw,
-                cpf=cpf, telefone=telefone, role=role_enum
-            )
-        elif role_enum == UserRole.ALUNO:
-            new_user = Aluno(
-                nome=nome, email=email, senha_hash=hashed_pw,
-                cpf=cpf, telefone=telefone, role=role_enum
-            )
-        else:
-            new_user = User(
-                nome=nome, email=email, senha_hash=hashed_pw,
-                cpf=cpf, telefone=telefone, role=role_enum
-            )
+            if role_enum == UserRole.GESTOR:
+                new_user = Gestor(
+                    nome=nome, email=email, senha_hash=hashed_pw,
+                    cpf=cpf, telefone=telefone, role=role_enum
+                )
+            elif role_enum == UserRole.ALUNO:
+                new_user = Aluno(
+                    nome=nome, email=email, senha_hash=hashed_pw,
+                    cpf=cpf, telefone=telefone, role=role_enum
+                )
+            else:
+                new_user = User(
+                    nome=nome, email=email, senha_hash=hashed_pw,
+                    cpf=cpf, telefone=telefone, role=role_enum
+                )
 
-        db.session.add(new_user)
-        db.session.commit()
-
-        return new_user, 201
+            db.session.add(new_user)
+            db.session.commit()
+            return new_user
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error creating user: {e}")
+            raise AppError(f"Erro ao criar usuário: {str(e)}", 500)
 
     @staticmethod
-    def update_user(user_id: uuid, data: dict):
+    def update_user(user_id: str, data: dict) -> User:
+        """
+        Update user data.
+        
+        Raises: NotFoundError, ConflictError, AppError
+        """
         user = User.query.get(user_id)
         if not user:
-            return {"error": "User not found"}, 404
+            raise NotFoundError("Usuário não encontrado")
 
         nome = data.get("nome")
         email = data.get("email")
@@ -74,8 +106,8 @@ class UserService:
         if email:
             email_limpo = email.lower().strip()
             existing = User.query.filter_by(email=email_limpo).first()
-            if existing and existing.id != user_id:
-                return {"error": "Email já está em uso"}, 400
+            if existing and existing.id != user.id:
+                raise ConflictError("Email já está em uso")
             user.email = email_limpo
 
         if password:
@@ -84,73 +116,77 @@ class UserService:
         if telefone:
             user.telefone = telefone.strip()
 
-        db.session.commit()
-        return {"message": "User updated successfully."}, 200
+        try:
+            db.session.commit()
+            return user
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating user: {e}")
+            raise AppError(f"Erro ao atualizar usuário: {str(e)}", 500)
 
     @staticmethod
-    def create_motorista(gestor_id, data):
+    def create_motorista(gestor_id: str, data: dict) -> Motorista:
+        """
+        Create a new driver (gestor only).
+        
+        Raises: ForbiddenError, ConflictError, AppError
+        """
         gestor = db.session.get(User, gestor_id)
         
         if not gestor or str(gestor.role) != 'GESTOR':
-            return {"error": "Apenas gestores podem cadastrar motoristas"}, 403
+            raise ForbiddenError("Apenas gestores podem cadastrar motoristas")
 
-        prefeitura_id_obrigatorio = gestor.prefeitura_id
+        if User.query.filter((User.email == data['email']) | (User.cpf == data['cpf'])).first():
+            raise ConflictError("Email ou CPF já cadastrado")
+        
+        if Motorista.query.filter_by(cnh=data['cnh']).first():
+            raise ConflictError("CNH já cadastrada")
 
         try:
-            if User.query.filter((User.email == data['email']) | (User.cpf == data['cpf'])).first():
-                return {"error": "Email ou CPF já cadastrado"}, 400
-            
-            if Motorista.query.filter_by(cnh=data['cnh']).first():
-                return {"error": "CNH já cadastrada"}, 400
-
             novo_motorista = Motorista(
-                prefeitura_id=prefeitura_id_obrigatorio,
+                prefeitura_id=gestor.prefeitura_id,
                 nome=data['nome'],
                 email=data['email'],
                 senha_hash=generate_password_hash(data['password']),
                 cpf=data['cpf'],
                 telefone=data['telefone'],
                 role=UserRole.MOTORISTA,
-                
                 cnh=data['cnh']
             )
 
             db.session.add(novo_motorista)
             db.session.commit()
-
-            return {
-                "message": "Motorista cadastrado com sucesso",
-                "id": str(novo_motorista.usuario_id)
-            }, 201
+            return novo_motorista
 
         except Exception as e:
             db.session.rollback()
-            return {"error": str(e)}, 500
+            logger.error(f"Error creating driver: {e}")
+            raise AppError(f"Erro ao criar motorista: {str(e)}", 500)
 
     @staticmethod
-    def change_password(user_id, data):
+    def change_password(user_id: str, data: dict) -> None:
         """
-        Permite que qualquer usuário logado troque sua própria senha.
-        Exige a senha atual por segurança.
+        Change user password (requires current password).
+        
+        Raises: ValidationError, NotFoundError, UnauthorizedError, AppError
         """
         current_password = data.get('current_password')
         new_password = data.get('new_password')
 
         if not current_password or not new_password:
-            return {"error": "Senha atual e nova senha são obrigatórias"}, 400
+            raise ValidationError("Senha atual e nova senha são obrigatórias")
 
         user = User.query.get(user_id)
         if not user:
-            return {"error": "Usuário não encontrado"}, 404
+            raise NotFoundError("Usuário não encontrado")
 
         if not check_password_hash(user.senha_hash, current_password):
-            return {"error": "A senha atual está incorreta"}, 401
+            raise UnauthorizedError("A senha atual está incorreta")
 
-        user.senha_hash = generate_password_hash(new_password)
-        
         try:
+            user.senha_hash = generate_password_hash(new_password)
             db.session.commit()
-            return {"message": "Senha alterada com sucesso"}, 200
         except Exception as e:
             db.session.rollback()
-            return {"error": "Erro ao atualizar senha", "details": str(e)}, 500
+            logger.error(f"Error changing password: {e}")
+            raise AppError(f"Erro ao atualizar senha: {str(e)}", 500)
