@@ -32,7 +32,7 @@ class Ponto(db.Model):
             "apelido": self.apelido,
             "latitude": float(self.latitude),
             "longitude": float(self.longitude),
-            # Opcional: retornar dados extras se existirem
+            # Optional: return extra data if available
             "endereco": self.endereco.logradouro if self.endereco else None,
             "instituicao": self.instituicao.nome if self.instituicao else None
         }
