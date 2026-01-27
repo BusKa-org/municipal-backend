@@ -1,25 +1,22 @@
+"""Auth endpoint documentation models."""
+
 from flask_restx import fields
 
-class AuthContract:
-    @staticmethod
-    def login_model(api):
-        return api.model('Login', {
-            'email': fields.String(required=True, description='Email do usuário', example='joao@email.com'),
-            'password': fields.String(required=True, description='Senha do usuário', example='senhaForte123')
-        })
 
-    @staticmethod
-    def register_model(api):
-        return api.model('Register', {
-            'nome': fields.String(required=True, description='Nome completo', example='João da Silva'),
-            'email': fields.String(required=True, description='Email único', example='joao@email.com'),
-            'password': fields.String(required=True, description='Senha', example='senhaForte123'),
-            'cpf': fields.String(required=True, description='CPF (apenas números)', example='12345678900'),
-            'telefone': fields.String(description='Telefone para contato', example='11999999999'),
-            'role': fields.String(required=True, description='Tipo de perfil', enum=['aluno', 'motorista', 'gestor'], example='aluno'),
-            'matricula': fields.String(description='(Para Aluno/Gestor) Matrícula da instituição'),
-            'nome_pai': fields.String(description='(Para Aluno) Nome do pai'),
-            'nome_mae': fields.String(description='(Para Aluno) Nome da mãe'),
-            'cnh': fields.String(description='(Para Motorista) Número da CNH'),
-            'salario': fields.Float(description='(Para Gestor) Salário')
-        })
+def register_models(api):
+    """Register auth models with the API namespace."""
+    
+    login_request = api.model('LoginRequest', {
+        'email': fields.String(required=True, description='Email do usuário'),
+        'password': fields.String(required=True, description='Senha')
+    })
+    
+    token_response = api.model('TokenResponse', {
+        'access_token': fields.String(description='JWT Token'),
+        'token_type': fields.String(description='Tipo (Bearer)')
+    })
+    
+    return {
+        'login_request': login_request,
+        'token_response': token_response
+    }

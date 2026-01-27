@@ -1,33 +1,37 @@
 from flask import request
 from flask_restx import Resource, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
+
 from app.services.instituicao_service import InstituicaoService
 from app.schemas.instituicao_schema import InstituicaoCreateSchema, InstituicaoResponseSchema
-from app.api.contracts.instituicao_contract import InstituicaoContract
+from app.core.exceptions import ValidationError
+from app.api.contracts import instituicao_contract
 
 api = Namespace('instituicoes', description='Gestão de Escolas e Instituições de Ensino')
 
+# API contracts (Swagger documentation)
+models = instituicao_contract.register_models(api)
+
+# Validation schemas (Marshmallow)
 create_schema = InstituicaoCreateSchema()
 response_schema = InstituicaoResponseSchema()
 list_response_schema = InstituicaoResponseSchema(many=True)
 
-create_model = InstituicaoContract.create_model(api)
 
 @api.route('/')
 class InstituicaoListResource(Resource):
     @api.doc('list_instituicoes')
-    @api.expect(jwt_required=True)
+    @api.marshal_list_with(models['response'], code=200)
     @jwt_required()
     def get(self):
         """Lista todas as instituições da prefeitura"""
         user_id = get_jwt_identity()
-        result, status = InstituicaoService.list_all(user_id)
-        
-        if status != 200: return result, status
-        return list_response_schema.dump(result), 200
+        instituicoes = InstituicaoService.list_all(user_id)
+        return list_response_schema.dump(instituicoes), 200
 
     @api.doc('create_instituicao')
-    @api.expect(create_model, jwt_required=True)
+    @api.expect(models['create_request'])
+    @api.marshal_with(models['response'], code=201)
     @jwt_required()
     def post(self):
         """Cadastra uma nova instituição com endereço"""
@@ -35,30 +39,28 @@ class InstituicaoListResource(Resource):
         data = request.get_json()
         
         errors = create_schema.validate(data)
-        if errors: return {"error": "Validation error", "details": errors}, 400
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
         
-        result, status = InstituicaoService.create_instituicao(user_id, data)
-        
-        if status != 201: return result, status
-        return response_schema.dump(result), 201
+        inst = InstituicaoService.create_instituicao(user_id, data)
+        return response_schema.dump(inst), 201
+
 
 @api.route('/<string:id>')
 class InstituicaoResource(Resource):
     @api.doc('get_instituicao')
-    @api.expect(jwt_required=True)
+    @api.marshal_with(models['response'], code=200)
     @jwt_required()
     def get(self, id):
         """Detalhes da instituição"""
         user_id = get_jwt_identity()
-        result, status = InstituicaoService.get_by_id(user_id, id)
-        
-        if status != 200: return result, status
-        return response_schema.dump(result), 200
+        inst = InstituicaoService.get_by_id(user_id, id)
+        return response_schema.dump(inst), 200
 
     @api.doc('delete_instituicao')
-    @api.expect(jwt_required=True)
     @jwt_required()
     def delete(self, id):
         """Remove a instituição e seus vínculos"""
         user_id = get_jwt_identity()
-        return InstituicaoService.delete_instituicao(user_id, id)
+        InstituicaoService.delete_instituicao(user_id, id)
+        return {"message": "Instituição removida com sucesso"}, 200

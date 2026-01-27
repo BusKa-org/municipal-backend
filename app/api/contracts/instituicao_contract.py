@@ -1,28 +1,34 @@
+"""Instituicao endpoint documentation models."""
+
 from flask_restx import fields
 
-class InstituicaoContract:
-    @staticmethod
-    def create_model(api):
-        endereco_model = api.model('EnderecoInput', {
-            'logradouro': fields.String(required=True, example='Rua das Flores'),
-            'numero': fields.String(required=True, example='123'),
-            'bairro': fields.String(required=True, example='Centro'),
-            'cidade': fields.String(required=True, example='São Paulo'),
-            'cep': fields.String(required=True, example='01001-000'),
-            'latitude': fields.Float(required=True, example=-23.550520),
-            'longitude': fields.Float(required=True, example=-46.633308)
-        })
 
-        return api.model('InstituicaoCreate', {
-            'nome': fields.String(required=True, example='Escola Municipal 1'),
-            'cnpj': fields.String(required=True, example='12345678000199'),
-            'tipo': fields.String(
-                required=True, 
-                enum=[
-                    'INSTITUTO_FEDERAL', 'UNIVERSIDADE_PUBLICA', 'UNIVERSIDADE_PRIVADA',
-                    'ESCOLA_PUBLICA', 'ESCOLA_PRIVADA', 'ESCOLA_COMUNITARIA'
-                ],
-                description='Tipo da Instituição'
-            ),
-            'endereco': fields.Nested(endereco_model, required=True)
-        })
+def register_models(api):
+    """Register instituicao models with the API namespace."""
+    
+    endereco_input = api.model('InstituicaoEnderecoInput', {
+        'rua': fields.String(description='Nome da rua'),
+        'numero': fields.String(description='Número'),
+        'bairro': fields.String(description='Bairro'),
+        'cidade': fields.String(description='Cidade'),
+        'estado': fields.String(description='Estado (UF)'),
+        'cep': fields.String(description='CEP')
+    })
+    
+    create_request = api.model('InstituicaoCreateRequest', {
+        'nome': fields.String(required=True, description='Nome da instituição'),
+        'tipo': fields.String(description='Tipo (ESCOLA, CRECHE, UNIVERSIDADE)'),
+        'endereco': fields.Nested(endereco_input, required=True, description='Endereço')
+    })
+    
+    response = api.model('InstituicaoResponse', {
+        'id': fields.String(description='UUID'),
+        'nome': fields.String(description='Nome'),
+        'tipo': fields.String(description='Tipo'),
+        'endereco': fields.String(description='Endereço formatado')
+    })
+    
+    return {
+        'create_request': create_request,
+        'response': response
+    }
