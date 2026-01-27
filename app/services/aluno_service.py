@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from werkzeug.security import generate_password_hash
 from app.models.user import User, Aluno
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 class AlunoService:
     
     @staticmethod
-    def auto_cadastro(data: dict) -> Aluno:
+    def auto_cadastro(data: dict[str, Any]) -> Aluno:
         """
         Aluno se cadastra sozinho.
         A prefeitura é inferida através da Instituição escolhida.
@@ -80,7 +81,7 @@ class AlunoService:
             raise AppError(f"Erro ao criar aluno: {str(e)}", 500)
 
     @staticmethod
-    def update_me(user_id: str, data: dict) -> Aluno:
+    def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
         """
         Atualiza perfil do aluno.
         

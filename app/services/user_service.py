@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..models.user import User, Motorista, Aluno, Gestor
@@ -32,7 +33,7 @@ class UserService:
         return user
 
     @staticmethod
-    def create_user(data: dict) -> User:
+    def create_user(data: dict[str, Any]) -> User:
         """
         Create a new user.
         
@@ -85,7 +86,7 @@ class UserService:
             raise AppError(f"Erro ao criar usuário: {str(e)}", 500)
 
     @staticmethod
-    def update_user(user_id: str, data: dict) -> User:
+    def update_user(user_id: str, data: dict[str, Any]) -> User:
         """
         Update user data.
         
@@ -125,7 +126,7 @@ class UserService:
             raise AppError(f"Erro ao atualizar usuário: {str(e)}", 500)
 
     @staticmethod
-    def create_motorista(gestor_id: str, data: dict) -> Motorista:
+    def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
         """
         Create a new driver (gestor only).
         
@@ -164,7 +165,7 @@ class UserService:
             raise AppError(f"Erro ao criar motorista: {str(e)}", 500)
 
     @staticmethod
-    def change_password(user_id: str, data: dict) -> None:
+    def change_password(user_id: str, data: dict[str, Any]) -> None:
         """
         Change user password (requires current password).
         

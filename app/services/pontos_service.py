@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from app.models.geo import Ponto
 from app.models.user import User
@@ -71,7 +72,7 @@ class PontosService:
             raise AppError(f"Erro ao criar ponto: {str(e)}", 500)
 
     @staticmethod
-    def update_ponto(user_id: str, ponto_id: str, data: dict) -> Ponto:
+    def update_ponto(user_id: str, ponto_id: str, data: dict[str, Any]) -> Ponto:
         """
         Update point data.
         

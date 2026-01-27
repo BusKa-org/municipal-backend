@@ -1,4 +1,6 @@
 import logging
+from typing import Any
+
 from app import db
 from app.models.user import User, Aluno, Motorista, Gestor
 from app.models.enum import UserRole
@@ -15,7 +17,7 @@ logger = logging.getLogger(__name__)
 class AuthService:
             
     @staticmethod
-    def login_user(data: dict) -> dict:
+    def login_user(data: dict[str, Any]) -> dict[str, Any]:
         """
         Authenticate user and return JWT token.
         
@@ -44,7 +46,7 @@ class AuthService:
         }
 
     @staticmethod
-    def register_user(data: dict) -> User:
+    def register_user(data: dict[str, Any]) -> User:
         """
         Register a new user (admin/dev endpoint).
         
