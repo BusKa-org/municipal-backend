@@ -33,7 +33,16 @@ def create_app() -> Flask:
     app.config["JWT_SECRET_KEY"] = settings.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=settings.JWT_EXPIRES_HOURS)
 
-    CORS(app)
+    # CORS configuration
+    CORS(
+        app,
+        origins=settings.CORS_ORIGINS,
+        supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        max_age=86400,  # Cache preflight for 24 hours
+    )
+
     db.init_app(app)
     jwt.init_app(app)
 
