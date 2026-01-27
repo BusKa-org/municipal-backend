@@ -1,7 +1,7 @@
 [project]
-name = "demo-repository"
+name = "buska-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Backend API for BusKá - School Bus Management System"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,4 +16,61 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "python-dotenv>=1.2.1",
     "sqlalchemy>=2.0.44",
+    "alembic>=1.13.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "black>=24.0.0",
+    "ruff>=0.2.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+# ==========================================
+# Tool Configurations
+# ==========================================
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | migrations
+    | __pycache__
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [".venv", "migrations"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",   # line too long (handled by black)
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = ["migrations", ".venv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
