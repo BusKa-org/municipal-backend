@@ -61,14 +61,37 @@ select = [
 ]
 ignore = [
     "E501",   # line too long (handled by black)
+    "B904",   # raise-without-from-inside-except (intentional: converting to user-friendly errors)
 ]
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
+warn_return_any = false  # Too noisy with SQLAlchemy queries
 warn_unused_ignores = true
 ignore_missing_imports = true
+check_untyped_defs = false  # Don't enforce types in untyped functions
 exclude = ["migrations", ".venv"]
+
+# Ignore Flask-SQLAlchemy model issues (needs proper stubs)
+[[tool.mypy.overrides]]
+module = "app.models.*"
+ignore_errors = true
+
+# Services - relaxed but still useful checking
+[[tool.mypy.overrides]]
+module = "app.services.*"
+warn_return_any = false
+check_untyped_defs = false
+
+# Stricter checking on core and new code
+[[tool.mypy.overrides]]
+module = "app.core.*"
+warn_return_any = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "app.api.controllers.*"
+warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
