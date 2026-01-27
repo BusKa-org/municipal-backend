@@ -1,15 +1,26 @@
+import logging
+
 from app.models.geo import Instituicao, Endereco, Ponto
 from app.models.user import User
 from app.models.base import db
 from app.models.enum import TipoInstituicao
+from app.core.exceptions import AppError, NotFoundError, ValidationError, ForbiddenError
+
+logger = logging.getLogger(__name__)
+
 
 class InstituicaoService:
     
     @staticmethod
-    def create_instituicao(gestor_id, data):
+    def create_instituicao(gestor_id: str, data: dict) -> Instituicao:
+        """
+        Create a new institution (gestor only).
+        
+        Raises: ForbiddenError, ValidationError, AppError
+        """
         user = User.query.get(gestor_id)
         if not user or str(user.role) != 'GESTOR':
-            return {"error": "Permissão negada. Apenas gestores criam instituições."}, 403
+            raise ForbiddenError("Permissão negada. Apenas gestores criam instituições.")
 
         nome = data.get('nome')
         cnpj = data.get('cnpj')
@@ -17,80 +28,99 @@ class InstituicaoService:
         end_data = data.get('endereco')
 
         if not end_data:
-            return {"error": "Dados de endereço são obrigatórios"}, 400
-
-        novo_ponto = Ponto(
-            prefeitura_id=user.prefeitura_id,
-            latitude=end_data.get('latitude'),
-            longitude=end_data.get('longitude'),
-            apelido=f"Inst: {nome}"
-        )
-        db.session.add(novo_ponto)
-        db.session.flush()
-
-        nova_inst = Instituicao(
-            nome=nome,
-            cnpj=cnpj,
-            tipo=TipoInstituicao(tipo_str),
-            ponto_id=novo_ponto.id
-        )
-        db.session.add(nova_inst)
-
-        novo_endereco = Endereco(
-            logradouro=end_data.get('logradouro'),
-            numero=end_data.get('numero'),
-            bairro=end_data.get('bairro'),
-            cidade=end_data.get('cidade'),
-            cep=end_data.get('cep'),
-            ponto_id=novo_ponto.id
-        )
-        db.session.add(novo_endereco)
+            raise ValidationError("Dados de endereço são obrigatórios")
 
         try:
+            novo_ponto = Ponto(
+                prefeitura_id=user.prefeitura_id,
+                latitude=end_data.get('latitude'),
+                longitude=end_data.get('longitude'),
+                apelido=f"Inst: {nome}"
+            )
+            db.session.add(novo_ponto)
+            db.session.flush()
+
+            nova_inst = Instituicao(
+                nome=nome,
+                cnpj=cnpj,
+                tipo=TipoInstituicao(tipo_str),
+                ponto_id=novo_ponto.id
+            )
+            db.session.add(nova_inst)
+
+            novo_endereco = Endereco(
+                logradouro=end_data.get('logradouro'),
+                numero=end_data.get('numero'),
+                bairro=end_data.get('bairro'),
+                cidade=end_data.get('cidade'),
+                cep=end_data.get('cep'),
+                ponto_id=novo_ponto.id
+            )
+            db.session.add(novo_endereco)
+
             db.session.commit()
-            return nova_inst, 201
+            return nova_inst
+            
         except Exception as e:
             db.session.rollback()
-            return {"error": "Erro ao salvar dados", "details": str(e)}, 500
+            raise AppError(f"Erro ao salvar instituição: {str(e)}", 500)
 
     @staticmethod
-    def list_all(gestor_id):
+    def list_all(gestor_id: str) -> list[Instituicao]:
+        """List all institutions for user's prefeitura."""
         user = User.query.get(gestor_id)
-        if not user: return {"error": "Usuário não encontrado"}, 403
+        if not user:
+            raise NotFoundError("Usuário não encontrado")
 
-        instituicoes = (
+        return (
             Instituicao.query
             .join(Ponto)
             .filter(Ponto.prefeitura_id == user.prefeitura_id)
             .all()
         )
-        
-        return instituicoes, 200
 
     @staticmethod
-    def get_by_id(gestor_id, inst_id):
+    def get_by_id(gestor_id: str, inst_id: str) -> Instituicao:
+        """
+        Get institution by ID (with tenant check).
+        
+        Raises: NotFoundError, ForbiddenError
+        """
         user = User.query.get(gestor_id)
-        inst = Instituicao.query.get(inst_id)
-        
-        if not inst: return {"error": "Instituição não encontrada"}, 404
-        
-        if inst.ponto.prefeitura_id != user.prefeitura_id:
-            return {"error": "Acesso negado"}, 403
+        if not user:
+            raise NotFoundError("Usuário não encontrado")
             
-        return inst, 200
+        inst = Instituicao.query.get(inst_id)
+        if not inst:
+            raise NotFoundError("Instituição não encontrada")
+        
+        if inst.ponto.prefeitura_id != user.prefeitura_id:
+            raise ForbiddenError("Acesso negado")
+            
+        return inst
 
     @staticmethod
-    def delete_instituicao(gestor_id, inst_id):
+    def delete_instituicao(gestor_id: str, inst_id: str) -> None:
+        """
+        Delete an institution (gestor only).
+        
+        Raises: ForbiddenError, NotFoundError, AppError
+        """
         user = User.query.get(gestor_id)
-        if str(user.role) != 'GESTOR': return {"error": "Proibido"}, 403
+        if not user or str(user.role) != 'GESTOR':
+            raise ForbiddenError("Apenas gestores podem remover instituições")
 
         inst = Instituicao.query.get(inst_id)
-        if not inst: return {"error": "Não encontrado"}, 404
+        if not inst:
+            raise NotFoundError("Instituição não encontrada")
 
         if inst.ponto.prefeitura_id != user.prefeitura_id:
-            return {"error": "Acesso negado"}, 403
+            raise ForbiddenError("Acesso negado")
 
-        db.session.delete(inst.ponto)
-        db.session.commit()
-        
-        return {"message": "Instituição removida com sucesso"}, 200
+        try:
+            db.session.delete(inst.ponto)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error deleting institution: {e}")
+            raise AppError(f"Erro ao remover instituição: {str(e)}", 500)

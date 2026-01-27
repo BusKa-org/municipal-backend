@@ -1,88 +1,129 @@
+import logging
+
 from app.models.geo import Ponto
 from app.models.user import User
 from app.models.base import db
-from sqlalchemy.exc import IntegrityError
+from app.core.exceptions import AppError, NotFoundError, ValidationError, ForbiddenError
+
+logger = logging.getLogger(__name__)
+
 
 class PontosService:
     
     @staticmethod
-    def list_all(user_id):
+    def list_all(user_id: str) -> list[Ponto]:
+        """List all points for user's prefeitura."""
         user = User.query.get(user_id)
-        if not user: return {"error": "User not found"}, 403
+        if not user:
+            raise NotFoundError("Usuário não encontrado")
         
-        pontos = Ponto.query.filter_by(prefeitura_id=user.prefeitura_id).all()
-        return [p.to_dict() for p in pontos], 200
+        return Ponto.query.filter_by(prefeitura_id=user.prefeitura_id).all()
 
     @staticmethod
-    def get_by_id(user_id, ponto_id):
-        user = User.query.get(user_id)
-        ponto = Ponto.query.get(ponto_id)
+    def get_by_id(user_id: str, ponto_id: str) -> Ponto:
+        """
+        Get point by ID (with tenant check).
         
-        if not ponto: return {"error": "Ponto não encontrado"}, 404
+        Raises: NotFoundError, ForbiddenError
+        """
+        user = User.query.get(user_id)
+        if not user:
+            raise NotFoundError("Usuário não encontrado")
+            
+        ponto = Ponto.query.get(ponto_id)
+        if not ponto:
+            raise NotFoundError("Ponto não encontrado")
         
         if user.prefeitura_id != ponto.prefeitura_id:
-            return {"error": "Acesso negado"}, 403
+            raise ForbiddenError("Acesso negado")
             
-        return ponto.to_dict(), 200
+        return ponto
 
     @staticmethod
-    def create_ponto(user_id, data):
+    def create_ponto(user_id: str, data: dict) -> Ponto:
+        """
+        Create a new geographic point.
+        
+        Raises: ForbiddenError, ValidationError, AppError
+        """
         user = User.query.get(user_id)
         if not user or str(user.role) not in ['GESTOR', 'MOTORISTA']:
-            return {"error": "Permissão negada"}, 403
+            raise ForbiddenError("Permissão negada")
 
         if not data.get('latitude') or not data.get('longitude'):
-            return {"error": "Lat/Lon são obrigatórios"}, 400
+            raise ValidationError("Lat/Lon são obrigatórios")
 
-        novo_ponto = Ponto(
-            prefeitura_id=user.prefeitura_id,
-            apelido=data.get('apelido', 'Sem Nome'),
-            latitude=data.get('latitude'),
-            longitude=data.get('longitude')
-        )
-        
-        db.session.add(novo_ponto)
-        db.session.commit()
-        
-        return novo_ponto.to_dict(), 201
-
-    @staticmethod
-    def update_ponto(user_id, ponto_id, data):
-        user = User.query.get(user_id)
-        if not user or str(user.role) != 'GESTOR':
-            return {"error": "Apenas gestores editam pontos"}, 403
-
-        ponto = Ponto.query.get(ponto_id)
-        if not ponto: return {"error": "Ponto não encontrado"}, 404
-        
-        if ponto.prefeitura_id != user.prefeitura_id:
-            return {"error": "Acesso negado"}, 403
-
-        if 'apelido' in data: ponto.apelido = data['apelido']
-        if 'latitude' in data: ponto.latitude = data['latitude']
-        if 'longitude' in data: ponto.longitude = data['longitude']
-
-        db.session.commit()
-        return ponto.to_dict(), 200
+        try:
+            novo_ponto = Ponto(
+                prefeitura_id=user.prefeitura_id,
+                apelido=data.get('apelido', 'Sem Nome'),
+                latitude=data.get('latitude'),
+                longitude=data.get('longitude')
+            )
+            
+            db.session.add(novo_ponto)
+            db.session.commit()
+            return novo_ponto
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error creating point: {e}")
+            raise AppError(f"Erro ao criar ponto: {str(e)}", 500)
 
     @staticmethod
-    def delete_ponto(user_id, ponto_id):
+    def update_ponto(user_id: str, ponto_id: str, data: dict) -> Ponto:
+        """
+        Update point data.
+        
+        Raises: ForbiddenError, NotFoundError, AppError
+        """
         user = User.query.get(user_id)
         if not user or str(user.role) != 'GESTOR':
-            return {"error": "Permissão negada"}, 403
+            raise ForbiddenError("Apenas gestores editam pontos")
 
         ponto = Ponto.query.get(ponto_id)
         if not ponto:
-            return {"error": "Ponto não encontrado"}, 404
+            raise NotFoundError("Ponto não encontrado")
+        
+        if ponto.prefeitura_id != user.prefeitura_id:
+            raise ForbiddenError("Acesso negado")
+
+        try:
+            # Update simple fields
+            for field in ('apelido', 'latitude', 'longitude'):
+                if field in data:
+                    setattr(ponto, field, data[field])
+
+            db.session.commit()
+            return ponto
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating point: {e}")
+            raise AppError(f"Erro ao atualizar ponto: {str(e)}", 500)
+
+    @staticmethod
+    def delete_ponto(user_id: str, ponto_id: str) -> None:
+        """
+        Delete a point (if not in use).
+        
+        Raises: ForbiddenError, NotFoundError, AppError
+        """
+        user = User.query.get(user_id)
+        if not user or str(user.role) != 'GESTOR':
+            raise ForbiddenError("Permissão negada")
+
+        ponto = Ponto.query.get(ponto_id)
+        if not ponto:
+            raise NotFoundError("Ponto não encontrado")
             
         if ponto.prefeitura_id != user.prefeitura_id:
-             return {"error": "Acesso negado"}, 403
+            raise ForbiddenError("Acesso negado")
 
         try:
             db.session.delete(ponto)
             db.session.commit()
-            return {"message": "Ponto removido com sucesso"}, 200
-        except IntegrityError:
+        except Exception as e:
             db.session.rollback()
-
-            return {"error": "Este ponto está sendo usado em uma rota e não pode ser excluído"}, 400
+            logger.error(f"Error deleting point: {e}")
+            raise AppError("Este ponto está sendo usado em uma rota e não pode ser excluído", 400)

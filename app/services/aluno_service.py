@@ -1,26 +1,35 @@
+import logging
+
 from werkzeug.security import generate_password_hash
 from app.models.user import User, Aluno
 from app.models.geo import Ponto, Endereco, Instituicao
 from app.models.base import db
 from app.models.enum import UserRole
+from app.core.exceptions import AppError, NotFoundError, ValidationError, ForbiddenError
+
+logger = logging.getLogger(__name__)
+
 
 class AlunoService:
     
     @staticmethod
-    def auto_cadastro(data):
+    def auto_cadastro(data: dict) -> Aluno:
         """
         Aluno se cadastra sozinho.
         A prefeitura é inferida através da Instituição escolhida.
+        
+        Returns: Aluno object
+        Raises: NotFoundError, ValidationError, AppError
         """
         inst_id = data.get('instituicao_id')
         instituicao = Instituicao.query.get(inst_id)
         if not instituicao:
-            return {"error": "Instituição inválida"}, 404
+            raise NotFoundError("Instituição inválida")
         
         prefeitura_id = instituicao.ponto.prefeitura_id
 
         if User.query.filter((User.email == data.get('email')) | (User.cpf == data.get('cpf'))).first():
-            return {"error": "Email ou CPF já cadastrado"}, 400
+            raise ValidationError("Email ou CPF já cadastrado")
 
         try:
             end_data = data.get('endereco_casa')
@@ -51,7 +60,6 @@ class AlunoService:
                 cpf=data.get('cpf'),
                 telefone=data.get('telefone'),
                 role=UserRole.ALUNO,
-                
                 matricula=data.get('matricula'),
                 instituicao_id=instituicao.id,
                 ponto_casa_id=ponto_casa.id,
@@ -64,27 +72,30 @@ class AlunoService:
             db.session.add(novo_aluno)
             db.session.commit()
             
-            return novo_aluno, 201
-
+            return novo_aluno
+            
         except Exception as e:
             db.session.rollback()
-            return {"error": str(e)}, 500
+            logger.error(f"Error creating student: {e}")
+            raise AppError(f"Erro ao criar aluno: {str(e)}", 500)
 
     @staticmethod
-    def update_me(user_id, data):
+    def update_me(user_id: str, data: dict) -> Aluno:
+        """
+        Atualiza perfil do aluno.
+        
+        Returns: Aluno object
+        Raises: NotFoundError, AppError
+        """
         aluno = Aluno.query.get(user_id)
-        if not aluno: 
-            return {"error": "Aluno não encontrado"}, 404
+        if not aluno:
+            raise NotFoundError("Aluno não encontrado")
 
         try:
-            if 'nome' in data: aluno.nome = data['nome']
-            if 'telefone' in data: aluno.telefone = data['telefone']
-
-            if 'matricula' in data: aluno.matricula = data['matricula']
-            if 'nome_pai' in data: aluno.nome_pai = data['nome_pai']
-            if 'cpf_pai' in data: aluno.cpf_pai = data['cpf_pai']
-            if 'nome_mae' in data: aluno.nome_mae = data['nome_mae']
-            if 'cpf_mae' in data: aluno.cpf_mae = data['cpf_mae']
+            # Update simple fields
+            for field in ('nome', 'telefone', 'matricula', 'nome_pai', 'cpf_pai', 'nome_mae', 'cpf_mae'):
+                if field in data:
+                    setattr(aluno, field, data[field])
 
             if 'endereco_casa' in data:
                 end_data = data['endereco_casa']
@@ -115,30 +126,46 @@ class AlunoService:
                         db.session.add(novo_end)
 
             db.session.commit()
-            return aluno, 200
-
+            return aluno
+            
         except Exception as e:
             db.session.rollback()
-            return {"error": "Erro ao atualizar perfil", "details": str(e)}, 500
+            logger.error(f"Error updating student profile: {e}")
+            raise AppError(f"Erro ao atualizar perfil: {str(e)}", 500)
 
     @staticmethod
-    def delete_me(user_id):
-        """Aluno se auto-exclui"""
+    def delete_me(user_id: str) -> None:
+        """
+        Aluno se auto-exclui.
+        
+        Raises: NotFoundError, AppError
+        """
         aluno = Aluno.query.get(user_id)
-        if not aluno: return {"error": "Aluno não encontrado"}, 404
+        if not aluno:
+            raise NotFoundError("Aluno não encontrado")
 
-        if aluno.ponto_casa:
-            db.session.delete(aluno.ponto_casa)
-        
-        db.session.delete(aluno)
-        db.session.commit()
-        
-        return {"message": "Conta excluída com sucesso"}, 200
+        try:
+            if aluno.ponto_casa:
+                db.session.delete(aluno.ponto_casa)
+            
+            db.session.delete(aluno)
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error deleting student account: {e}")
+            raise AppError(f"Erro ao excluir conta: {str(e)}", 500)
 
     @staticmethod
-    def list_alunos_gestor(gestor_id):
-        # Apenas para o gestor ver quem se cadastrou
-        gestor = User.query.get(gestor_id)
-        if gestor.role != UserRole.GESTOR: return {"error": "Proibido"}, 403
+    def list_alunos_gestor(gestor_id: str) -> list[Aluno]:
+        """
+        Lista alunos da prefeitura (apenas para gestores).
         
-        return Aluno.query.filter_by(prefeitura_id=gestor.prefeitura_id).all(), 200
+        Returns: List of Aluno objects
+        Raises: ForbiddenError
+        """
+        gestor = User.query.get(gestor_id)
+        if not gestor or gestor.role != UserRole.GESTOR:
+            raise ForbiddenError("Apenas gestores podem listar alunos")
+        
+        return Aluno.query.filter_by(prefeitura_id=gestor.prefeitura_id).all()
