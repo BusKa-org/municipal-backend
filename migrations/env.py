@@ -3,6 +3,7 @@
 This module configures Alembic to work with Flask-SQLAlchemy and
 automatically detect model changes for migration generation.
 """
+
 import os
 import sys
 from logging.config import fileConfig
@@ -30,6 +31,41 @@ if config.config_file_name is not None:
 
 # Set target metadata for autogenerate support
 target_metadata = db.metadata
+
+
+# ==========================================
+# Exclusion filters for autogenerate
+# ==========================================
+
+# Tables managed by PostGIS (not our app)
+EXCLUDED_TABLES = {"spatial_ref_sys", "topology", "layer"}
+
+# Columns managed by PostgreSQL (computed/generated)
+EXCLUDED_COLUMNS = {
+    "ponto": ["geom"],  # Generated column: ST_SetSRID(ST_MakePoint(...))
+}
+
+# Indexes managed by PostGIS or that we want to ignore
+EXCLUDED_INDEXES = {"idx_ponto_geom"}
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    """Filter out PostGIS system objects from autogenerate."""
+    if type_ == "table":
+        if name in EXCLUDED_TABLES:
+            return False
+
+    if type_ == "column":
+        table_name = object.table.name if hasattr(object, "table") else None
+        if table_name in EXCLUDED_COLUMNS:
+            if name in EXCLUDED_COLUMNS[table_name]:
+                return False
+
+    if type_ == "index":
+        if name in EXCLUDED_INDEXES:
+            return False
+
+    return True
 
 
 def get_url():
@@ -60,8 +96,9 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,
-        compare_server_default=True,
+        compare_type=False,  # Don't compare column types (avoids ENUM noise)
+        compare_server_default=False,  # Don't compare server defaults
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -87,8 +124,9 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,
-            compare_server_default=True,
+            compare_type=False,  # Don't compare column types (avoids ENUM noise)
+            compare_server_default=False,  # Don't compare server defaults
+            include_object=include_object,
         )
 
         with context.begin_transaction():
