@@ -23,6 +23,7 @@ class User(db.Model):
         'polymorphic_on': role
     }
 
+    @property
     def is_gestor(self):
         return self.role == UserRole.GESTOR
 
