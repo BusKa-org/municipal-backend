@@ -17,14 +17,7 @@ class Settings:
         self.DB_HOST = os.getenv("DB_HOST", "localhost")
         self.DB_PORT = os.getenv("DB_PORT", "5432")
         self.DB_NAME = os.getenv("DB_NAME", "buska_db")
-
-        # JWT settings (secret is required)
-        self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-        if not self.JWT_SECRET_KEY:
-            raise ConfigurationError(
-                "JWT_SECRET_KEY environment variable is required. "
-                "Set it to a secure random string."
-            )
+        self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me")
         
         if self.JWT_SECRET_KEY == "change-me":
             logger.warning(
