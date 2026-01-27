@@ -3,7 +3,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import auth_contract
 from app.core.exceptions import ValidationError
-from app.services.auth_service import AuthService
+from app.services import auth_service
 
 api = Namespace("auth", description="Autenticação e gerenciamento de sessão")
 
@@ -35,4 +35,4 @@ class AuthLogin(Resource):
         if not data.get("email") or not data.get("password"):
             raise ValidationError("Email e senha são obrigatórios")
 
-        return AuthService.login_user(data), 200
+        return auth_service.login_user(data), 200
