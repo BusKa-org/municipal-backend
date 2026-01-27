@@ -5,7 +5,7 @@ from flask_restx import Api
 from datetime import timedelta
 from dotenv import load_dotenv
 from sqlalchemy import text
-from .core.config import get_settings
+from .core.config import settings
 from .core.exceptions import AppError, ValidationError
 from .models.base import db
 from .api.controllers.auth_controller import api as auth_ns
@@ -22,7 +22,6 @@ jwt = JWTManager()
 def create_app() -> Flask:
     app = Flask(__name__)
 
-    settings = get_settings()
     load_dotenv()
 
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
