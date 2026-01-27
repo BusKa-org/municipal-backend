@@ -35,28 +35,13 @@ class UserResponseSchema(Schema):
     cpf = fields.String()
     
     role = fields.Method("get_role")
-
-    matricula = fields.Method("get_matricula")
-    nome_pai = fields.Method("get_nome_pai")
-    nome_mae = fields.Method("get_nome_mae")
-    cnh = fields.Method("get_cnh")
-    salario = fields.Method("get_salario")
+    
+    # Polymorphic fields (may not exist on all User subtypes)
+    matricula = fields.String(dump_default=None)
+    nome_pai = fields.String(dump_default=None)
+    nome_mae = fields.String(dump_default=None)
+    cnh = fields.String(dump_default=None)
+    salario = fields.Float(dump_default=None)
 
     def get_role(self, obj):
         return str(obj.role.value) if hasattr(obj.role, 'value') else str(obj.role)
-
-    def get_matricula(self, obj):
-        return getattr(obj, 'matricula', None)
-
-    def get_nome_pai(self, obj):
-        return getattr(obj, 'nome_pai', None)
-
-    def get_nome_mae(self, obj):
-        return getattr(obj, 'nome_mae', None)
-
-    def get_cnh(self, obj):
-        return getattr(obj, 'cnh', None)
-        
-    def get_salario(self, obj):
-        val = getattr(obj, 'salario', None)
-        return float(val) if val else None
