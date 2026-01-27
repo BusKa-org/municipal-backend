@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import Any
 
 from app.models.user import User, Aluno
 from app.models.geo import Ponto
@@ -45,7 +46,7 @@ class RotasService:
         return []
 
     @staticmethod
-    def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict) -> dict:
+    def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """
         Manage student subscription to a route.
         
@@ -91,7 +92,7 @@ class RotasService:
             raise AppError(f"Erro ao gerenciar inscrição: {str(e)}", 500)
         
     @staticmethod
-    def create_rota(gestor_id: str, data: dict) -> Rota:
+    def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
         """
         Create a new route with optional points and schedules.
         
@@ -164,7 +165,7 @@ class RotasService:
             raise AppError(f"Erro ao criar rota: {str(e)}", 500)
 
     @staticmethod
-    def add_ponto(gestor_id: str, rota_id: str, data: dict) -> None:
+    def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
         """
         Add points to a route.
         
@@ -222,7 +223,7 @@ class RotasService:
             raise AppError(f"Erro ao adicionar pontos: {str(e)}", 500)
 
     @staticmethod
-    def add_horario(gestor_id: str, rota_id: str, data: dict) -> HorarioRota:
+    def add_horario(gestor_id: str, rota_id: str, data: dict[str, Any]) -> HorarioRota:
         """
         Add a schedule to a route.
         
@@ -308,7 +309,7 @@ class RotasService:
         return rota
 
     @staticmethod
-    def update_rota(user_id: str, rota_id: str, data: dict) -> Rota:
+    def update_rota(user_id: str, rota_id: str, data: dict[str, Any]) -> Rota:
         """
         Update route name, driver, or vehicle.
         

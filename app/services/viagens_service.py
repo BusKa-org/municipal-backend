@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import Any
 
 from app.models.viagem import Viagem, ViagemPonto, AlunosConfirmados
 from app.models.rota import DiasOperacao, Rota, HorarioRota, RotaPonto, RotaAluno
@@ -102,7 +103,7 @@ class ViagensService:
         return agenda
     
     @staticmethod
-    def confirmar_presenca_aluno(user_id: str, viagem_id: str, data: dict) -> dict:
+    def confirmar_presenca_aluno(user_id: str, viagem_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """
         Permite ao aluno confirmar participação.
         
@@ -377,7 +378,7 @@ class ViagensService:
         return Viagem.query.filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
 
     @staticmethod
-    def controlar_viagem(user_id: str, viagem_id: str, data: dict) -> Viagem:
+    def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viagem:
         """
         Inicia ou Finaliza viagem.
         

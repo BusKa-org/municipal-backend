@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from app.models.onibus import Onibus
 from app.models.user import User
@@ -42,7 +43,7 @@ class OnibusService:
         return onibus
 
     @staticmethod
-    def create_onibus(user_id: str, data: dict) -> Onibus:
+    def create_onibus(user_id: str, data: dict[str, Any]) -> Onibus:
         """
         Create a new bus (gestor only).
         

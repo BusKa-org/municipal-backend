@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from app.models.geo import Instituicao, Endereco, Ponto
 from app.models.user import User
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class InstituicaoService:
     
     @staticmethod
-    def create_instituicao(gestor_id: str, data: dict) -> Instituicao:
+    def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
         """
         Create a new institution (gestor only).
         
