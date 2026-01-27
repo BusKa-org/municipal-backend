@@ -1,51 +1,54 @@
-from flask_restx import fields, reqparse
+"""Viagem endpoint documentation models."""
 
-class ViagemContract:
-    @staticmethod
-    def create_model(api):
-        return api.model('ViagemCreate', {
-            'rota_id': fields.String(required=True, description='UUID da Rota'),
-            'data': fields.String(required=True, description='Data YYYY-MM-DD', example='2026-01-20')
-        })
+from flask_restx import fields
 
-    @staticmethod
-    def action_model(api):
-        return api.model('ViagemAction', {
-            'acao': fields.String(required=True, enum=['INICIAR', 'FINALIZAR', 'REGISTRAR_PONTO'], description='Ação a executar'),
-            'ponto_id': fields.String(description='Obrigatório se acao=REGISTRAR_PONTO')
-        })
+
+def register_models(api):
+    """Register viagem models with the API namespace."""
     
-    @staticmethod
-    def filter_parser():
-        parser = reqparse.RequestParser()
-        parser.add_argument('data_inicio', type=str, required=False, help='Filtro data inicial (YYYY-MM-DD)')
-        parser.add_argument('data_fim', type=str, required=False, help='Filtro data final (YYYY-MM-DD)')
-        parser.add_argument('status', type=str, required=False, choices=('AGENDADA', 'EM_ANDAMENTO', 'FINALIZADA'), help='Status da viagem')
-        parser.add_argument('motorista_id', type=str, required=False, help='UUID do motorista')
-        parser.add_argument('rota_id', type=str, required=False, help='UUID da rota')
-        return parser
+    create_request = api.model('ViagemCreateRequest', {
+        'rota_id': fields.String(required=True, description='UUID da rota'),
+        'horario_id': fields.String(required=True, description='UUID do horário'),
+        'data': fields.String(required=True, description='Data (YYYY-MM-DD)'),
+        'motorista_id': fields.String(description='UUID do motorista (opcional)'),
+        'veiculo_id': fields.String(description='UUID do veículo (opcional)')
+    })
     
-    from flask_restx import fields
-
-    @staticmethod
-    def criar_viagem_input(api):
-        """Modelo para criar viagem manual (rota específica)"""
-        return api.model('ViagemInput', {
-            'rota_id': fields.String(required=True, description='UUID da Rota'),
-            'data': fields.String(required=True, description='Data da viagem (YYYY-MM-DD)', example="2026-02-04")
-        })
-
-    @staticmethod
-    def gerar_lote_input(api):
-        """Modelo para o botão GERAR LOTE (apenas data)"""
-        return api.model('GerarLoteInput', {
-            'data': fields.String(required=True, description='Data para gerar as viagens (YYYY-MM-DD)', example="2026-02-04")
-        })
-        
-    @staticmethod
-    def confirmacao_input(api):
-        """Modelo para o Aluno confirmar presença e escolher o ponto"""
-        return api.model('ConfirmacaoInput', {
-            'confirmacao': fields.Boolean(required=True, description='Confirmar (true) ou Cancelar (false)', example=True),
-            'ponto_embarque_id': fields.String(required=False, description='UUID do Ponto de Embarque (Obrigatório se confirmação=true)', example="uuid-do-ponto")
-        })    
+    lote_request = api.model('ViagemLoteRequest', {
+        'data': fields.String(required=True, description='Data para gerar viagens (YYYY-MM-DD)')
+    })
+    
+    confirmacao_request = api.model('ConfirmacaoRequest', {
+        'ponto_embarque_id': fields.String(required=True, description='UUID do ponto de embarque')
+    })
+    
+    acao_request = api.model('ViagemAcaoRequest', {
+        'acao': fields.String(required=True, description='iniciar ou finalizar')
+    })
+    
+    response = api.model('ViagemResponse', {
+        'id': fields.String(description='UUID'),
+        'data': fields.String(description='Data'),
+        'horario_saida': fields.String(description='Horário'),
+        'sentido': fields.String(description='Sentido'),
+        'status': fields.String(description='AGENDADA, EM_ANDAMENTO, FINALIZADA'),
+        'rota_id': fields.String(description='UUID da rota'),
+        'rota_nome': fields.String(description='Nome da rota'),
+        'motorista_id': fields.String(description='UUID do motorista'),
+        'veiculo_id': fields.String(description='UUID do veículo')
+    })
+    
+    ponto_embarque = api.model('PontoEmbarque', {
+        'id': fields.String(description='UUID do ponto'),
+        'apelido': fields.String(description='Nome'),
+        'ordem': fields.Integer(description='Ordem na rota')
+    })
+    
+    return {
+        'create_request': create_request,
+        'lote_request': lote_request,
+        'confirmacao_request': confirmacao_request,
+        'acao_request': acao_request,
+        'response': response,
+        'ponto_embarque': ponto_embarque
+    }

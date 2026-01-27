@@ -1,150 +1,130 @@
 from flask import request
-from flask_restx import Resource, Namespace
+from flask_restx import Resource, Namespace, reqparse
 from flask_jwt_extended import jwt_required, get_jwt_identity
+
 from app.services.viagens_service import ViagensService
-from app.schemas.viagem_schema import ViagemCreateSchema, ViagemResponseSchema
-from app.api.contracts.viagem_contract import ViagemContract
+from app.schemas.viagem_schema import ViagemResponseSchema
+from app.core.exceptions import ValidationError
+from app.api.contracts import viagem_contract
 
 api = Namespace('viagens', description='Execução de Viagens')
 
-create_schema = ViagemCreateSchema()
+# API contracts (Swagger documentation)
+models = viagem_contract.register_models(api)
+
+# Validation schemas (Marshmallow)
 response_schema = ViagemResponseSchema()
 list_response_schema = ViagemResponseSchema(many=True)
 
-create_model = ViagemContract.create_model(api)
-action_model = ViagemContract.action_model(api)
-filter_parser = ViagemContract.filter_parser()
-lote_input_model = ViagemContract.gerar_lote_input(api)
-confirmacao_model = ViagemContract.confirmacao_input(api)
+# Filter parser for gestor listing
+filter_parser = reqparse.RequestParser()
+filter_parser.add_argument('data_inicio', type=str, required=False, help='Filtro data inicial (YYYY-MM-DD)')
+filter_parser.add_argument('data_fim', type=str, required=False, help='Filtro data final (YYYY-MM-DD)')
+filter_parser.add_argument('status', type=str, required=False, choices=('AGENDADA', 'EM_ANDAMENTO', 'FINALIZADA'), help='Status da viagem')
+filter_parser.add_argument('motorista_id', type=str, required=False, help='UUID do motorista')
+filter_parser.add_argument('rota_id', type=str, required=False, help='UUID da rota')
+
 
 @api.route('/aluno/agenda')
 class AlunoAgendaResource(Resource):
     @api.doc('list_viagens_aluno')
-    @api.expect(jwt_required=True)
     @jwt_required()
     def get(self):
-        """
-        Lista as próximas viagens do aluno para que ele possa confirmar presença.
-        Retorna viagens futuras onde o aluno foi inscrito.
-        """
+        """Lista as próximas viagens do aluno para confirmar presença."""
         user_id = get_jwt_identity()
-        result, status = ViagensService.get_proximas_viagens_aluno(user_id)
-        
-        return result, status
-    
+        agenda = ViagensService.get_proximas_viagens_aluno(user_id)
+        return agenda, 200
+
+
 @api.route('/<string:id>/pontos-embarque')
 class ViagemPontosResource(Resource):
     @api.doc('list_pontos_embarque_viagem')
-    @api.expect(jwt_required=True)
+    @api.marshal_list_with(models['ponto_embarque'], code=200)
     @jwt_required()
     def get(self, id):
-        """
-        Lista todos os pontos de embarque disponíveis para esta viagem específica.
-        O aluno usa isso para popular o mapa/lista antes de confirmar presença.
-        """
+        """Lista todos os pontos de embarque disponíveis para esta viagem."""
         user_id = get_jwt_identity()
-        result, status = ViagensService.listar_pontos_embarque(user_id, id)
-        
-        return result, status
+        pontos = ViagensService.listar_pontos_embarque(user_id, id)
+        return pontos, 200
+
 
 @api.route('/<string:id>/confirmacao')
 class ViagemConfirmacaoResource(Resource):
     @api.doc('confirmar_presenca')
-    @api.expect(confirmacao_model, jwt_required=True)
-    @api.expect(jwt_required=True) # Reforço
+    @api.expect(models['confirmacao_request'])
     @jwt_required()
     def put(self, id):
-        """
-        Aluno confirma presença na viagem e seleciona ponto de embarque.
-        O ponto deve pertencer à rota da viagem.
-        """
+        """Aluno confirma presença na viagem e seleciona ponto de embarque."""
         user_id = get_jwt_identity()
         data = request.get_json()
-        
-        result, status = ViagensService.confirmar_presenca_aluno(user_id, id, data)
-        return result, status
+        result = ViagensService.confirmar_presenca_aluno(user_id, id, data)
+        return result, 200
+
 
 @api.route('/')
 class ViagemListResource(Resource):
     
     @api.doc('list_all_viagens')
     @api.expect(filter_parser, validate=True)
-    @api.expect(jwt_required=True)
+    @api.marshal_list_with(models['response'], code=200)
     @jwt_required()
     def get(self):
         """Histórico completo de viagens com filtros (Apenas Gestor)"""
         user_id = get_jwt_identity()
-        
         args = filter_parser.parse_args()
-        
-        result, status = ViagensService.list_viagens_gestor(user_id, args)
-        
-        if status != 200: return result, status
-        
-        return list_response_schema.dump(result), 200
+        viagens = ViagensService.list_viagens_gestor(user_id, args)
+        return list_response_schema.dump(viagens), 200
 
     @api.doc('create_viagem')
-    @api.expect(create_model, jwt_required=True)
+    @api.expect(models['create_request'])
     @jwt_required()
     def post(self):
         """Gera uma nova viagem manual (Gestor)"""
         user_id = get_jwt_identity()
         data = request.get_json()
-        
-        result, status = ViagensService.gerar_viagem(user_id, data)
-        if status != 201: return result, status
-        
+        result = ViagensService.gerar_viagem(user_id, data)
         return result, 201
+
 
 @api.route('/gerar-lote')
 class ViagemLoteResource(Resource):
     
     @api.doc('gerar_viagens_lote')
-    @api.expect(lote_input_model, jwt_required=True)
+    @api.expect(models['lote_request'])
     @jwt_required()
     def post(self):
-        """
-        Gera viagens em lote para TODAS as rotas da prefeitura no dia especificado.
-        Verifica dias de operação e evita duplicidades.
-        """
+        """Gera viagens em lote para TODAS as rotas da prefeitura no dia especificado."""
         user_id = get_jwt_identity()
         data = request.get_json()
         
         if not data or 'data' not in data:
-             return {"error": "O campo 'data' é obrigatório"}, 400
+            raise ValidationError("O campo 'data' é obrigatório")
 
-        result, status = ViagensService.gerar_viagens_em_lote(user_id, data['data'])
-        
-        return result, status
+        result = ViagensService.gerar_viagens_em_lote(user_id, data['data'])
+        return result, 201
+
 
 @api.route('/minhas')
 class MinhasViagensResource(Resource):
     @api.doc('list_my_viagens')
-    @api.expect(jwt_required=True)
+    @api.marshal_list_with(models['response'], code=200)
     @jwt_required()
     def get(self):
         """Lista viagens atribuídas ao motorista logado"""
         user_id = get_jwt_identity()
-        result, status = ViagensService.list_viagens_motorista(user_id)
-        
-        if status != 200: return result, status
+        viagens = ViagensService.list_viagens_motorista(user_id)
+        return list_response_schema.dump(viagens), 200
 
-        return list_response_schema.dump(result), 200
 
 @api.route('/<string:id>/acao')
 class ViagemAcaoResource(Resource):
     @api.doc('control_viagem')
-    @api.expect(action_model, jwt_required=True)
+    @api.expect(models['acao_request'])
+    @api.marshal_with(models['response'], code=200)
     @jwt_required()
     def put(self, id):
-        """Controla a viagem (Iniciar, Finalizar, Registrar Ponto)"""
+        """Controla a viagem (Iniciar, Finalizar)"""
         user_id = get_jwt_identity()
         data = request.get_json()
-        
-        result, status = ViagensService.controlar_viagem(user_id, id, data)
-        if status != 200: return result, status
-        
-        try:
-            return response_schema.dump(result), 200
-        except:
-            return result, 200
+        viagem = ViagensService.controlar_viagem(user_id, id, data)
+        return response_schema.dump(viagem), 200

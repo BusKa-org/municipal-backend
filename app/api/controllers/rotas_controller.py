@@ -1,128 +1,138 @@
 from flask import request
 from flask_restx import Resource, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.services.rotas_service import RotasService
-from app.api.contracts.rota_contract import RotaContract
-from app.schemas.horario_schema import HorarioCreateSchema, HorarioResponseSchema
 
+from app.services.rotas_service import RotasService
+from app.schemas.horario_schema import HorarioCreateSchema, HorarioResponseSchema
+from app.schemas.rota_schema import RotaResponseSchema, RotaDetailResponseSchema
+from app.core.exceptions import ValidationError
+from app.api.contracts import rota_contract
+
+api = Namespace('rotas', description='Gestão de Rotas')
+
+# API contracts (Swagger documentation)
+models = rota_contract.register_models(api)
+
+# Validation schemas (Marshmallow)
+response_schema = RotaResponseSchema()
+list_response_schema = RotaResponseSchema(many=True)
+detail_response_schema = RotaDetailResponseSchema()
 horario_create = HorarioCreateSchema()
 horario_response = HorarioResponseSchema()
 horario_list_response = HorarioResponseSchema(many=True)
-api = Namespace('rotas', description='Gestão de Rotas')
 
-rota_model = RotaContract.rota_input_model(api)
-horario_model = RotaContract.horario_model(api)
-inscricao_model = RotaContract.inscricao_model(api)
 
 @api.route('/')
 class RotasListResource(Resource):
     @api.doc('list_rotas')
-    @api.expect(jwt_required=True)
+    @api.marshal_list_with(models['response'], code=200)
     @jwt_required()
     def get(self):
         """Lista todas as rotas"""
         current_user_id = get_jwt_identity()
-        return RotasService.list_all_rotas(current_user_id)
+        rotas = RotasService.list_all_rotas(current_user_id)
+        return list_response_schema.dump(rotas), 200
 
     @api.doc('create_rota')
-    @api.expect(rota_model, jwt_required=True)
+    @api.expect(models['create_request'])
     @jwt_required()
     def post(self):
         """Cria nova rota completa (Pontos + Horários + Dias)"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
-        return RotasService.create_rota(current_user_id, data)
+        rota = RotasService.create_rota(current_user_id, data)
+        return {"message": "Rota criada com sucesso", "id": str(rota.id)}, 201
+
 
 @api.route('/me')
 class MyRotasResource(Resource):
     @api.doc('list_my_rotas')
-    @api.expect(jwt_required=True)
     @jwt_required()
     def get(self):
         """Lista as rotas vinculadas ao usuário logado"""
         current_user_id = get_jwt_identity()
-        return RotasService.list_my_rotas(current_user_id)
+        rotas = RotasService.list_my_rotas(current_user_id)
+        return list_response_schema.dump(rotas), 200
+
 
 @api.route('/<string:id>/inscricao')
 @api.param('id', 'UUID da Rota')
 class RotaInscricaoResource(Resource):
     @api.doc('inscrever_aluno')
-    @api.expect(inscricao_model, jwt_required=True)
+    @api.expect(models['inscricao_request'])
     @jwt_required()
     def post(self, id):
         """Aluno se inscreve ou remove inscrição na rota"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
-        return RotasService.gerenciar_inscricao_aluno(current_user_id, id, data)
+        result = RotasService.gerenciar_inscricao_aluno(current_user_id, id, data)
+        return result, 200
+
 
 @api.route('/<string:id>/pontos')
 class RotaPontosResource(Resource):
     @api.doc('add_pontos')
-    @api.expect(jwt_required=True)
     @jwt_required()
     def post(self, id):
         """Adiciona pontos geográficos à rota"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
-        return RotasService.add_ponto(current_user_id, id, data)
+        RotasService.add_ponto(current_user_id, id, data)
+        return {"message": "Pontos adicionados à rota com sucesso"}, 200
+
 
 @api.route('/<string:id>/horarios')
 class RotaHorariosResource(Resource):
     @api.doc('list_horarios')
-    @api.expect(jwt_required=True)
+    @api.marshal_list_with(models['horario_response'], code=200)
     @jwt_required()
     def get(self, id):
         """Lista a grade de horários de uma rota"""
-        if not horario_list_response: return {"error": "Schema not configured"}, 500
-        
         current_user = get_jwt_identity()
-        result, status = RotasService.get_horarios(current_user, id)
-        if status != 200: return result, status
-        
-        return horario_list_response.dump(result), 200
+        horarios = RotasService.get_horarios(current_user, id)
+        return horario_list_response.dump(horarios), 200
 
     @api.doc('add_horario')
-    @api.expect(horario_model, jwt_required=True)
+    @api.expect(models['horario_input'])
+    @api.marshal_with(models['horario_response'], code=201)
     @jwt_required()
     def post(self, id):
         """Adiciona um horário de saída e dias de operação"""
-        if not horario_create: return {"error": "Schema not configured"}, 500
-
         current_user = get_jwt_identity()
         data = request.get_json()
         
         errors = horario_create.validate(data)
-        if errors: return {"error": "Validation error", "details": errors}, 400
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
         
-        result, status = RotasService.add_horario(current_user, id, data)
-        if status != 201: return result, status
-        
-        return horario_response.dump(result), 201
-    
+        horario = RotasService.add_horario(current_user, id, data)
+        return horario_response.dump(horario), 201
+
 
 @api.route('/<string:id>')
 class RotaResource(Resource):
     @api.doc('get_rota')
-    @api.expect(jwt_required=True)
+    @api.marshal_with(models['response'], code=200)
     @jwt_required()
     def get(self, id):
         """Obtém os detalhes de uma rota"""
         current_user_id = get_jwt_identity()
-        return RotasService.get_by_id(current_user_id, id)
+        rota = RotasService.get_by_id(current_user_id, id)
+        return detail_response_schema.dump(rota), 200
 
     @api.doc('update_rota')
-    @api.expect(rota_model, jwt_required=True)
     @jwt_required()
     def put(self, id):
         """Atualiza dados básicos da rota (Nome, Motorista, Veículo)"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
-        return RotasService.update_rota(current_user_id, id, data)
+        RotasService.update_rota(current_user_id, id, data)
+        return {"message": "Rota atualizada com sucesso"}, 200
 
     @api.doc('delete_rota')
-    @api.expect(jwt_required=True)
     @jwt_required()
     def delete(self, id):
         """Exclui uma rota"""
         current_user_id = get_jwt_identity()
-        return RotasService.delete_rota(current_user_id, id)
+        RotasService.delete_rota(current_user_id, id)
+        return {"message": "Rota removida com sucesso"}, 200
