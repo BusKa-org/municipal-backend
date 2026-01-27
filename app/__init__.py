@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_restx import Api
@@ -6,6 +6,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 from sqlalchemy import text
 from .core.config import get_settings
+from .core.exceptions import AppError, ValidationError
 from .models.base import db
 from .api.controllers.auth_controller import api as auth_ns
 from .api.controllers.user_controller import api as user_ns
@@ -59,6 +60,26 @@ def create_app() -> Flask:
     api.add_namespace(viagem_ns, path='/viagens')
     api.add_namespace(inst_ns, path='/instituicoes')
     api.add_namespace(alunos_ns, path='/alunos')
+
+    # ==========================================
+    # Error Handlers
+    # ==========================================
+    
+    @app.errorhandler(AppError)
+    def handle_app_error(error):
+        """Handle all custom application errors."""
+        response = {"error": error.message}
+        if isinstance(error, ValidationError) and error.details:
+            response["details"] = error.details
+        return jsonify(response), error.status_code
+
+    @app.errorhandler(404)
+    def handle_not_found(error):
+        return jsonify({"error": "Recurso não encontrado"}), 404
+
+    @app.errorhandler(500)
+    def handle_internal_error(error):
+        return jsonify({"error": "Erro interno do servidor"}), 500
 
     @app.cli.command("init-db")
     def init_db():
