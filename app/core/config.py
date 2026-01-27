@@ -41,5 +41,5 @@ class Settings:
         )
 
 
-def get_settings() -> Settings:
-    return Settings()
+# Module-level instance (created once at import time)
+settings = Settings()
