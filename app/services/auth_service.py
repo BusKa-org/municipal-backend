@@ -4,7 +4,6 @@ from typing import Any
 from flask_jwt_extended import create_access_token
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app import db
 from app.core.exceptions import (
     AppError,
     ConflictError,
@@ -12,6 +11,7 @@ from app.core.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.models.base import db
 from app.models.enum import UserRole
 from app.models.prefeitura import Prefeitura
 from app.models.user import Aluno, Gestor, Motorista, User

@@ -117,6 +117,21 @@ test-integration:
 	uv run pytest tests/integration/
 
 # ==========================================
+# Documentation
+# ==========================================
+
+.PHONY: docs-openapi docs-serve
+
+docs-openapi:
+	uv run -- flask --app app export-openapi
+	@echo "OpenAPI spec exported to docs/openapi.json"
+
+docs-serve:
+	@echo "Swagger UI available at: http://localhost:5000/docs"
+	@echo "OpenAPI JSON available at: http://localhost:5000/openapi.json"
+	uv run -- flask --app app run --debug
+
+# ==========================================
 # Cleanup
 # ==========================================
 
@@ -169,6 +184,10 @@ help:
 	@echo "  test            Run all tests"
 	@echo "  test-cov        Run tests with coverage report"
 	@echo "  test-unit       Run unit tests only"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  docs-openapi    Export OpenAPI spec to docs/openapi.json"
+	@echo "  docs-serve      Start server and show docs URLs"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean           Remove cache files"
