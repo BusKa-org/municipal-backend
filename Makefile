@@ -31,7 +31,7 @@ install-dev:
 # Database
 # ==========================================
 
-.PHONY: db-up db-down db-reset db-shell initdb seed migrate migrate-create
+.PHONY: db-up db-down db-reset db-shell db-create seed migrate migrate-create migrate-history migrate-downgrade
 
 db-up:
 	$(DOCKER) -f infra/database.yml up -d db
@@ -43,19 +43,25 @@ db-reset:
 	$(DOCKER) -f infra/database.yml down --volumes
 	$(DOCKER) -f infra/database.yml rm -f
 	$(DOCKER) -f infra/database.yml up -d db
+	@echo "Waiting for database to start..."
 	sleep 5
-	uv run -- flask --app app init-db
+	uv run alembic upgrade head
+	@echo "Database reset complete. Run 'make seed' to populate data."
+
+db-create:
+	$(DOCKER) -f infra/database.yml up -d db
+	@echo "Waiting for database to start..."
+	sleep 5
+	uv run alembic upgrade head
 
 db-shell:
-	psql -h localhost -p 5432 -U buska_user -d buska_db
-
-initdb:
-	$(DOCKER) -f infra/database.yml up -d db
-	sleep 5
-	uv run -- flask --app app init-db
+	PGPASSWORD=buska_pass psql -h localhost -p 5432 -U buska_user -d buska_db
 
 seed:
 	uv run python seed.py
+
+seed-sql:
+	PGPASSWORD=buska_pass psql -h localhost -p 5432 -U buska_user -d buska_db -f database/populate.sql
 
 # Alembic migrations
 migrate:
@@ -70,6 +76,9 @@ migrate-history:
 
 migrate-downgrade:
 	uv run alembic downgrade -1
+
+migrate-current:
+	uv run alembic current
 
 # ==========================================
 # Code Quality
@@ -137,12 +146,18 @@ help:
 	@echo "Database:"
 	@echo "  db-up           Start database container"
 	@echo "  db-down         Stop database container"
-	@echo "  db-reset        Reset database (delete + recreate)"
+	@echo "  db-reset        Reset database (drop + recreate via Alembic)"
+	@echo "  db-create       Create database from scratch (Alembic)"
 	@echo "  db-shell        Connect to database via psql"
-	@echo "  initdb          Initialize database with populate.sql"
-	@echo "  seed            Run seed.py script"
-	@echo "  migrate         Run pending migrations"
-	@echo "  migrate-create  Create a new migration"
+	@echo "  seed            Seed data using seed.py"
+	@echo "  seed-sql        Seed data using populate.sql"
+	@echo ""
+	@echo "Migrations (Alembic):"
+	@echo "  migrate         Apply pending migrations"
+	@echo "  migrate-create  Create a new migration (auto-generated)"
+	@echo "  migrate-history Show migration history"
+	@echo "  migrate-current Show current migration version"
+	@echo "  migrate-downgrade  Rollback last migration"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  lint            Run ruff linter"
