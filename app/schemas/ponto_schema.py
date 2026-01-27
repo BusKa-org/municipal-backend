@@ -1,9 +1,27 @@
 from marshmallow import Schema, fields
 
+
+# ==========================================
+# Input Schemas (Validation)
+# ==========================================
+
 class PontoCreateSchema(Schema):
-    apelido = fields.String(required=False, allow_none=True, metadata={"description": "Nome do ponto (ex: Escola A)"})
-    latitude = fields.Float(required=True, metadata={"description": "Latitude"})
-    longitude = fields.Float(required=True, metadata={"description": "Longitude"})
+    """Schema for creating a new point."""
+    apelido = fields.String(required=False, allow_none=True)
+    latitude = fields.Float(required=True)
+    longitude = fields.Float(required=True)
+
+
+class PontoUpdateSchema(Schema):
+    """Schema for updating a point (all fields optional)."""
+    apelido = fields.String()
+    latitude = fields.Float()
+    longitude = fields.Float()
+
+
+# ==========================================
+# Response Schemas (Serialization)
+# ==========================================
 
 class PontoResponseSchema(Schema):
     id = fields.String()

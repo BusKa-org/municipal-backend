@@ -3,7 +3,7 @@ from flask_restx import Resource, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.services.pontos_service import PontosService
-from app.schemas.ponto_schema import PontoCreateSchema, PontoResponseSchema
+from app.schemas.ponto_schema import PontoCreateSchema, PontoUpdateSchema, PontoResponseSchema
 from app.core.exceptions import ValidationError
 from app.api.contracts import ponto_contract
 
@@ -14,6 +14,7 @@ models = ponto_contract.register_models(api)
 
 # Validation schemas (Marshmallow)
 create_schema = PontoCreateSchema()
+update_schema = PontoUpdateSchema()
 response_schema = PontoResponseSchema()
 list_response_schema = PontoResponseSchema(many=True)
 
@@ -65,6 +66,11 @@ class PontoResource(Resource):
         """Atualiza apelido ou coordenadas de um ponto"""
         user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = update_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         ponto = PontosService.update_ponto(user_id, id, data)
         return response_schema.dump(ponto), 200
 

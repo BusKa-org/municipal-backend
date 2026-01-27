@@ -1,8 +1,55 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 from .ponto_schema import PontoResponseSchema
 from .horario_schema import HorarioResponseSchema
 
+
+# ==========================================
+# Input Schemas (Validation)
+# ==========================================
+
+class RotaPontoInputSchema(Schema):
+    """Schema for adding a point to a route."""
+    ponto_id = fields.String(required=True)
+    ordem = fields.Integer(required=True)
+
+
+class RotaHorarioInputSchema(Schema):
+    """Schema for route schedule input."""
+    horario_saida = fields.String(required=True)
+    sentido = fields.String(required=True, validate=validate.OneOf(['IDA', 'VOLTA', 'CIRCULAR']))
+    dias = fields.List(fields.String(), required=True)
+
+
+class RotaCreateSchema(Schema):
+    """Schema for creating a new route."""
+    nome = fields.String(required=True)
+    motorista_padrao_id = fields.String(load_default=None)
+    veiculo_padrao_id = fields.String(load_default=None)
+    pontos = fields.List(fields.Nested(RotaPontoInputSchema), load_default=[])
+    horarios = fields.List(fields.Nested(RotaHorarioInputSchema), load_default=[])
+
+
+class RotaUpdateSchema(Schema):
+    """Schema for updating a route."""
+    nome = fields.String()
+    motorista_padrao_id = fields.String(load_default=None)
+    veiculo_padrao_id = fields.String(load_default=None)
+
+
+class RotaInscricaoSchema(Schema):
+    """Schema for route subscription action."""
+    acao = fields.String(required=True, validate=validate.OneOf(['inscrever', 'desinscrever']))
+
+
+class RotaPontoAddSchema(Schema):
+    """Schema for adding points to an existing route."""
+    pontos = fields.List(fields.Nested(RotaPontoInputSchema), required=True)
+
+
+# ==========================================
+# Response Schemas (Serialization)
+# ==========================================
 
 class RotaPontoResponseSchema(Schema):
     ordem = fields.Integer()

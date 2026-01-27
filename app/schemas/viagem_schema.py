@@ -1,4 +1,37 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
+
+
+# ==========================================
+# Input Schemas (Validation)
+# ==========================================
+
+class ViagemCreateSchema(Schema):
+    """Schema for creating a new trip."""
+    rota_id = fields.String(required=True)
+    horario_id = fields.String(required=True)
+    data = fields.Date(required=True)
+    motorista_id = fields.String(load_default=None)
+    veiculo_id = fields.String(load_default=None)
+
+
+class ViagemLoteSchema(Schema):
+    """Schema for batch trip generation."""
+    data = fields.String(required=True)
+
+
+class ViagemConfirmacaoSchema(Schema):
+    """Schema for student trip confirmation."""
+    ponto_embarque_id = fields.String(required=True)
+
+
+class ViagemAcaoSchema(Schema):
+    """Schema for trip control actions."""
+    acao = fields.String(required=True, validate=validate.OneOf(['iniciar', 'finalizar']))
+
+
+# ==========================================
+# Response Schemas (Serialization)
+# ==========================================
 
 class AlunoViagemResponseSchema(Schema):
     aluno_id = fields.String()
@@ -6,11 +39,6 @@ class AlunoViagemResponseSchema(Schema):
     confirmacao = fields.Boolean()
     ponto_embarque = fields.String(attribute="ponto_embarque.apelido")
     ponto_destino = fields.String(attribute="ponto_destino.apelido")
-
-class ViagemCreateSchema(Schema):
-    rota_id = fields.String(required=True, metadata={"description": "ID da Rota base"})
-    data = fields.Date(required=True, metadata={"description": "Data da viagem (YYYY-MM-DD)"})
-    horario_id = fields.String(required=False)
 
 class ViagemPontoResponseSchema(Schema):
     ponto_id = fields.String()

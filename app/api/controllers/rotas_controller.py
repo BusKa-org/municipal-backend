@@ -4,7 +4,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.services.rotas_service import RotasService
 from app.schemas.horario_schema import HorarioCreateSchema, HorarioResponseSchema
-from app.schemas.rota_schema import RotaResponseSchema, RotaDetailResponseSchema
+from app.schemas.rota_schema import (
+    RotaResponseSchema, RotaDetailResponseSchema,
+    RotaCreateSchema, RotaUpdateSchema, RotaInscricaoSchema, RotaPontoAddSchema
+)
 from app.core.exceptions import ValidationError
 from app.api.contracts import rota_contract
 
@@ -20,6 +23,10 @@ detail_response_schema = RotaDetailResponseSchema()
 horario_create = HorarioCreateSchema()
 horario_response = HorarioResponseSchema()
 horario_list_response = HorarioResponseSchema(many=True)
+create_schema = RotaCreateSchema()
+update_schema = RotaUpdateSchema()
+inscricao_schema = RotaInscricaoSchema()
+ponto_add_schema = RotaPontoAddSchema()
 
 
 @api.route('/')
@@ -40,6 +47,11 @@ class RotasListResource(Resource):
         """Cria nova rota completa (Pontos + Horários + Dias)"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = create_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         rota = RotasService.create_rota(current_user_id, data)
         return {"message": "Rota criada com sucesso", "id": str(rota.id)}, 201
 
@@ -65,6 +77,11 @@ class RotaInscricaoResource(Resource):
         """Aluno se inscreve ou remove inscrição na rota"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = inscricao_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         result = RotasService.gerenciar_inscricao_aluno(current_user_id, id, data)
         return result, 200
 
@@ -72,11 +89,17 @@ class RotaInscricaoResource(Resource):
 @api.route('/<string:id>/pontos')
 class RotaPontosResource(Resource):
     @api.doc('add_pontos')
+    @api.expect(models['ponto_input'])
     @jwt_required()
     def post(self, id):
         """Adiciona pontos geográficos à rota"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = ponto_add_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         RotasService.add_ponto(current_user_id, id, data)
         return {"message": "Pontos adicionados à rota com sucesso"}, 200
 
@@ -121,11 +144,17 @@ class RotaResource(Resource):
         return detail_response_schema.dump(rota), 200
 
     @api.doc('update_rota')
+    @api.expect(models['create_request'])
     @jwt_required()
     def put(self, id):
         """Atualiza dados básicos da rota (Nome, Motorista, Veículo)"""
         current_user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = update_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         RotasService.update_rota(current_user_id, id, data)
         return {"message": "Rota atualizada com sucesso"}, 200
 

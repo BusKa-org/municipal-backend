@@ -1,5 +1,27 @@
 from marshmallow import Schema, fields, validate
 
+
+# ==========================================
+# Input Schemas (Validation)
+# ==========================================
+
+class MotoristaCreateSchema(Schema):
+    """Schema for creating a new driver."""
+    nome = fields.String(required=True)
+    email = fields.Email(required=True)
+    password = fields.String(required=True, load_only=True)
+    cpf = fields.String(required=True)
+    telefone = fields.String(load_default=None)
+    cnh = fields.String(required=True)
+    salario = fields.Float(load_default=None)
+
+
+class ChangePasswordSchema(Schema):
+    """Schema for changing password."""
+    current_password = fields.String(required=True)
+    new_password = fields.String(required=True, validate=validate.Length(min=6))
+
+
 class UserCreateSchema(Schema):
     prefeitura_id = fields.String(
         required=True, 

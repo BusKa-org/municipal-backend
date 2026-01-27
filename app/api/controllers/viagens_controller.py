@@ -3,7 +3,10 @@ from flask_restx import Resource, Namespace, reqparse
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.services.viagens_service import ViagensService
-from app.schemas.viagem_schema import ViagemResponseSchema
+from app.schemas.viagem_schema import (
+    ViagemResponseSchema, ViagemCreateSchema, ViagemLoteSchema,
+    ViagemConfirmacaoSchema, ViagemAcaoSchema
+)
 from app.core.exceptions import ValidationError
 from app.api.contracts import viagem_contract
 
@@ -15,6 +18,10 @@ models = viagem_contract.register_models(api)
 # Validation schemas (Marshmallow)
 response_schema = ViagemResponseSchema()
 list_response_schema = ViagemResponseSchema(many=True)
+create_schema = ViagemCreateSchema()
+lote_schema = ViagemLoteSchema()
+confirmacao_schema = ViagemConfirmacaoSchema()
+acao_schema = ViagemAcaoSchema()
 
 # Filter parser for gestor listing
 filter_parser = reqparse.RequestParser()
@@ -57,6 +64,11 @@ class ViagemConfirmacaoResource(Resource):
         """Aluno confirma presença na viagem e seleciona ponto de embarque."""
         user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = confirmacao_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         result = ViagensService.confirmar_presenca_aluno(user_id, id, data)
         return result, 200
 
@@ -82,6 +94,11 @@ class ViagemListResource(Resource):
         """Gera uma nova viagem manual (Gestor)"""
         user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = create_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         result = ViagensService.gerar_viagem(user_id, data)
         return result, 201
 
@@ -97,8 +114,9 @@ class ViagemLoteResource(Resource):
         user_id = get_jwt_identity()
         data = request.get_json()
         
-        if not data or 'data' not in data:
-            raise ValidationError("O campo 'data' é obrigatório")
+        errors = lote_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
 
         result = ViagensService.gerar_viagens_em_lote(user_id, data['data'])
         return result, 201
@@ -126,5 +144,10 @@ class ViagemAcaoResource(Resource):
         """Controla a viagem (Iniciar, Finalizar)"""
         user_id = get_jwt_identity()
         data = request.get_json()
+        
+        errors = acao_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+        
         viagem = ViagensService.controlar_viagem(user_id, id, data)
         return response_schema.dump(viagem), 200
