@@ -36,10 +36,9 @@ ponto_add_schema = RotaPontoAddSchema()
 @api.route("/")
 class RotasListResource(Resource):
     @api.doc("list_rotas")
-    @api.marshal_list_with(models["response"], code=200)
     @jwt_required()
     def get(self):
-        """Lista todas as rotas"""
+        """Lista todas as rotas disponíveis"""
         current_user_id = get_jwt_identity()
         rotas = rotas_service.list_all_rotas(current_user_id)
         return list_response_schema.dump(rotas), 200
