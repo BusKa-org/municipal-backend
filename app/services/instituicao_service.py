@@ -75,6 +75,11 @@ def list_all(gestor_id: str) -> list[Instituicao]:
     return Instituicao.query.join(Ponto).filter(Ponto.prefeitura_id == user.prefeitura_id).all()
 
 
+def list_all_public() -> list[Instituicao]:
+    """List all institutions (public - for student registration)."""
+    return Instituicao.query.all()
+
+
 def get_by_id(gestor_id: str, inst_id: str) -> Instituicao:
     """
     Get institution by ID (with tenant check).
