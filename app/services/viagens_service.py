@@ -398,8 +398,22 @@ def gerar_viagens_em_lote(user_id: str, data_str: str) -> dict:
 
 
 def list_viagens_motorista(user_id: str) -> list[Viagem]:
-    """List trips assigned to the driver."""
-    return Viagem.query.filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
+    """List trips assigned to the driver with all related data."""
+    from sqlalchemy.orm import joinedload
+    
+    return (
+        Viagem.query
+        .options(
+            joinedload(Viagem.alunos_confirmados).joinedload(AlunosConfirmados.aluno),
+            joinedload(Viagem.alunos_confirmados).joinedload(AlunosConfirmados.ponto_embarque),
+            joinedload(Viagem.alunos_confirmados).joinedload(AlunosConfirmados.ponto_destino),
+            joinedload(Viagem.horario_rota).joinedload(HorarioRota.rota).joinedload(Rota.alunos_inscritos),
+            joinedload(Viagem.horario_rota).joinedload(HorarioRota.rota).joinedload(Rota.pontos_padrao),
+        )
+        .filter_by(motorista_id=user_id)
+        .order_by(Viagem.data.desc())
+        .all()
+    )
 
 
 def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viagem:
