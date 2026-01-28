@@ -30,8 +30,6 @@ class User(db.Model):
     notificacoes = db.relationship(
         "Notificacao", backref="usuario", lazy=True, cascade="all, delete-orphan"
     )
-    
-    prefeitura = db.relationship("Prefeitura", lazy="joined")
 
     __mapper_args__ = {"polymorphic_identity": UserRole.USER, "polymorphic_on": role}
 
