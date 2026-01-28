@@ -15,4 +15,4 @@ class Prefeitura(db.Model):
 
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
 
-    usuarios = db.relationship("User", backref="prefeitura", lazy=True)
+    usuarios = db.relationship("User", backref=db.backref("prefeitura", lazy="joined"), lazy=True)
