@@ -91,3 +91,24 @@ class ViagemResponseSchema(Schema):
         if obj.horario_rota and obj.horario_rota.rota:
             return obj.horario_rota.rota.nome
         return None
+
+    origem = fields.Method("get_origem")
+    destino = fields.Method("get_destino")
+
+    def get_origem(self, obj):
+        if obj.horario_rota and obj.horario_rota.rota:
+            rota = obj.horario_rota.rota
+            if rota.pontos_padrao and len(rota.pontos_padrao) > 0:
+                primeiro_ponto = sorted(rota.pontos_padrao, key=lambda p: p.ordem)[0]
+                if primeiro_ponto.ponto:
+                    return primeiro_ponto.ponto.apelido
+        return None
+
+    def get_destino(self, obj):
+        if obj.horario_rota and obj.horario_rota.rota:
+            rota = obj.horario_rota.rota
+            if rota.pontos_padrao and len(rota.pontos_padrao) > 0:
+                ultimo_ponto = sorted(rota.pontos_padrao, key=lambda p: p.ordem)[-1]
+                if ultimo_ponto.ponto:
+                    return ultimo_ponto.ponto.apelido
+        return None
