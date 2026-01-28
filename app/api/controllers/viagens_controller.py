@@ -91,7 +91,6 @@ class ViagemListResource(Resource):
 
     @api.doc("list_all_viagens")
     @api.expect(filter_parser, validate=True)
-    @api.marshal_list_with(models["response"], code=200)
     @jwt_required()
     def get(self):
         """Histórico completo de viagens com filtros (Apenas Gestor)"""
@@ -138,10 +137,9 @@ class ViagemLoteResource(Resource):
 @api.route("/minhas")
 class MinhasViagensResource(Resource):
     @api.doc("list_my_viagens")
-    @api.marshal_list_with(models["response"], code=200)
     @jwt_required()
     def get(self):
-        """Lista viagens atribuídas ao motorista logado"""
+        """Lista viagens atribuídas ao motorista logado com detalhes"""
         user_id = get_jwt_identity()
         viagens = viagens_service.list_viagens_motorista(user_id)
         return list_response_schema.dump(viagens), 200
@@ -151,7 +149,6 @@ class MinhasViagensResource(Resource):
 class ViagemAcaoResource(Resource):
     @api.doc("control_viagem")
     @api.expect(models["acao_request"])
-    @api.marshal_with(models["response"], code=200)
     @jwt_required()
     def put(self, id):
         """Controla a viagem (Iniciar, Finalizar)"""
