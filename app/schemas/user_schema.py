@@ -58,6 +58,10 @@ class UserResponseSchema(Schema):
     
     role = fields.Method("get_role")
     
+    # Municipality info
+    municipio_nome = fields.Method("get_municipio_nome")
+    municipio_uf = fields.Method("get_municipio_uf")
+    
     # Polymorphic fields (may not exist on all User subtypes)
     matricula = fields.String(dump_default=None)
     nome_pai = fields.String(dump_default=None)
@@ -67,3 +71,13 @@ class UserResponseSchema(Schema):
 
     def get_role(self, obj):
         return str(obj.role.value) if hasattr(obj.role, 'value') else str(obj.role)
+
+    def get_municipio_nome(self, obj):
+        if obj.prefeitura:
+            return obj.prefeitura.nome
+        return None
+
+    def get_municipio_uf(self, obj):
+        if obj.prefeitura:
+            return obj.prefeitura.estado
+        return None
