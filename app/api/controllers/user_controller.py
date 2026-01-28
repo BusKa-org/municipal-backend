@@ -49,8 +49,9 @@ class UserResource(Resource):
     @api.doc("get_user_by_id")
     @jwt_required()
     def get(self, id):
-        """Busca usuário por ID"""
-        user = user_service.get_user_by_id(id)
+        """Busca usuário por ID (próprio perfil ou mesma prefeitura se Gestor)"""
+        current_user_id = get_jwt_identity()
+        user = user_service.get_user_by_id(id, current_user_id)
         return user_schema.dump(user), 200
 
 

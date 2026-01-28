@@ -31,8 +31,14 @@ def _popular_dados_da_viagem(viagem_obj, rota_obj, horario_obj):
     """Helper function that copies students and stops from route to trip."""
     inscricoes = RotaAluno.query.filter_by(rota_id=rota_obj.id).all()
 
+    # Batch load all alunos to avoid N+1 queries
+    aluno_ids = [i.aluno_id for i in inscricoes]
+    alunos_map = {
+        a.usuario_id: a for a in Aluno.query.filter(Aluno.usuario_id.in_(aluno_ids)).all()
+    }
+
     for inscricao in inscricoes:
-        aluno = db.session.get(Aluno, inscricao.aluno_id)
+        aluno = alunos_map.get(inscricao.aluno_id)
         if not aluno:
             continue
 

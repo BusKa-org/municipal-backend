@@ -36,16 +36,37 @@ def get_all_users(current_user_id: str) -> list[User]:
     return User.query.filter_by(prefeitura_id=user.prefeitura_id).all()
 
 
-def get_user_by_id(user_id: str) -> User:
+def get_user_by_id(user_id: str, current_user_id: str | None = None) -> User:
     """
     Get user by ID.
 
-    Raises: NotFoundError
+    If current_user_id is provided, enforces tenant isolation:
+    - Users can only view their own profile
+    - Gestores can view any user in their prefeitura
+
+    Raises: NotFoundError, ForbiddenError
     """
     user = User.query.get(user_id)
     if not user:
         raise NotFoundError("Usuário não encontrado")
-    return user
+
+    # If no current_user_id provided, skip authorization (internal use)
+    if current_user_id is None:
+        return user
+
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        raise NotFoundError("Usuário atual não encontrado")
+
+    # Users can always view themselves
+    if str(user_id) == str(current_user_id):
+        return user
+
+    # Gestores can view users in their prefeitura
+    if current_user.role == UserRole.GESTOR and user.prefeitura_id == current_user.prefeitura_id:
+        return user
+
+    raise ForbiddenError("Sem permissão para visualizar este usuário")
 
 
 def create_user(data: dict[str, Any]) -> User:
