@@ -65,6 +65,7 @@ class ViagemResponseSchema(Schema):
     # Schedule info
     horario_inicio = fields.Method("get_horario_inicio")
     horario_fim = fields.DateTime(attribute="fim_real")
+    inicio_real = fields.DateTime()  # Actual start time for elapsed calculation
     tipo = fields.Method("get_tipo")
     rota_id = fields.Method("get_rota_id")
     rota_nome = fields.Method("get_rota_nome")
