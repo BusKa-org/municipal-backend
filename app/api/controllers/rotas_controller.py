@@ -139,10 +139,9 @@ class RotaHorariosResource(Resource):
 @api.route("/<string:id>")
 class RotaResource(Resource):
     @api.doc("get_rota")
-    @api.marshal_with(models["response"], code=200)
     @jwt_required()
     def get(self, id):
-        """Obtém os detalhes de uma rota"""
+        """Obtém os detalhes de uma rota com pontos e horários"""
         current_user_id = get_jwt_identity()
         rota = rotas_service.get_by_id(current_user_id, id)
         return detail_response_schema.dump(rota), 200
