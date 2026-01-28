@@ -107,9 +107,14 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
         raise ValidationError("Nome da rota é obrigatório")
 
     try:
+        # If a driver creates a route, automatically assign themselves as the default driver
+        motorista_id = data.get("motorista_padrao_id")
+        if not motorista_id and user.role == UserRole.MOTORISTA:
+            motorista_id = user.id
+        
         rota = Rota(
             nome=nome,
-            motorista_padrao_id=data.get("motorista_padrao_id"),
+            motorista_padrao_id=motorista_id,
             veiculo_padrao_id=data.get("veiculo_padrao_id"),
             prefeitura_id=user.prefeitura_id,
         )
