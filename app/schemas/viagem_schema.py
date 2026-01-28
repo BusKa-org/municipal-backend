@@ -31,7 +31,7 @@ class ViagemConfirmacaoSchema(Schema):
 class ViagemAcaoSchema(Schema):
     """Schema for trip control actions."""
 
-    acao = fields.String(required=True, validate=validate.OneOf(["iniciar", "finalizar"]))
+    acao = fields.String(required=True, validate=validate.OneOf(["INICIAR", "FINALIZAR"]))
 
 
 # ==========================================
@@ -58,7 +58,7 @@ class ViagemPontoResponseSchema(Schema):
 class ViagemResponseSchema(Schema):
     id = fields.String()
     data = fields.Date()
-    status = fields.String()
+    status = fields.Method("get_status")
     motorista_nome = fields.String(attribute="motorista.nome", dump_default="Sem Motorista")
     veiculo_placa = fields.String(attribute="veiculo.placa", dump_default="Sem Veículo")
 
@@ -87,6 +87,12 @@ class ViagemResponseSchema(Schema):
         if obj.alunos_confirmados:
             return sum(1 for a in obj.alunos_confirmados if a.confirmacao)
         return 0
+
+    def get_status(self, obj):
+        """Get status as string."""
+        if obj.status:
+            return obj.status.name if hasattr(obj.status, 'name') else str(obj.status)
+        return "AGENDADA"
 
     def get_horario_inicio(self, obj):
         if obj.horario_rota:
