@@ -15,9 +15,9 @@ from app.models.enum import SentidoViagem, StatusViagem, TipoInstituicao, UserRo
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.onibus import Onibus
 from app.models.prefeitura import Prefeitura
-from app.models.rota import HorarioRota, Rota, RotaPonto
+from app.models.rota import HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import Aluno, Gestor, Motorista
-from app.models.viagem import Viagem
+from app.models.viagem import AlunosConfirmados, Viagem, ViagemPonto
 
 # Fixed UUIDs for predictable test data (as UUID objects)
 ID_PREFEITURA = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -208,6 +208,11 @@ def seed_database():
         rota_ponto4 = RotaPonto(rota_id=ID_ROTA, ponto_id=ID_PONTO_INST, ordem=4)
         db.session.add_all([rota_ponto1, rota_ponto2, rota_ponto3, rota_ponto4])
 
+        # Enroll student in route
+        print("   Enrolling student in route...")
+        rota_aluno = RotaAluno(rota_id=ID_ROTA, aluno_id=ID_ALUNO)
+        db.session.add(rota_aluno)
+
         # 9. HorarioRota
         print("9. Creating Schedule...")
         horario_rota = HorarioRota(
@@ -231,6 +236,34 @@ def seed_database():
             status=StatusViagem.AGENDADA,
         )
         db.session.add(viagem)
+        db.session.flush()
+
+        # Add trip stops (ViagemPonto)
+        print("    Adding trip stops...")
+        viagem_ponto1 = ViagemPonto(
+            viagem_id=ID_VIAGEM, ponto_id=ID_PONTO_PARTIDA, ordem=1, visitado=False
+        )
+        viagem_ponto2 = ViagemPonto(
+            viagem_id=ID_VIAGEM, ponto_id=ID_PONTO_PARADA1, ordem=2, visitado=False
+        )
+        viagem_ponto3 = ViagemPonto(
+            viagem_id=ID_VIAGEM, ponto_id=ID_PONTO_ALUNO, ordem=3, visitado=False
+        )
+        viagem_ponto4 = ViagemPonto(
+            viagem_id=ID_VIAGEM, ponto_id=ID_PONTO_INST, ordem=4, visitado=False
+        )
+        db.session.add_all([viagem_ponto1, viagem_ponto2, viagem_ponto3, viagem_ponto4])
+
+        # Add student confirmation (pending)
+        print("    Adding student to trip...")
+        aluno_confirmado = AlunosConfirmados(
+            viagem_id=ID_VIAGEM,
+            aluno_id=ID_ALUNO,
+            confirmacao=False,
+            ponto_embarque_id=ID_PONTO_ALUNO,
+            ponto_destino_id=ID_PONTO_INST,
+        )
+        db.session.add(aluno_confirmado)
 
         try:
             db.session.commit()
