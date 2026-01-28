@@ -21,8 +21,7 @@ list_response_schema = PontoResponseSchema(many=True)
 
 @api.route("/")
 class PontosListResource(Resource):
-    @api.doc("list_pontos")
-    @api.marshal_list_with(models["response"], code=200)
+    @api.doc("list_pontos", responses={200: ("Success", [models["response"]])})
     @jwt_required()
     def get(self):
         """Lista todos os pontos da prefeitura"""
