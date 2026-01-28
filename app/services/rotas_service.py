@@ -190,31 +190,47 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
         raise ValidationError("A rota deve conter pelo menos um ponto válido")
 
     try:
-        ultimo_ponto = (
-            RotaPonto.query.filter_by(rota_id=rota.id).order_by(RotaPonto.ordem.desc()).first()
-        )
-        ordem_counter = (ultimo_ponto.ordem + 1) if ultimo_ponto else 1
+        # Clear existing route points (replacing with new set)
+        RotaPonto.query.filter_by(rota_id=rota.id).delete()
+        db.session.flush()
 
         for p in pontos:
-            nome_p = p.get("nome")
-            lat = p.get("latitude")
-            lon = p.get("longitude")
+            ponto_id = p.get("ponto_id")
+            ordem = p.get("ordem", 1)
 
-            if not nome_p or lat is None or lon is None:
-                continue
+            # Case 1: Link existing point by ID
+            if ponto_id:
+                existing_ponto = Ponto.query.get(ponto_id)
+                if not existing_ponto:
+                    logger.warning(f"Point {ponto_id} not found, skipping")
+                    continue
+                if existing_ponto.prefeitura_id != rota.prefeitura_id:
+                    logger.warning(f"Point {ponto_id} belongs to different prefeitura, skipping")
+                    continue
+                
+                novo_rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=ordem)
+                db.session.add(novo_rota_ponto)
+            
+            # Case 2: Create new point with coordinates
+            else:
+                nome_p = p.get("nome")
+                lat = p.get("latitude")
+                lon = p.get("longitude")
 
-            ponto = Ponto(
-                prefeitura_id=rota.prefeitura_id,
-                apelido=nome_p,
-                latitude=lat,
-                longitude=lon,
-            )
-            db.session.add(ponto)
-            db.session.flush()
+                if not nome_p or lat is None or lon is None:
+                    continue
 
-            novo_rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto.id, ordem=ordem_counter)
-            db.session.add(novo_rota_ponto)
-            ordem_counter += 1
+                ponto = Ponto(
+                    prefeitura_id=rota.prefeitura_id,
+                    apelido=nome_p,
+                    latitude=lat,
+                    longitude=lon,
+                )
+                db.session.add(ponto)
+                db.session.flush()
+
+                novo_rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto.id, ordem=ordem)
+                db.session.add(novo_rota_ponto)
 
         db.session.commit()
 
