@@ -26,6 +26,7 @@ def seed_database():
         print("Creating City Hall...")
         pref = Prefeitura(id=ID_PREFEITURA, nome="Prefeitura Matriz", estado="SP", ativo=True)
         db.session.add(pref)
+        db.session.flush()  # Flush to make prefeitura available for foreign keys
 
         print("Creating Super Manager (admin@buska.app)...")
 
