@@ -71,6 +71,22 @@ class ViagemResponseSchema(Schema):
 
     pontos = fields.List(fields.Nested(ViagemPontoResponseSchema), attribute="pontos_visitados")
     alunos = fields.List(fields.Nested(AlunoViagemResponseSchema), attribute="alunos_confirmados")
+    
+    # Counts for dashboard
+    total_alunos = fields.Method("get_total_alunos")
+    alunos_confirmados_count = fields.Method("get_alunos_confirmados_count")
+
+    def get_total_alunos(self, obj):
+        """Total students enrolled in the route."""
+        if obj.horario_rota and obj.horario_rota.rota:
+            return len(obj.horario_rota.rota.alunos_inscritos)
+        return 0
+
+    def get_alunos_confirmados_count(self, obj):
+        """Number of students who confirmed presence."""
+        if obj.alunos_confirmados:
+            return sum(1 for a in obj.alunos_confirmados if a.confirmacao)
+        return 0
 
     def get_horario_inicio(self, obj):
         if obj.horario_rota:
