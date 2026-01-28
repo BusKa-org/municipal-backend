@@ -18,6 +18,16 @@ response_schema = InstituicaoResponseSchema()
 list_response_schema = InstituicaoResponseSchema(many=True)
 
 
+@api.route("/public")
+class InstituicaoPublicListResource(Resource):
+    @api.doc("list_instituicoes_public")
+    @api.marshal_list_with(models["response"], code=200)
+    def get(self):
+        """Lista todas as instituições (público - para cadastro de alunos)"""
+        instituicoes = instituicao_service.list_all_public()
+        return list_response_schema.dump(instituicoes), 200
+
+
 @api.route("/")
 class InstituicaoListResource(Resource):
     @api.doc("list_instituicoes")
