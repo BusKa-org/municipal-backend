@@ -1,28 +1,31 @@
 from marshmallow import Schema, fields, validate
 
-from .ponto_schema import PontoResponseSchema
 from .horario_schema import HorarioResponseSchema
-
+from .ponto_schema import PontoResponseSchema
 
 # ==========================================
 # Input Schemas (Validation)
 # ==========================================
 
+
 class RotaPontoInputSchema(Schema):
     """Schema for adding a point to a route."""
+
     ponto_id = fields.String(required=True)
     ordem = fields.Integer(required=True)
 
 
 class RotaHorarioInputSchema(Schema):
     """Schema for route schedule input."""
+
     horario_saida = fields.String(required=True)
-    sentido = fields.String(required=True, validate=validate.OneOf(['IDA', 'VOLTA', 'CIRCULAR']))
+    sentido = fields.String(required=True, validate=validate.OneOf(["IDA", "VOLTA", "CIRCULAR"]))
     dias = fields.List(fields.String(), required=True)
 
 
 class RotaCreateSchema(Schema):
     """Schema for creating a new route."""
+
     nome = fields.String(required=True)
     motorista_padrao_id = fields.String(load_default=None)
     veiculo_padrao_id = fields.String(load_default=None)
@@ -32,6 +35,7 @@ class RotaCreateSchema(Schema):
 
 class RotaUpdateSchema(Schema):
     """Schema for updating a route."""
+
     nome = fields.String()
     motorista_padrao_id = fields.String(load_default=None)
     veiculo_padrao_id = fields.String(load_default=None)
@@ -39,17 +43,20 @@ class RotaUpdateSchema(Schema):
 
 class RotaInscricaoSchema(Schema):
     """Schema for route subscription action."""
-    acao = fields.String(required=True, validate=validate.OneOf(['inscrever', 'desinscrever']))
+
+    acao = fields.String(required=True, validate=validate.OneOf(["inscrever", "desinscrever"]))
 
 
 class RotaPontoAddSchema(Schema):
     """Schema for adding points to an existing route."""
+
     pontos = fields.List(fields.Nested(RotaPontoInputSchema), required=True)
 
 
 # ==========================================
 # Response Schemas (Serialization)
 # ==========================================
+
 
 class RotaPontoResponseSchema(Schema):
     ordem = fields.Integer()
@@ -62,6 +69,8 @@ class RotaResponseSchema(Schema):
     motorista_id = fields.Method("get_motorista_id")
     veiculo_id = fields.Method("get_veiculo_id")
     prefeitura_id = fields.String()
+    municipio_nome = fields.Method("get_municipio_nome")
+    municipio_uf = fields.Method("get_municipio_uf")
 
     def get_motorista_id(self, obj):
         return str(obj.motorista_padrao_id) if obj.motorista_padrao_id else None
@@ -69,9 +78,20 @@ class RotaResponseSchema(Schema):
     def get_veiculo_id(self, obj):
         return str(obj.veiculo_padrao_id) if obj.veiculo_padrao_id else None
 
+    def get_municipio_nome(self, obj):
+        if obj.prefeitura:
+            return obj.prefeitura.nome
+        return None
+
+    def get_municipio_uf(self, obj):
+        if obj.prefeitura:
+            return obj.prefeitura.estado
+        return None
+
 
 class RotaDetailResponseSchema(RotaResponseSchema):
     """Extended schema with nested relationships."""
+
     pontos = fields.Method("get_pontos")
     horarios = fields.Nested(HorarioResponseSchema, many=True, attribute="grade_horarios")
 

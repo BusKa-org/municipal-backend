@@ -29,6 +29,7 @@ class Rota(db.Model):
         db.DateTime(timezone=True), server_default=db.func.now(), onupdate=db.func.now()
     )
 
+    prefeitura = relationship("Prefeitura")
     motorista_padrao = relationship("Motorista")
     veiculo_padrao = relationship("Onibus")
 
