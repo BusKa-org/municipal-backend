@@ -12,7 +12,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.models.base import db
-from app.models.enum import SentidoViagem, StatusViagem
+from app.models.enum import SentidoViagem, StatusViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import Aluno, User
@@ -63,7 +63,7 @@ def get_proximas_viagens_aluno(user_id: str) -> list[dict]:
     Raises: ForbiddenError
     """
     aluno = db.session.get(User, user_id)
-    if not aluno or str(aluno.role) != "ALUNO":
+    if not aluno or aluno.role != UserRole.ALUNO:
         raise ForbiddenError("Apenas alunos podem ver sua agenda de viagens")
 
     hoje = datetime.utcnow().date()
@@ -122,7 +122,7 @@ def confirmar_presenca_aluno(user_id: str, viagem_id: str, data: dict[str, Any])
     aluno = db.session.get(Aluno, user_id)
     if not aluno:
         aluno_user = db.session.get(User, user_id)
-        if aluno_user and str(aluno_user.role) == "ALUNO":
+        if aluno_user and aluno_user.role == UserRole.ALUNO:
             aluno = db.session.get(Aluno, user_id)
 
     if not aluno:
@@ -215,7 +215,7 @@ def listar_pontos_embarque(user_id: str, viagem_id: str) -> list[dict]:
     Raises: ForbiddenError, NotFoundError, AppError
     """
     aluno = db.session.get(User, user_id)
-    if not aluno or str(aluno.role) != "ALUNO":
+    if not aluno or aluno.role != UserRole.ALUNO:
         raise ForbiddenError("Acesso restrito a alunos")
 
     viagem = db.session.get(Viagem, viagem_id)
@@ -261,7 +261,7 @@ def gerar_viagem(user_id: str, data_input: dict) -> dict:
     Raises: ForbiddenError, NotFoundError, ValidationError, ConflictError, AppError
     """
     user = db.session.get(User, user_id)
-    if not user or str(user.role) not in ["GESTOR", "MOTORISTA"]:
+    if not user or user.role not in (UserRole.GESTOR, UserRole.MOTORISTA):
         raise ForbiddenError("Permissão negada")
 
     rota_id = data_input.get("rota_id")
@@ -331,7 +331,7 @@ def gerar_viagens_em_lote(user_id: str, data_str: str) -> dict:
     Raises: ForbiddenError, ValidationError, AppError
     """
     user = db.session.get(User, user_id)
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Permissão negada. Apenas gestores podem gerar lote.")
 
     try:
@@ -411,7 +411,7 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
     if not viagem:
         raise NotFoundError("Viagem não encontrada")
 
-    if str(user.role) == "MOTORISTA" and str(viagem.motorista_id) != str(user.id):
+    if user.role == UserRole.MOTORISTA and viagem.motorista_id != user.id:
         raise ForbiddenError("Esta viagem não pertence a você")
 
     acao = data.get("acao")
@@ -453,7 +453,7 @@ def list_viagens_gestor(user_id: str, filters: dict) -> list[Viagem]:
     Raises: ForbiddenError
     """
     user = db.session.get(User, user_id)
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores podem acessar o histórico completo")
 
     query = Viagem.query

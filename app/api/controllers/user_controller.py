@@ -25,8 +25,9 @@ class UserList(Resource):
     @api.marshal_list_with(models["response"], code=200)
     @jwt_required()
     def get(self):
-        """Lista todos os usuários (Apenas Gestor)"""
-        users = user_service.get_all_users()
+        """Lista todos os usuários da prefeitura (Apenas Gestor)"""
+        current_user_id = get_jwt_identity()
+        users = user_service.get_all_users(current_user_id)
         return list_response_schema.dump(users), 200
 
 

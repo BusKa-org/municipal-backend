@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "basePath": "/",
   "paths": {
-    "/alunos/": {
+    "/v1/alunos/": {
       "get": {
         "responses": {
           "200": {
@@ -16,19 +16,7 @@
         ]
       }
     },
-    "/alunos/me": {
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Aluno exclui sua conta",
-        "operationId": "aluno_delete",
-        "tags": [
-          "alunos"
-        ]
-      },
+    "/v1/alunos/me": {
       "put": {
         "responses": {
           "200": {
@@ -60,9 +48,21 @@
         "tags": [
           "alunos"
         ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Aluno exclui sua conta",
+        "operationId": "aluno_delete",
+        "tags": [
+          "alunos"
+        ]
       }
     },
-    "/alunos/signup": {
+    "/v1/alunos/signup": {
       "post": {
         "responses": {
           "201": {
@@ -97,7 +97,7 @@
         ]
       }
     },
-    "/auth/login": {
+    "/v1/auth/login": {
       "post": {
         "responses": {
           "200": {
@@ -138,7 +138,7 @@
         ]
       }
     },
-    "/instituicoes/": {
+    "/v1/instituicoes/": {
       "post": {
         "responses": {
           "201": {
@@ -199,7 +199,7 @@
         ]
       }
     },
-    "/instituicoes/{id}": {
+    "/v1/instituicoes/{id}": {
       "parameters": [
         {
           "name": "id",
@@ -208,18 +208,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Remove a instituição e seus vínculos",
-        "operationId": "delete_instituicao",
-        "tags": [
-          "instituicoes"
-        ]
-      },
       "get": {
         "responses": {
           "200": {
@@ -243,9 +231,21 @@
         "tags": [
           "instituicoes"
         ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Remove a instituição e seus vínculos",
+        "operationId": "delete_instituicao",
+        "tags": [
+          "instituicoes"
+        ]
       }
     },
-    "/onibus/": {
+    "/v1/onibus/": {
       "post": {
         "responses": {
           "201": {
@@ -306,7 +306,7 @@
         ]
       }
     },
-    "/onibus/{id}": {
+    "/v1/onibus/{id}": {
       "parameters": [
         {
           "name": "id",
@@ -315,18 +315,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Remove um ônibus",
-        "operationId": "delete_onibus",
-        "tags": [
-          "onibus"
-        ]
-      },
       "get": {
         "responses": {
           "200": {
@@ -350,9 +338,21 @@
         "tags": [
           "onibus"
         ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Remove um ônibus",
+        "operationId": "delete_onibus",
+        "tags": [
+          "onibus"
+        ]
       }
     },
-    "/pontos/": {
+    "/v1/pontos/": {
       "post": {
         "responses": {
           "201": {
@@ -413,7 +413,7 @@
         ]
       }
     },
-    "/pontos/{id}": {
+    "/v1/pontos/{id}": {
       "parameters": [
         {
           "name": "id",
@@ -422,14 +422,26 @@
           "type": "string"
         }
       ],
-      "delete": {
+      "get": {
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PontoResponse"
+            }
           }
         },
-        "summary": "Exclui um ponto (se não estiver em uso)",
-        "operationId": "delete_ponto",
+        "summary": "Detalhes de um ponto",
+        "operationId": "get_ponto",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
         "tags": [
           "pontos"
         ]
@@ -466,32 +478,20 @@
           "pontos"
         ]
       },
-      "get": {
+      "delete": {
         "responses": {
           "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PontoResponse"
-            }
+            "description": "Success"
           }
         },
-        "summary": "Detalhes de um ponto",
-        "operationId": "get_ponto",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
+        "summary": "Exclui um ponto (se não estiver em uso)",
+        "operationId": "delete_ponto",
         "tags": [
           "pontos"
         ]
       }
     },
-    "/rotas/": {
+    "/v1/rotas/": {
       "post": {
         "responses": {
           "200": {
@@ -542,7 +542,7 @@
         ]
       }
     },
-    "/rotas/me": {
+    "/v1/rotas/me": {
       "get": {
         "responses": {
           "200": {
@@ -556,7 +556,7 @@
         ]
       }
     },
-    "/rotas/{id}": {
+    "/v1/rotas/{id}": {
       "parameters": [
         {
           "name": "id",
@@ -565,14 +565,26 @@
           "type": "string"
         }
       ],
-      "delete": {
+      "get": {
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/RotaResponse"
+            }
           }
         },
-        "summary": "Exclui uma rota",
-        "operationId": "delete_rota",
+        "summary": "Obtém os detalhes de uma rota",
+        "operationId": "get_rota",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
         "tags": [
           "rotas"
         ]
@@ -599,32 +611,20 @@
           "rotas"
         ]
       },
-      "get": {
+      "delete": {
         "responses": {
           "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/RotaResponse"
-            }
+            "description": "Success"
           }
         },
-        "summary": "Obtém os detalhes de uma rota",
-        "operationId": "get_rota",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
+        "summary": "Exclui uma rota",
+        "operationId": "delete_rota",
         "tags": [
           "rotas"
         ]
       }
     },
-    "/rotas/{id}/horarios": {
+    "/v1/rotas/{id}/horarios": {
       "parameters": [
         {
           "name": "id",
@@ -693,7 +693,7 @@
         ]
       }
     },
-    "/rotas/{id}/inscricao": {
+    "/v1/rotas/{id}/inscricao": {
       "parameters": [
         {
           "in": "path",
@@ -726,7 +726,7 @@
         ]
       }
     },
-    "/rotas/{id}/pontos": {
+    "/v1/rotas/{id}/pontos": {
       "parameters": [
         {
           "name": "id",
@@ -758,7 +758,7 @@
         ]
       }
     },
-    "/users": {
+    "/v1/users": {
       "get": {
         "responses": {
           "200": {
@@ -771,7 +771,7 @@
             }
           }
         },
-        "summary": "Lista todos os usuários (Apenas Gestor)",
+        "summary": "Lista todos os usuários da prefeitura (Apenas Gestor)",
         "operationId": "list_users",
         "parameters": [
           {
@@ -787,7 +787,7 @@
         ]
       }
     },
-    "/users/change-password": {
+    "/v1/users/change-password": {
       "post": {
         "responses": {
           "200": {
@@ -811,7 +811,7 @@
         ]
       }
     },
-    "/users/me": {
+    "/v1/users/me": {
       "get": {
         "responses": {
           "200": {
@@ -837,7 +837,7 @@
         ]
       }
     },
-    "/users/motoristas": {
+    "/v1/users/motoristas": {
       "post": {
         "responses": {
           "200": {
@@ -861,7 +861,7 @@
         ]
       }
     },
-    "/users/{id}": {
+    "/v1/users/{id}": {
       "parameters": [
         {
           "in": "path",
@@ -884,7 +884,7 @@
         ]
       }
     },
-    "/viagens/": {
+    "/v1/viagens/": {
       "post": {
         "responses": {
           "200": {
@@ -970,7 +970,7 @@
         ]
       }
     },
-    "/viagens/aluno/agenda": {
+    "/v1/viagens/aluno/agenda": {
       "get": {
         "responses": {
           "200": {
@@ -984,7 +984,7 @@
         ]
       }
     },
-    "/viagens/gerar-lote": {
+    "/v1/viagens/gerar-lote": {
       "post": {
         "responses": {
           "200": {
@@ -1008,7 +1008,7 @@
         ]
       }
     },
-    "/viagens/minhas": {
+    "/v1/viagens/minhas": {
       "get": {
         "responses": {
           "200": {
@@ -1037,7 +1037,7 @@
         ]
       }
     },
-    "/viagens/{id}/acao": {
+    "/v1/viagens/{id}/acao": {
       "parameters": [
         {
           "name": "id",
@@ -1079,7 +1079,7 @@
         ]
       }
     },
-    "/viagens/{id}/confirmacao": {
+    "/v1/viagens/{id}/confirmacao": {
       "parameters": [
         {
           "name": "id",
@@ -1111,7 +1111,7 @@
         ]
       }
     },
-    "/viagens/{id}/pontos-embarque": {
+    "/v1/viagens/{id}/pontos-embarque": {
       "parameters": [
         {
           "name": "id",
