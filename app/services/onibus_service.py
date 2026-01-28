@@ -11,6 +11,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.models.base import db
+from app.models.enum import UserRole
 from app.models.onibus import Onibus
 from app.models.user import User
 
@@ -54,7 +55,7 @@ def create_onibus(user_id: str, data: dict[str, Any]) -> Onibus:
     """
     user = User.query.get(user_id)
 
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores podem gerenciar a frota")
 
     placa = data.get("placa", "").upper().strip()
@@ -92,7 +93,7 @@ def delete_onibus(user_id: str, onibus_id: str) -> None:
     """
     user = User.query.get(user_id)
 
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores podem gerenciar a frota")
 
     onibus = Onibus.query.get(onibus_id)

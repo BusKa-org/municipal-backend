@@ -10,7 +10,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.models.base import db
-from app.models.enum import DiaDaSemana, SentidoViagem
+from app.models.enum import DiaDaSemana, SentidoViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import User
@@ -33,18 +33,17 @@ def list_my_rotas(user_id: str) -> list[Rota]:
     if not user:
         raise NotFoundError("Usuário não encontrado")
 
-    if str(user.role) == "ALUNO":
-        inscricoes = RotaAluno.query.filter_by(aluno_id=user.id).all()
-        rota_ids = [i.rota_id for i in inscricoes]
-        return Rota.query.filter(Rota.id.in_(rota_ids)).all()
-
-    if str(user.role) == "MOTORISTA":
-        return Rota.query.filter_by(motorista_padrao_id=user.id).all()
-
-    if str(user.role) == "GESTOR":
-        return Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
-
-    return []
+    match user.role:
+        case UserRole.ALUNO:
+            inscricoes = RotaAluno.query.filter_by(aluno_id=user.id).all()
+            rota_ids = [i.rota_id for i in inscricoes]
+            return Rota.query.filter(Rota.id.in_(rota_ids)).all()
+        case UserRole.MOTORISTA:
+            return Rota.query.filter_by(motorista_padrao_id=user.id).all()
+        case UserRole.GESTOR:
+            return Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
+        case _:
+            return []
 
 
 def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -100,7 +99,7 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
     Raises: ForbiddenError, ValidationError, AppError
     """
     user = db.session.get(User, gestor_id)
-    if not user or str(user.role) not in ["GESTOR", "MOTORISTA"]:
+    if not user or user.role not in (UserRole.GESTOR, UserRole.MOTORISTA):
         raise ForbiddenError("Permissão negada")
 
     nome = data.get("nome")
@@ -171,7 +170,7 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
     """
     user = User.query.get(gestor_id)
 
-    if not user or str(user.role) not in ["GESTOR", "MOTORISTA"]:
+    if not user or user.role not in (UserRole.GESTOR, UserRole.MOTORISTA):
         raise ForbiddenError("Permissão negada")
 
     rota = Rota.query.get(rota_id)
@@ -199,7 +198,12 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
             if not nome_p or lat is None or lon is None:
                 continue
 
-            ponto = Ponto(apelido=nome_p, latitude=lat, longitude=lon)
+            ponto = Ponto(
+                prefeitura_id=rota.prefeitura_id,
+                apelido=nome_p,
+                latitude=lat,
+                longitude=lon,
+            )
             db.session.add(ponto)
             db.session.flush()
 
@@ -222,7 +226,7 @@ def add_horario(gestor_id: str, rota_id: str, data: dict[str, Any]) -> HorarioRo
     Raises: ForbiddenError, NotFoundError, ValidationError, AppError
     """
     user = User.query.get(gestor_id)
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores gerenciam horários")
 
     rota = Rota.query.get(rota_id)
@@ -272,7 +276,10 @@ def get_horarios(user_id: str, rota_id: str) -> list:
     if not rota:
         raise NotFoundError("Rota não encontrada")
 
-    if str(user.role) in ["GESTOR", "MOTORISTA"] and rota.prefeitura_id != user.prefeitura_id:
+    if (
+        user.role in (UserRole.GESTOR, UserRole.MOTORISTA)
+        and rota.prefeitura_id != user.prefeitura_id
+    ):
         raise ForbiddenError("Acesso negado")
 
     return rota.grade_horarios
@@ -292,7 +299,10 @@ def get_by_id(user_id: str, rota_id: str) -> Rota:
     if not rota:
         raise NotFoundError("Rota não encontrada")
 
-    if str(user.role) in ["GESTOR", "MOTORISTA"] and rota.prefeitura_id != user.prefeitura_id:
+    if (
+        user.role in (UserRole.GESTOR, UserRole.MOTORISTA)
+        and rota.prefeitura_id != user.prefeitura_id
+    ):
         raise ForbiddenError("Acesso negado")
 
     return rota
@@ -306,7 +316,7 @@ def update_rota(user_id: str, rota_id: str, data: dict[str, Any]) -> Rota:
     """
     user = User.query.get(user_id)
 
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Permissão negada")
 
     rota = Rota.query.get(rota_id)
@@ -343,7 +353,7 @@ def delete_rota(user_id: str, rota_id: str) -> None:
     """
     user = User.query.get(user_id)
 
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Permissão negada")
 
     rota = Rota.query.get(rota_id)

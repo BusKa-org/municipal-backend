@@ -20,9 +20,20 @@ from app.models.user import Aluno, Gestor, Motorista, User
 logger = logging.getLogger(__name__)
 
 
-def get_all_users() -> list[User]:
-    """Returns all users."""
-    return User.query.all()
+def get_all_users(current_user_id: str) -> list[User]:
+    """
+    Returns all users in the same prefeitura as the current user.
+
+    Raises: ForbiddenError, NotFoundError
+    """
+    user = User.query.get(current_user_id)
+    if not user:
+        raise NotFoundError("Usuário não encontrado")
+
+    if user.role != UserRole.GESTOR:
+        raise ForbiddenError("Apenas gestores podem listar usuários")
+
+    return User.query.filter_by(prefeitura_id=user.prefeitura_id).all()
 
 
 def get_user_by_id(user_id: str) -> User:
@@ -150,7 +161,7 @@ def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
     """
     gestor = db.session.get(User, gestor_id)
 
-    if not gestor or str(gestor.role) != "GESTOR":
+    if not gestor or gestor.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores podem cadastrar motoristas")
 
     if User.query.filter((User.email == data["email"]) | (User.cpf == data["cpf"])).first():

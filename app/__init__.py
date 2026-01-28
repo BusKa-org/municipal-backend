@@ -79,14 +79,15 @@ Inclua o header: `Authorization: Bearer <seu_token>`
         contact="BusKá Team",
     )
 
-    api.add_namespace(auth_ns, path="/auth")
-    api.add_namespace(user_ns, path="/users")
-    api.add_namespace(onibus_ns, path="/onibus")
-    api.add_namespace(rotas_ns, path="/rotas")
-    api.add_namespace(pontos_ns, path="/pontos")
-    api.add_namespace(viagem_ns, path="/viagens")
-    api.add_namespace(inst_ns, path="/instituicoes")
-    api.add_namespace(alunos_ns, path="/alunos")
+    # API v1 routes
+    api.add_namespace(auth_ns, path="/v1/auth")
+    api.add_namespace(user_ns, path="/v1/users")
+    api.add_namespace(onibus_ns, path="/v1/onibus")
+    api.add_namespace(rotas_ns, path="/v1/rotas")
+    api.add_namespace(pontos_ns, path="/v1/pontos")
+    api.add_namespace(viagem_ns, path="/v1/viagens")
+    api.add_namespace(inst_ns, path="/v1/instituicoes")
+    api.add_namespace(alunos_ns, path="/v1/alunos")
 
     # ==========================================
     # Error Handlers

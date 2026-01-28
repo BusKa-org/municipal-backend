@@ -5,7 +5,7 @@ from typing import Any
 
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from app.models.base import db
-from app.models.enum import TipoInstituicao
+from app.models.enum import TipoInstituicao, UserRole
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.user import User
 
@@ -19,7 +19,7 @@ def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
     Raises: ForbiddenError, ValidationError, AppError
     """
     user = User.query.get(gestor_id)
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Permissão negada. Apenas gestores criam instituições.")
 
     nome = data.get("nome")
@@ -102,7 +102,7 @@ def delete_instituicao(gestor_id: str, inst_id: str) -> None:
     Raises: ForbiddenError, NotFoundError, AppError
     """
     user = User.query.get(gestor_id)
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores podem remover instituições")
 
     inst = Instituicao.query.get(inst_id)

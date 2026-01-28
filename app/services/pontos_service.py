@@ -5,6 +5,7 @@ from typing import Any
 
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from app.models.base import db
+from app.models.enum import UserRole
 from app.models.geo import Ponto
 from app.models.user import User
 
@@ -47,7 +48,7 @@ def create_ponto(user_id: str, data: dict[str, Any]) -> Ponto:
     Raises: ForbiddenError, ValidationError, AppError
     """
     user = User.query.get(user_id)
-    if not user or str(user.role) not in ["GESTOR", "MOTORISTA"]:
+    if not user or user.role not in (UserRole.GESTOR, UserRole.MOTORISTA):
         raise ForbiddenError("Permissão negada")
 
     if not data.get("latitude") or not data.get("longitude"):
@@ -78,7 +79,7 @@ def update_ponto(user_id: str, ponto_id: str, data: dict[str, Any]) -> Ponto:
     Raises: ForbiddenError, NotFoundError, AppError
     """
     user = User.query.get(user_id)
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores editam pontos")
 
     ponto = Ponto.query.get(ponto_id)
@@ -110,7 +111,7 @@ def delete_ponto(user_id: str, ponto_id: str) -> None:
     Raises: ForbiddenError, NotFoundError, AppError
     """
     user = User.query.get(user_id)
-    if not user or str(user.role) != "GESTOR":
+    if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Permissão negada")
 
     ponto = Ponto.query.get(ponto_id)
