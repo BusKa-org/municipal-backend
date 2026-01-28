@@ -398,8 +398,28 @@ def gerar_viagens_em_lote(user_id: str, data_str: str) -> dict:
 
 
 def list_viagens_motorista(user_id: str) -> list[Viagem]:
-    """List trips assigned to the driver."""
-    return Viagem.query.filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
+    """List trips based on user role.
+    
+    - GESTOR: All trips in their prefeitura
+    - MOTORISTA: Only trips assigned to them
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return []
+    
+    if user.role == UserRole.GESTOR:
+        # Gestor sees all trips in their prefeitura
+        return (
+            Viagem.query
+            .join(HorarioRota, Viagem.horario_rota_id == HorarioRota.id)
+            .join(Rota, HorarioRota.rota_id == Rota.id)
+            .filter(Rota.prefeitura_id == user.prefeitura_id)
+            .order_by(Viagem.data.desc())
+            .all()
+        )
+    else:
+        # Motorista sees only their assigned trips
+        return Viagem.query.filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
 
 
 def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viagem:
