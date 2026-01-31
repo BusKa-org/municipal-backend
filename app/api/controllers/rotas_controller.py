@@ -91,6 +91,18 @@ class RotaInscricaoResource(Resource):
 
 @api.route("/<string:id>/pontos")
 class RotaPontosResource(Resource):
+    @api.doc("list_pontos")
+    @jwt_required()
+    def get(self, id):
+        try:
+            current_user_id = get_jwt_identity()
+            pontos = rotas_service.get_pontos_by_rota(current_user_id, id)
+
+            return pontos, 200
+        except Exception as e:
+            print(f"ERRO REAL NO BACKEND: {e}")
+            return {"error": str(e)}, 500
+
     @api.doc("add_pontos")
     @api.expect(models["ponto_input"])
     @jwt_required()
