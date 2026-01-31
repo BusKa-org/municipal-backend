@@ -528,3 +528,30 @@ def delete_rota(user_id: str, rota_id: str) -> None:
         db.session.rollback()
         logger.error(f"Error deleting route {rota_id}: {e}", exc_info=True)
         raise AppError(f"Erro ao remover rota: {str(e)}", 500)
+
+
+def get_pontos_by_rota(user_id: str, rota_id: str) -> list[dict[str, Any]]:
+    user = User.query.get(user_id)
+    if not user:
+        raise NotFoundError("Usuário não encontrado")
+
+    rota = Rota.query.get(rota_id)
+    if not rota:
+        raise NotFoundError("Rota não encontrada")
+
+    rota_pontos = RotaPonto.query.filter_by(rota_id=rota_id).order_by(RotaPonto.ordem.asc()).all()
+
+    resultado = []
+    for rp in rota_pontos:
+        ponto = rp.ponto
+        resultado.append(
+            {
+                "id": str(ponto.id),
+                "apelido": ponto.apelido,
+                "latitude": float(ponto.latitude),
+                "longitude": float(ponto.longitude),
+                "ordem": rp.ordem,
+            }
+        )
+
+    return resultado
