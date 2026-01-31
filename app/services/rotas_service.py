@@ -111,7 +111,7 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
         motorista_id = data.get("motorista_padrao_id")
         if not motorista_id and user.role == UserRole.MOTORISTA:
             motorista_id = user.id
-        
+
         rota = Rota(
             nome=nome,
             motorista_padrao_id=motorista_id,
@@ -207,10 +207,10 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
                 if existing_ponto.prefeitura_id != rota.prefeitura_id:
                     logger.warning(f"Point {ponto_id} belongs to different prefeitura, skipping")
                     continue
-                
+
                 novo_rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=ordem)
                 db.session.add(novo_rota_ponto)
-            
+
             # Case 2: Create new point with coordinates
             else:
                 nome_p = p.get("nome")
@@ -391,3 +391,30 @@ def delete_rota(user_id: str, rota_id: str) -> None:
         db.session.rollback()
         logger.error(f"Error deleting route: {e}")
         raise AppError(f"Erro ao remover rota: {str(e)}", 500)
+
+
+def get_pontos_by_rota(user_id: str, rota_id: str) -> list[dict[str, Any]]:
+    user = User.query.get(user_id)
+    if not user:
+        raise NotFoundError("Usuário não encontrado")
+
+    rota = Rota.query.get(rota_id)
+    if not rota:
+        raise NotFoundError("Rota não encontrada")
+
+    rota_pontos = RotaPonto.query.filter_by(rota_id=rota_id).order_by(RotaPonto.ordem.asc()).all()
+
+    resultado = []
+    for rp in rota_pontos:
+        ponto = rp.ponto
+        resultado.append(
+            {
+                "id": str(ponto.id),
+                "apelido": ponto.apelido,
+                "latitude": float(ponto.latitude),
+                "longitude": float(ponto.longitude),
+                "ordem": rp.ordem,
+            }
+        )
+
+    return resultado
