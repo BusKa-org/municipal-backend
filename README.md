@@ -2,7 +2,11 @@
 
 API Flask para gerenciamento de rotas e viagens de transporte escolar.
 
+<<<<<<< HEAD
 ## Setup Local 
+=======
+## Setup Local
+>>>>>>> 836b9da (docs(readme): update installation and troubleshooting sections)
 
 ### Pré-requisitos
 - Python 3.12+
@@ -50,6 +54,19 @@ make run
 
 A API estará em: **http://localhost:5001** | Swagger: **http://localhost:5001/apidocs**
 
+<<<<<<< HEAD
+=======
+#### Verificar Instalação
+
+```bash
+# Verificar dependências
+pip list | grep -E "python-json-logger"
+
+# Verificar security headers
+curl -I http://localhost:5001/v1/auth/login | grep -E "X-Content-Type|X-Frame|X-XSS|X-Request-ID"
+```
+
+>>>>>>> 836b9da (docs(readme): update installation and troubleshooting sections)
 ---
 
 ## Comandos Disponíveis
@@ -120,13 +137,24 @@ DB_NAME=buska_db
 
 # API
 API_PORT=5001
+<<<<<<< HEAD
+=======
+DEBUG=false
+>>>>>>> 836b9da (docs(readme): update installation and troubleshooting sections)
 JWT_SECRET_KEY=chave_jwt_longa_e_aleatoria
 JWT_EXPIRES_HOURS=2
 ```
 
+<<<<<<< HEAD
 ## 📚 Documentação da API
 
 A documentação completa e interativa está disponível em:
+=======
+## 📚 Documentação
+
+### Documentação da API
+A documentação completa e interativa da API está disponível em:
+>>>>>>> 836b9da (docs(readme): update installation and troubleshooting sections)
 - **Swagger UI**: http://localhost:5001/apidocs
 - **ReDoc**: http://localhost:5001/redoc
 
@@ -137,6 +165,23 @@ Principais endpoints:
 - `GET /viagens` - Listar viagens
 - `GET /me` - Dados do usuário autenticado
 
+<<<<<<< HEAD
+=======
+## 🔒 Segurança
+
+O backend implementa múltiplas camadas de segurança:
+
+### Autenticação & Autorização
+- **JWT** com expiração configurável (padrão: 2 horas)
+- **RBAC** (Role-Based Access Control): ALUNO, MOTORISTA, GESTOR
+- **Isolamento por Prefeitura** (tenant isolation)
+
+### Proteções Implementadas
+- ✅ **Security Headers**: CSP, XSS Protection, HSTS, etc.
+- ✅ **Audit Logging**: Registro de todas operações sensíveis
+- ✅ **Request ID Tracking**: Rastreamento de requisições
+
+>>>>>>> 836b9da (docs(readme): update installation and troubleshooting sections)
 ## 🚢 Deployment
 
 ### OpenStack (Terraform + Ansible)
@@ -160,3 +205,30 @@ ansible-playbook ansible/deploy-prod.yml
 Containers iniciados:
 - `buska_api` - Flask API com Gunicorn (porta 5001)
 - `buska_db_prod` - PostgreSQL + PostGIS (porta 5432)
+<<<<<<< HEAD
+=======
+
+## 🐛 Troubleshooting
+
+### Erro: Import errors para utilitários novos
+```bash
+# Reinstalar dependências
+pip install -e "."
+```
+
+### Logs não estão em formato legível
+```bash
+# Adicionar DEBUG=true no .env
+echo "DEBUG=true" >> .env
+
+# Limpar cache e reiniciar
+find . -type d -name "__pycache__" -exec rm -r {} +
+make run
+```
+
+### Type checking errors (mypy)
+```bash
+# Rodar com configurações menos estritas
+mypy app --no-strict-optional --ignore-missing-imports
+```
+>>>>>>> 836b9da (docs(readme): update installation and troubleshooting sections)
