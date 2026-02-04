@@ -111,7 +111,7 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
         motorista_id = data.get("motorista_padrao_id")
         if not motorista_id and user.role == UserRole.MOTORISTA:
             motorista_id = user.id
-        
+
         rota = Rota(
             nome=nome,
             motorista_padrao_id=motorista_id,
@@ -207,10 +207,10 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
                 if existing_ponto.prefeitura_id != rota.prefeitura_id:
                     logger.warning(f"Point {ponto_id} belongs to different prefeitura, skipping")
                     continue
-                
+
                 novo_rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=ordem)
                 db.session.add(novo_rota_ponto)
-            
+
             # Case 2: Create new point with coordinates
             else:
                 nome_p = p.get("nome")

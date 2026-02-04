@@ -1,5 +1,6 @@
 from marshmallow import Schema, fields
 
+
 class EnderecoInputSchema(Schema):
     logradouro = fields.String(required=True)
     numero = fields.String(required=True)

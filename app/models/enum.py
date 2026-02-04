@@ -1,5 +1,6 @@
 import enum
 
+
 class TipoInstituicao(enum.Enum):
     INSTITUTO_FEDERAL = "INSTITUTO_FEDERAL"
     UNIVERSIDADE_PUBLICA = "UNIVERSIDADE_PUBLICA"
@@ -7,6 +8,7 @@ class TipoInstituicao(enum.Enum):
     ESCOLA_PUBLICA = "ESCOLA_PUBLICA"
     ESCOLA_PRIVADA = "ESCOLA_PRIVADA"
     ESCOLA_COMUNITARIA = "ESCOLA_COMUNITARIA"
+
 
 class DiaDaSemana(enum.Enum):
     SEG = "SEG"
@@ -17,10 +19,12 @@ class DiaDaSemana(enum.Enum):
     SAB = "SAB"
     DOM = "DOM"
 
+
 class SentidoViagem(enum.Enum):
     IDA = "IDA"
     VOLTA = "VOLTA"
     CIRCULAR = "CIRCULAR"
+
 
 class StatusViagem(enum.Enum):
     AGENDADA = "AGENDADA"
@@ -28,11 +32,12 @@ class StatusViagem(enum.Enum):
     FINALIZADA = "FINALIZADA"
     CANCELADA = "CANCELADA"
 
+
 class UserRole(enum.Enum):
     USER = "USER"
     ALUNO = "ALUNO"
     MOTORISTA = "MOTORISTA"
     GESTOR = "GESTOR"
-    
+
     def __str__(self):
         return self.value
