@@ -10,6 +10,7 @@ from app.models.base import db
 from app.models.enum import UserRole
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.user import Aluno, User
+from app.utils import validate_password
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,7 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
         if not end_data:
             raise ValidationError("Endereço de casa é obrigatório")
 
-        password = data.get("password")
-        if not password:
-            raise ValidationError("Senha é obrigatória")
+        password = validate_password(data.get("password", ""))
 
         ponto_casa = Ponto(
             prefeitura_id=prefeitura_id,
