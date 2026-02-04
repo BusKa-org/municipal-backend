@@ -72,7 +72,7 @@ class ViagemResponseSchema(Schema):
 
     pontos = fields.List(fields.Nested(ViagemPontoResponseSchema), attribute="pontos_visitados")
     alunos = fields.List(fields.Nested(AlunoViagemResponseSchema), attribute="alunos_confirmados")
-    
+
     # Counts for dashboard
     total_alunos = fields.Method("get_total_alunos")
     alunos_confirmados_count = fields.Method("get_alunos_confirmados_count")
@@ -92,7 +92,7 @@ class ViagemResponseSchema(Schema):
     def get_status(self, obj):
         """Get status as string."""
         if obj.status:
-            return obj.status.name if hasattr(obj.status, 'name') else str(obj.status)
+            return obj.status.name if hasattr(obj.status, "name") else str(obj.status)
         return "AGENDADA"
 
     def get_horario_inicio(self, obj):

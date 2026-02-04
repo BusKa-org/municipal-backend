@@ -1,17 +1,19 @@
 from marshmallow import Schema, fields, validate
 
+
 class HorarioCreateSchema(Schema):
     horario_saida = fields.Time(required=True, metadata={"description": "Horário de saída (HH:MM)"})
     sentido = fields.String(
-        required=True, 
+        required=True,
         validate=validate.OneOf(["IDA", "VOLTA", "CIRCULAR"]),
-        metadata={"description": "Sentido da viagem"}
+        metadata={"description": "Sentido da viagem"},
     )
     dias = fields.List(
         fields.String(validate=validate.OneOf(["SEG", "TER", "QUA", "QUI", "SEX", "SAB", "DOM"])),
         required=True,
-        metadata={"description": "Lista de dias da semana"}
+        metadata={"description": "Lista de dias da semana"},
     )
+
 
 class HorarioResponseSchema(Schema):
     id = fields.String()
@@ -20,4 +22,4 @@ class HorarioResponseSchema(Schema):
     dias = fields.Method("get_dias")
 
     def get_dias(self, obj):
-        return [d.dia.value if hasattr(d.dia, 'value') else d.dia for d in obj.dias]
+        return [d.dia.value if hasattr(d.dia, "value") else d.dia for d in obj.dias]
