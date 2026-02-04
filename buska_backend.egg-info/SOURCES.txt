@@ -1,8 +1,16 @@
 README.md
 pyproject.toml
 app/__init__.py
+<<<<<<< HEAD
+=======
+app/py.typed
+>>>>>>> c1e774c (feat(logger): add structured logging with security infrastructure)
 buska_backend.egg-info/PKG-INFO
 buska_backend.egg-info/SOURCES.txt
 buska_backend.egg-info/dependency_links.txt
 buska_backend.egg-info/requires.txt
+<<<<<<< HEAD
 buska_backend.egg-info/top_level.txt
+=======
+buska_backend.egg-info/top_level.txt
+>>>>>>> c1e774c (feat(logger): add structured logging with security infrastructure)
