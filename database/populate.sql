@@ -1,4 +1,4 @@
-INSERT INTO municipios (nome, uf) VALUES 
+INSERT INTO prefeitura (nome, estado) VALUES
 ('ÁGUA BRANCA','PB'),
 ('AGUIAR','PB'),
 ('ALAGOA GRANDE','PB'),

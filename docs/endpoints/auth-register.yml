@@ -5,7 +5,7 @@ summary: User Registration
 description: |
   Registers a new user in the system.  
   The user must provide a name, email, password, and municipality.  
-  The role defaults to **aluno**, but can be specified as **motorista** or **gestor** if allowed by business rules.
+  The role defaults to **aluno** following the business rules.
 operationId: authRegister
 parameters:
   - in: body
@@ -38,19 +38,7 @@ parameters:
           type: string
           example: Campina Grande
           description: Municipality name where the user is registered.
-        role:
-          type: string
-          example: aluno
-          description: User role (e.g., 'aluno', 'motorista', 'gestor'). Defaults to 'aluno'.
     examples:
-      Register Gestor:
-        summary: Example — Register a Gestor user
-        value:
-          nome: "Fubica Brasileiro"
-          email: "fbrasileiro@buska.app"
-          password: "senha123"
-          municipio: "Campina Grande"
-          role: "gestor"
       Register Aluno:
         summary: Example — Register an Aluno user
         value:
@@ -80,9 +68,6 @@ responses:
             email:
               type: string
               example: fbrasileiro@buska.app
-            role:
-              type: string
-              example: gestor
             municipio:
               type: object
               properties:

@@ -6,9 +6,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: buska_user
-      POSTGRES_PASSWORD: buska_pass
-      POSTGRES_DB: buska_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
     volumes:
       - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
       - buska_data:/var/lib/postgresql/data

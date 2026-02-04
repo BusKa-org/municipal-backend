@@ -1,41 +1,104 @@
-from .base import db, BaseModel
-from sqlalchemy.orm import relationship
+import uuid
+
 from sqlalchemy.dialects.postgresql import UUID
-from geoalchemy2 import Geometry
+from sqlalchemy.orm import relationship
 
-class Rota(BaseModel):
-    __tablename__ = "rotas"
+from .base import db
+from .enum import DiaDaSemana, SentidoViagem
 
-    nome = db.Column(db.String(120), nullable=False)
-    municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=False)
-    motorista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
-    # Relationships
-    municipio = relationship("Municipio", back_populates="rotas")
-    motorista = relationship("User", back_populates="rotas")
-    pontos = relationship("Ponto", back_populates="rota", cascade="all, delete-orphan")
-    viagens = relationship("Viagem", back_populates="rota", cascade="all, delete-orphan")
-    alunos_inscritos = relationship("RotaAluno", back_populates="rota", cascade="all, delete-orphan")
+class Rota(db.Model):
+    __tablename__ = "rota"
 
-class Ponto(BaseModel):
-    __tablename__ = "pontos"
-
-    nome = db.Column(db.String(120), nullable=False)
-    localizacao = db.Column(Geometry("POINT", srid=4326), nullable=False)
-    rota_id = db.Column(db.Integer, db.ForeignKey("rotas.id"), nullable=False)
-
-    rota = relationship("Rota", back_populates="pontos")
-
-class RotaAluno(BaseModel):
-    __tablename__ = "rotas_alunos"
-
-    aluno_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
-    rota_id = db.Column(db.Integer, db.ForeignKey("rotas.id"), nullable=False)
-
-    # Relationships
-    aluno = relationship("User", back_populates="rotas_inscritas")
-    rota = relationship("Rota", back_populates="alunos_inscritos")
-
-    __table_args__ = (
-        db.UniqueConstraint("aluno_id", "rota_id", name="uq_aluno_rota"),
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    prefeitura_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("prefeitura.id", ondelete="CASCADE"), nullable=False
     )
+    nome = db.Column(db.String(100), nullable=False)
+
+    motorista_padrao_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("motorista.usuario_id", ondelete="SET NULL")
+    )
+
+    veiculo_padrao_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("onibus.id", ondelete="SET NULL")
+    )
+
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
+    updated_at = db.Column(
+        db.DateTime(timezone=True), server_default=db.func.now(), onupdate=db.func.now()
+    )
+
+    prefeitura = relationship("Prefeitura")
+    motorista_padrao = relationship("Motorista")
+    veiculo_padrao = relationship("Onibus")
+
+    pontos_padrao = relationship(
+        "RotaPonto", back_populates="rota", order_by="RotaPonto.ordem", cascade="all, delete-orphan"
+    )
+
+    grade_horarios = relationship(
+        "HorarioRota", back_populates="rota", cascade="all, delete-orphan"
+    )
+    alunos_inscritos = relationship("RotaAluno", backref="rota", cascade="all, delete-orphan")
+
+
+class RotaPonto(db.Model):
+    __tablename__ = "rota_ponto"
+
+    rota_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("rota.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    ponto_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("ponto.id", ondelete="RESTRICT"), primary_key=True
+    )
+
+    ordem = db.Column(db.Integer, nullable=False)
+
+    rota = relationship("Rota", back_populates="pontos_padrao")
+    ponto = relationship("Ponto")
+
+
+class HorarioRota(db.Model):
+    __tablename__ = "horario_rota"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    rota_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("rota.id", ondelete="CASCADE"), nullable=False
+    )
+
+    horario_saida = db.Column(db.Time, nullable=False)
+    sentido = db.Column(db.Enum(SentidoViagem, name="sentido_viagem"), nullable=False)
+
+    rota = relationship("Rota", back_populates="grade_horarios")
+
+    dias = relationship("DiasOperacao", back_populates="horario", cascade="all, delete-orphan")
+
+
+class DiasOperacao(db.Model):
+    __tablename__ = "dias_operacao"
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    horario_rota_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("horario_rota.id", ondelete="CASCADE"), nullable=False
+    )
+
+    dia = db.Column(db.Enum(DiaDaSemana, name="dia_da_semana"), nullable=False)
+
+    horario = relationship("HorarioRota", back_populates="dias")
+
+
+class RotaAluno(db.Model):
+    __tablename__ = "rota_aluno"
+
+    rota_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("rota.id", ondelete="CASCADE"), primary_key=True
+    )
+    aluno_id = db.Column(
+        UUID(as_uuid=True), db.ForeignKey("aluno.usuario_id", ondelete="CASCADE"), primary_key=True
+    )
+
+    data_inscricao = db.Column(db.DateTime, server_default=db.func.now())
