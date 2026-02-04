@@ -84,7 +84,7 @@ migrate-current:
 # Code Quality
 # ==========================================
 
-.PHONY: lint format typecheck check
+.PHONY: lint format typecheck check precommit
 
 lint:
 	uv run ruff check app/
@@ -94,6 +94,12 @@ format:
 	uv run ruff check --fix app/
 
 typecheck:
+	uv run mypy app/
+
+# Run all pre-commit checks (same as pre-commit hooks)
+precommit:
+	uv run black app/ tests/
+	uv run ruff check --fix --exit-non-zero-on-fix app/ || true
 	uv run mypy app/
 
 check: lint typecheck  # Run all checks
