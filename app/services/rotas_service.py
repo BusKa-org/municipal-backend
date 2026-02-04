@@ -14,16 +14,30 @@ from app.models.enum import DiaDaSemana, SentidoViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import User
+from app.utils import audit_logger, validate_uuid
 
 logger = logging.getLogger(__name__)
 
 
 def list_all_rotas(user_id: str) -> list[Rota]:
-    """List all routes for user's prefeitura."""
+    """
+    List all routes for user's prefeitura.
+
+    Args:
+        user_id: ID of the user requesting the list
+
+    Returns:
+        List of Rota objects
+
+    Raises:
+        NotFoundError: If user not found
+    """
+    validate_uuid(user_id, "User ID")
     user = User.query.get(user_id)
     if not user:
         raise NotFoundError("Usuário não encontrado")
 
+    logger.debug(f"User {user_id} listing routes for prefeitura {user.prefeitura_id}")
     return Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
 
 
@@ -50,15 +64,40 @@ def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) 
     """
     Manage student subscription to a route.
 
-    Raises: ForbiddenError, NotFoundError, ValidationError
+    Args:
+        user_id: ID of the student
+        rota_id: ID of the route
+        data: Dictionary with 'acao' field ('inscrever' or 'desinscrever')
+
+    Returns:
+        Success message dictionary
+
+    Raises:
+        ForbiddenError: If user is not a student or route is from different prefeitura
+        NotFoundError: If user or route not found
+        ValidationError: If action is invalid
     """
+    validate_uuid(user_id, "User ID")
+    validate_uuid(rota_id, "Rota ID")
+
     aluno = db.session.get(User, user_id)
     if not aluno or str(getattr(aluno, "role", "")) != "ALUNO":
+        logger.warning(f"Non-student {user_id} attempted route subscription")
         raise ForbiddenError("Apenas alunos podem se inscrever")
 
     rota = db.session.get(Rota, rota_id)
     if not rota:
         raise NotFoundError("Rota não encontrada")
+
+    # Validate tenant isolation - student can only subscribe to routes in their prefeitura
+    if rota.prefeitura_id != aluno.prefeitura_id:
+        audit_logger.log_security_event(
+            event_type="cross_tenant_subscription_attempt",
+            severity="high",
+            user_id=user_id,
+            details={"rota_id": rota_id, "rota_prefeitura": rota.prefeitura_id},
+        )
+        raise ForbiddenError("Acesso negado a esta rota")
 
     acao = data.get("acao")
     if not acao or acao not in ["inscrever", "desinscrever"]:
@@ -74,6 +113,14 @@ def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) 
             nova_inscricao = RotaAluno(rota_id=rota.id, aluno_id=aluno.id)
             db.session.add(nova_inscricao)
             db.session.commit()
+
+            audit_logger.log_user_action(
+                action="subscribe_route",
+                user_id=user_id,
+                resource_type="rota",
+                resource_id=rota_id,
+            )
+            logger.info(f"Student {user_id} subscribed to route {rota_id}")
             return {"message": "Inscrição realizada com sucesso"}
 
         else:  # unsubscribe
@@ -82,13 +129,21 @@ def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) 
 
             db.session.delete(inscricao_existente)
             db.session.commit()
+
+            audit_logger.log_user_action(
+                action="unsubscribe_route",
+                user_id=user_id,
+                resource_type="rota",
+                resource_id=rota_id,
+            )
+            logger.info(f"Student {user_id} unsubscribed from route {rota_id}")
             return {"message": "Inscrição removida com sucesso"}
 
-    except NotFoundError:
+    except (NotFoundError, ValidationError, ForbiddenError):
         raise
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error managing subscription: {e}")
+        logger.error(f"Error managing subscription for {user_id}: {e}", exc_info=True)
         raise AppError(f"Erro ao gerenciar inscrição: {str(e)}", 500)
 
 
@@ -333,36 +388,80 @@ def update_rota(user_id: str, rota_id: str, data: dict[str, Any]) -> Rota:
     """
     Update route name, driver, or vehicle.
 
-    Raises: ForbiddenError, NotFoundError, AppError
-    """
-    user = User.query.get(user_id)
+    Args:
+        user_id: ID of the gestor updating the route
+        rota_id: ID of the route to update
+        data: Dictionary with fields to update
 
+    Returns:
+        Updated Rota object
+
+    Raises:
+        ForbiddenError: If user is not a gestor or resource ownership violation
+        NotFoundError: If user or route not found
+        AppError: If database operation fails
+    """
+    validate_uuid(user_id, "User ID")
+    validate_uuid(rota_id, "Rota ID")
+
+    user = User.query.get(user_id)
     if not user or user.role != UserRole.GESTOR:
+        logger.warning(f"Non-gestor {user_id} attempted to update route {rota_id}")
         raise ForbiddenError("Permissão negada")
 
     rota = Rota.query.get(rota_id)
     if not rota:
         raise NotFoundError("Rota não encontrada")
 
+    # Resource ownership validation
     if rota.prefeitura_id != user.prefeitura_id:
+        audit_logger.log_security_event(
+            event_type="unauthorized_route_update",
+            severity="high",
+            user_id=user_id,
+            details={
+                "rota_id": rota_id,
+                "user_prefeitura": user.prefeitura_id,
+                "rota_prefeitura": rota.prefeitura_id,
+            },
+        )
+        logger.warning(
+            f"Cross-tenant route update attempt: user {user_id} tried to update "
+            f"route {rota_id} from different prefeitura"
+        )
         raise ForbiddenError("Acesso negado")
+
+    updated_fields: list[str] = []
 
     try:
         if "nome" in data:
             rota.nome = data.get("nome")
+            updated_fields.append("nome")
 
         if "motorista_id" in data:
             rota.motorista_padrao_id = data.get("motorista_id")
+            updated_fields.append("motorista_id")
 
         if "veiculo_id" in data:
             rota.veiculo_padrao_id = data.get("veiculo_id")
+            updated_fields.append("veiculo_id")
 
         db.session.commit()
+
+        audit_logger.log_user_action(
+            action="update",
+            user_id=user_id,
+            resource_type="rota",
+            resource_id=rota_id,
+            details={"updated_fields": updated_fields},
+        )
+        logger.info(f"Route {rota_id} updated by {user_id}: {', '.join(updated_fields)}")
+
         return rota
 
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error updating route: {e}")
+        logger.error(f"Error updating route {rota_id}: {e}", exc_info=True)
         raise AppError(f"Erro ao atualizar rota: {str(e)}", 500)
 
 
@@ -370,24 +469,62 @@ def delete_rota(user_id: str, rota_id: str) -> None:
     """
     Delete a route.
 
-    Raises: ForbiddenError, NotFoundError, AppError
-    """
-    user = User.query.get(user_id)
+    Args:
+        user_id: ID of the gestor deleting the route
+        rota_id: ID of the route to delete
 
+    Raises:
+        ForbiddenError: If user is not a gestor or resource ownership violation
+        NotFoundError: If user or route not found
+        AppError: If database operation fails
+    """
+    validate_uuid(user_id, "User ID")
+    validate_uuid(rota_id, "Rota ID")
+
+    user = User.query.get(user_id)
     if not user or user.role != UserRole.GESTOR:
+        logger.warning(f"Non-gestor {user_id} attempted to delete route {rota_id}")
         raise ForbiddenError("Permissão negada")
 
     rota = Rota.query.get(rota_id)
     if not rota:
         raise NotFoundError("Rota não encontrada")
 
+    # Resource ownership validation
     if rota.prefeitura_id != user.prefeitura_id:
+        audit_logger.log_security_event(
+            event_type="unauthorized_route_deletion",
+            severity="critical",
+            user_id=user_id,
+            details={
+                "rota_id": rota_id,
+                "user_prefeitura": user.prefeitura_id,
+                "rota_prefeitura": rota.prefeitura_id,
+            },
+        )
+        logger.error(
+            f"Critical: Cross-tenant route deletion attempt by user {user_id} "
+            f"on route {rota_id}"
+        )
         raise ForbiddenError("Acesso negado")
 
     try:
+        # Store route name for audit log
+        rota_nome = rota.nome
+
         db.session.delete(rota)
         db.session.commit()
+
+        audit_logger.log_user_action(
+            action="delete",
+            user_id=user_id,
+            resource_type="rota",
+            resource_id=rota_id,
+            details={"rota_nome": rota_nome},
+        )
+        logger.info(f"Route {rota_id} ({rota_nome}) deleted by gestor {user_id}")
+
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error deleting route: {e}")
+        logger.error(f"Error deleting route {rota_id}: {e}", exc_info=True)
         raise AppError(f"Erro ao remover rota: {str(e)}", 500)
