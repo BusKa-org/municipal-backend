@@ -59,7 +59,7 @@ db-reset:
 	$(DOCKER) -f infra/database.yml rm -f
 	$(DOCKER) -f infra/database.yml up -d db
 	@echo "Waiting for database to start..."
-	sleep 5
+	sleep 15
 	uv run alembic upgrade head
 	@echo "Database reset complete. Run 'make seed' to populate data."
 
@@ -141,13 +141,13 @@ test-integration:
 # Documentation
 # ==========================================
 
-.PHONY: docs-openapi docs-serve
+.PHONY: docs-openapi docs
 
 docs-openapi:
 	uv run -- flask --app app export-openapi
 	@echo "OpenAPI spec exported to docs/openapi.json"
 
-docs-serve:
+docs:
 	@echo "Swagger UI available at: http://localhost:5000/docs"
 	@echo "OpenAPI JSON available at: http://localhost:5000/openapi.json"
 	uv run -- flask --app app run --debug
@@ -208,7 +208,7 @@ help:
 	@echo ""
 	@echo "Documentation:"
 	@echo "  docs-openapi    Export OpenAPI spec to docs/openapi.json"
-	@echo "  docs-serve      Start server and show docs URLs"
+	@echo "  docs            Start server and show docs URLs"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean           Remove cache files"
