@@ -78,6 +78,16 @@ make run
 
 A API estará em: **http://localhost:5001** | Swagger: **http://localhost:5001/apidocs**
 
+#### Verificar Instalação
+
+```bash
+# Verificar dependências
+pip list | grep -E "python-json-logger"
+
+# Verificar security headers
+curl -I http://localhost:5001/v1/auth/login | grep -E "X-Content-Type|X-Frame|X-XSS|X-Request-ID"
+```
+
 ---
 
 ## Comandos Disponíveis
@@ -148,6 +158,7 @@ DB_NAME=buska_db
 
 # API
 API_PORT=5001
+DEBUG=false
 JWT_SECRET_KEY=chave_jwt_longa_e_aleatoria
 JWT_EXPIRES_HOURS=2
 ```
@@ -203,3 +214,27 @@ ansible-playbook ansible/deploy-prod.yml
 Containers iniciados:
 - `buska_api` - Flask API com Gunicorn (porta 5001)
 - `buska_db_prod` - PostgreSQL + PostGIS (porta 5432)
+
+## 🐛 Troubleshooting
+
+### Erro: Import errors para utilitários novos
+```bash
+# Reinstalar dependências
+pip install -e "."
+```
+
+### Logs não estão em formato legível
+```bash
+# Adicionar DEBUG=true no .env
+echo "DEBUG=true" >> .env
+
+# Limpar cache e reiniciar
+find . -type d -name "__pycache__" -exec rm -r {} +
+make run
+```
+
+### Type checking errors (mypy)
+```bash
+# Rodar com configurações menos estritas
+mypy app --no-strict-optional --ignore-missing-imports
+```
