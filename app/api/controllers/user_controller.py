@@ -1,3 +1,5 @@
+from typing import Any
+
 from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
@@ -21,10 +23,10 @@ change_password_schema = ChangePasswordSchema()
 
 @api.route("")
 class UserList(Resource):
-    @api.doc("list_users")
+    @api.doc("list_users", responses={200: "Success", 403: "Forbidden - not a gestor"})
     @api.marshal_list_with(models["response"], code=200)
     @jwt_required()
-    def get(self):
+    def get(self) -> tuple[list[dict[str, Any]], int]:
         """Lista todos os usuários da prefeitura (Apenas Gestor)"""
         current_user_id = get_jwt_identity()
         users = user_service.get_all_users(current_user_id)
@@ -33,10 +35,10 @@ class UserList(Resource):
 
 @api.route("/me")
 class UserProfile(Resource):
-    @api.doc("get_my_profile")
+    @api.doc("get_my_profile", responses={200: "Success", 404: "User not found"})
     @api.marshal_with(models["response"], code=200)
     @jwt_required()
-    def get(self):
+    def get(self) -> tuple[dict[str, Any], int]:
         """Perfil do usuário logado"""
         current_user_id = get_jwt_identity()
         user = user_service.get_user_by_id(current_user_id)
@@ -46,9 +48,12 @@ class UserProfile(Resource):
 @api.route("/<string:id>")
 @api.param("id", "O UUID do usuário")
 class UserResource(Resource):
-    @api.doc("get_user_by_id")
+    @api.doc(
+        "get_user_by_id",
+        responses={200: "Success", 403: "Forbidden", 404: "User not found"},
+    )
     @jwt_required()
-    def get(self, id):
+    def get(self, id: str) -> tuple[dict[str, Any], int]:
         """Busca usuário por ID (próprio perfil ou mesma prefeitura se Gestor)"""
         current_user_id = get_jwt_identity()
         user = user_service.get_user_by_id(id, current_user_id)
@@ -57,13 +62,21 @@ class UserResource(Resource):
 
 @api.route("/motoristas")
 class MotoristaCreateResource(Resource):
-    @api.doc("create_motorista")
+    @api.doc(
+        "create_motorista",
+        responses={
+            201: "Motorista created",
+            400: "Validation error",
+            403: "Forbidden - not a gestor",
+            409: "Conflict - duplicate email/CPF/CNH",
+        },
+    )
     @api.expect(models["motorista_create"])
     @jwt_required()
-    def post(self):
+    def post(self) -> tuple[dict[str, str], int]:
         """Gestor cria um novo Motorista"""
         current_user_id = get_jwt_identity()
-        data = request.get_json()
+        data = request.get_json() or {}
 
         errors = motorista_create_schema.validate(data)
         if errors:
@@ -75,13 +88,21 @@ class MotoristaCreateResource(Resource):
 
 @api.route("/change-password")
 class UserChangePassword(Resource):
-    @api.doc("change_user_password")
+    @api.doc(
+        "change_user_password",
+        responses={
+            200: "Password changed successfully",
+            400: "Validation error",
+            401: "Incorrect current password",
+            429: "Too many attempts - rate limited",
+        },
+    )
     @api.expect(models["change_password"])
     @jwt_required()
-    def post(self):
+    def post(self) -> tuple[dict[str, str], int]:
         """Altera a senha do usuário logado (Requer senha atual)."""
         current_user_id = get_jwt_identity()
-        data = request.get_json()
+        data = request.get_json() or {}
 
         errors = change_password_schema.validate(data)
         if errors:

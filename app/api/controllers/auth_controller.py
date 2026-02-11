@@ -1,3 +1,5 @@
+from typing import Any
+
 from flask import request
 from flask_restx import Namespace, Resource
 
@@ -19,11 +21,12 @@ class AuthLogin(Resource):
             200: "Login successful - returns JWT token",
             400: "Missing email or password",
             401: "Invalid credentials",
+            429: "Too many login attempts - rate limited",
         },
     )
     @api.expect(models["login_request"])
     @api.marshal_with(models["token_response"], code=200)
-    def post(self):
+    def post(self) -> tuple[dict[str, Any], int]:
         """
         Authenticate user and get JWT token.
 
