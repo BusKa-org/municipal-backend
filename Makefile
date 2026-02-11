@@ -38,9 +38,6 @@ run:
 
 dev: run  # Alias for run
 
-install:
-	uv sync
-
 install-dev:
 	uv sync --extra dev
 	uv run pre-commit install
