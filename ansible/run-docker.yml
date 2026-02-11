@@ -64,11 +64,11 @@
 
     - name: Set API port variable
       set_fact:
-        api_port: "{{ api_port_result.stdout | default('5001') }}"
+        api_port: "{{ api_port_result.stdout | default('5000') }}"
 
     - name: Wait for API to be ready
       uri:
-        url: "http://localhost:{{ api_port }}/apidocs/"
+        url: "http://localhost:{{ api_port }}/docs/"
         method: GET
         status_code: 200
       register: result
@@ -81,14 +81,14 @@
       debug:
         msg: |
           Buska Backend is running!
-          
+
           API URL: http://localhost:{{ api_port }}
-          Documentation: http://localhost:{{ api_port }}/apidocs
-          
+          Documentation: http://localhost:{{ api_port }}/docs
+
           Docker containers:
           - buska_api: API Flask (Gunicorn)
           - buska_db_prod: PostgreSQL + PostGIS
-          
+
           Useful commands:
           - View logs: docker compose -f {{ docker_compose_file }} logs -f
           - Stop: docker compose -f {{ docker_compose_file }} down

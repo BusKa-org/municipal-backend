@@ -34,7 +34,7 @@ install:
 
 run:
 	$(DOCKER) -f infra/database.yml up -d db
-	$(PYTHON) flask --app app run --host=0.0.0.0 --port=5001 --debug
+	$(PYTHON) flask --app app run --host=0.0.0.0 --port=5000 --debug
 
 dev: run  # Alias for run
 
