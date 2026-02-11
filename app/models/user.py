@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from .base import db
 from .enum import UserRole
+from .notificacao import Notificacao  # noqa: F401
 
 
 class User(db.Model):
