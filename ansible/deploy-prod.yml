@@ -65,7 +65,7 @@
 
     - name: Wait for API to be ready
       uri:
-        url: "http://localhost:5000/apidocs/"
+        url: "http://localhost:5000/docs/"
         method: GET
         status_code: 200
       register: result
@@ -77,8 +77,8 @@
       debug:
         msg: |
           Deployment successful!
-          
+
           API URL: http://{{ ansible_host }}:5000
-          Documentation: http://{{ ansible_host }}:5000/apidocs
-          
+          Documentation: http://{{ ansible_host }}:5000/docs
+
           View logs: docker compose -f {{ app_dir }}/docker-compose.prod.yml logs -f

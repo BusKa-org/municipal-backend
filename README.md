@@ -24,7 +24,7 @@ chmod +x setup.sh start.sh
 ./start.sh -e clean_database=true
 ```
 
-A API estará disponível em: **http://localhost:5001/apidocs**
+A API estará disponível em: **http://localhost:5000/docs**
 
 ---
 
@@ -48,7 +48,7 @@ make initdb
 make run
 ```
 
-A API estará em: **http://localhost:5001** | Swagger: **http://localhost:5001/apidocs**
+A API estará em: **http://localhost:5000** | Swagger: **http://localhost:5000/docs**
 
 #### Verificar Instalação
 
@@ -57,7 +57,7 @@ A API estará em: **http://localhost:5001** | Swagger: **http://localhost:5001/a
 pip list | grep -E "python-json-logger"
 
 # Verificar security headers
-curl -I http://localhost:5001/v1/auth/login | grep -E "X-Content-Type|X-Frame|X-XSS|X-Request-ID"
+curl -I http://localhost:5000/v1/auth/login | grep -E "X-Content-Type|X-Frame|X-XSS|X-Request-ID"
 ```
 
 ---
@@ -68,7 +68,7 @@ curl -I http://localhost:5001/v1/auth/login | grep -E "X-Content-Type|X-Frame|X-
 
 ```bash
 make install       # Instalar dependências
-make run          # Rodar servidor (porta 5001)
+make run          # Rodar servidor (porta 5000)
 make initdb       # Criar e popular banco de dados
 make deletedb     # Limpar banco de dados
 make bdcon        # Conectar ao banco via psql
@@ -78,7 +78,7 @@ make bdcon        # Conectar ao banco via psql
 
 ```bash
 make docker-build    # Buildar imagem
-make docker-up       # Subir containers (porta 5001)
+make docker-up       # Subir containers (porta 5000)
 make docker-down     # Parar containers
 make docker-logs     # Ver logs em tempo real
 make docker-clean    # Limpar tudo (volumes + imagens)
@@ -129,7 +129,7 @@ DB_PASSWORD=senha_segura_aqui
 DB_NAME=buska_db
 
 # API
-API_PORT=5001
+API_PORT=5000
 DEBUG=false
 JWT_SECRET_KEY=chave_jwt_longa_e_aleatoria
 JWT_EXPIRES_HOURS=2
@@ -139,8 +139,8 @@ JWT_EXPIRES_HOURS=2
 
 ### Documentação da API
 A documentação completa e interativa da API está disponível em:
-- **Swagger UI**: http://localhost:5001/apidocs
-- **ReDoc**: http://localhost:5001/redoc
+- **Swagger UI**: http://localhost:5000/docs
+- **ReDoc**: http://localhost:5000/redoc
 
 Principais endpoints:
 - `POST /auth/login` - Autenticar
@@ -184,7 +184,7 @@ ansible-playbook ansible/deploy-prod.yml
 ```
 
 Containers iniciados:
-- `buska_api` - Flask API com Gunicorn (porta 5001)
+- `buska_api` - Flask API com Gunicorn (porta 5000)
 - `buska_db_prod` - PostgreSQL + PostGIS (porta 5432)
 
 ## 🐛 Troubleshooting

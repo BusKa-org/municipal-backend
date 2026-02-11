@@ -7,7 +7,7 @@
     python_version: "3.12"
     venv_path: "{{ project_dir }}/.venv"
     clean_db: "{{ clean_database | default(false) }}"  # Pass as: -e clean_database=true
-  
+
   tasks:
     - name: Check if Python 3.12+ is installed
       shell: python3 --version
@@ -48,7 +48,7 @@
         sleep 2
       args:
         executable: /bin/bash
-      when: 
+      when:
         - docker_check.rc == 0
         - clean_db | bool
       changed_when: false
@@ -56,7 +56,7 @@
     - name: Display warning about existing database
       debug:
         msg: "Database already exists. Skipping cleanup. To reinitialize, run with: -e clean_database=true"
-      when: 
+      when:
         - docker_check.rc == 0
         - not (clean_db | bool)
 
@@ -83,10 +83,10 @@
       debug:
         msg: |
           Setup completed!
-          
+
           Next steps:
           1. Make sure Docker Desktop is running
           2. Run: source .venv/bin/activate
           3. Run: make run
-          
-          API will be available at: http://localhost:5001/apidocs
+
+          API will be available at: http://localhost:5000/docs
