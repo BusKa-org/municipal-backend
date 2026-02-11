@@ -14,27 +14,9 @@ DOCKER := $(shell \
 
 .PHONY: run dev install install-dev
 
-PYTHON := $(shell \
-	if [ -n "$$VIRTUAL_ENV" ]; then \
-		echo "python -m"; \
-	elif command -v uv >/dev/null 2>&1; then \
-		echo "uv run --"; \
-	else \
-		echo "python -m"; \
-	fi \
-)
-
-install:
-	@if [ -n "$$VIRTUAL_ENV" ]; then \
-		pip install -e .; \
-	else \
-		echo "WARNING: no virtual environment found, running with uv" >&2; \
-		uv sync; \
-	fi
-
 run:
 	$(DOCKER) -f infra/database.yml up -d db
-	$(PYTHON) flask --app app run --host=0.0.0.0 --port=5001 --debug
+	uv run -- flask --app app run --debug
 
 dev: run  # Alias for run
 
@@ -215,24 +197,3 @@ help:
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean           Remove cache files"
-
-# Docker production targets
-docker-build:
-	docker build -t buska-backend:latest .
-
-docker-up:
-	docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-
-docker-down:
-	docker compose -f docker-compose.prod.yml down
-
-docker-logs:
-	docker compose -f docker-compose.prod.yml logs -f
-
-docker-rebuild:
-	docker compose -f docker-compose.prod.yml down
-	docker build -t buska-backend:latest .
-	docker compose -f docker-compose.prod.yml up -d
-
-docker-clean:
-	docker compose -f docker-compose.prod.yml down --volumes --rmi all
