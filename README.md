@@ -67,55 +67,55 @@ curl -I http://localhost:5000/v1/auth/login | grep -E "X-Content-Type|X-Frame|X-
 ### Desenvolvimento Local
 
 ```bash
-make install       # Instalar dependências
-make run          # Rodar servidor (porta 5000)
-make initdb       # Criar e popular banco de dados
-make deletedb     # Limpar banco de dados
-make bdcon        # Conectar ao banco via psql
+make install        # Instalar dependências
+make run            # Rodar servidor (porta 5000)
+make initdb         # Criar e popular banco de dados
+make deletedb       # Limpar banco de dados
+make bdcon          # Conectar ao banco via psql
 ```
 
 ### Docker (Produção)
 
 ```bash
-make docker-build    # Buildar imagem
-make docker-up       # Subir containers (porta 5000)
-make docker-down     # Parar containers
-make docker-logs     # Ver logs em tempo real
-make docker-clean    # Limpar tudo (volumes + imagens)
+make docker-build   # Buildar imagem
+make docker-up      # Subir containers (porta 5000)
+make docker-down    # Parar containers
+make docker-logs    # Ver logs em tempo real
+make docker-clean   # Limpar tudo (volumes + imagens)
 ```
 
 ## 📁 Estrutura do Projeto
 
 ```
 buska-backend/
-├── app/                      # Código da aplicação
+├── app/                    # Código da aplicação
 │   ├── api/
-│   │   ├── controllers/      # Lógica dos endpoints
-│   │   └── routes/           # Definição das rotas
+│   │   ├── controllers/    # Lógica dos endpoints
+│   │   └── routes/         # Definição das rotas
 │   ├── core/
-│   │   ├── auth.py          # Autenticação JWT
-│   │   └── config.py        # Configurações
-│   ├── models/              # Modelos SQLAlchemy
-│   └── services/            # Serviços de negócio
-├── database/                # Scripts SQL
+│   │   ├── auth.py         # Autenticação JWT
+│   │   └── config.py       # Configurações
+│   ├── models/             # Modelos SQLAlchemy
+│   └── services/           # Serviços de negócio
+├── database/               # Scripts SQL
 │   ├── init.sql            # Schema e extensões
 │   └── populate.sql        # Dados iniciais
-├── docs/                    # Documentação da API
+├── docs/                   # Documentação da API
 │   └── endpoints/          # Specs YAML (Swagger)
 ├── infra/
 │   ├── database.yml        # Docker Compose (dev)
 │   └── terraform/          # Infraestrutura (OpenStack)
-├── ansible/                 # Playbooks de automação
+├── ansible/                # Playbooks de automação
 │   ├── setup-dev.yml       # Setup local
 │   ├── run-docker.yml      # Deploy Docker
 │   └── deploy-prod.yml     # Deploy OpenStack
-├── tests/                   # Testes automatizados
+├── tests/                  # Testes automatizados
 ├── Dockerfile              # Build de produção
 ├── docker-compose.prod.yml # Orquestração (prod)
-├── Makefile               # Automação de comandos
-├── setup.sh               # Setup automatizado
-├── start.sh              # Setup + Docker
-└── pyproject.toml        # Dependências Python
+├── Makefile                # Automação de comandos
+├── setup.sh                # Setup automatizado
+├── start.sh                # Setup + Docker
+└── pyproject.toml          # Dependências Python
 ```
 
 ## Variáveis de Ambiente
