@@ -1,0 +1,243 @@
+name: BusKá Backend CI/CD
+
+on:
+  push:
+    branches: [main, develop, chore/add-ci]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  lint:
+    name: Code Quality & Security
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -e ".[dev]"
+          uv pip install --system ruff bandit safety
+
+      - name: Run Ruff Linter
+        run: uv run ruff check app/ tests/
+
+      - name: Run Ruff Formatter
+        run: uv run ruff format --check app/ tests/
+
+      - name: Security Scan - Bandit
+        run: uv run bandit -r app/ -f json -o bandit-report.json
+        continue-on-error: true
+
+      - name: Dependency Vulnerability Check
+        run: uv run safety check --json
+        continue-on-error: true
+
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+          retention-days: 30
+
+  test:
+    name: Tests & Coverage
+    runs-on: self-hosted
+    needs: lint
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: buska_user
+          POSTGRES_PASSWORD: buska_pass
+          POSTGRES_DB: buska_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -e ".[dev]"
+          uv pip install --system pytest-cov pytest-xdist
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U buska_user; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+
+      - name: Run Tests with Coverage
+        env:
+          DB_USER: buska_user
+          DB_PASSWORD: buska_pass
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: buska_db
+          FLASK_ENV: development
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_TEST }}
+        run: |
+          uv run pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-report=html tests/ -n auto
+          PERCENT_COV=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f%%", $1*100}')
+          echo "COVERAGE_PERCENT=$PERCENT_COV" >> $GITHUB_OUTPUT
+          echo "Coverage: $PERCENT_COV"
+        id: coverage
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.xml
+            htmlcov/
+          retention-days: 30
+
+      - name: Comment Coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📊 Test Coverage: ${{ steps.coverage.outputs.COVERAGE_PERCENT }}`
+            })
+
+      - name: Notify CI Failure
+        if: failure()
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"content": "❌ **CI Failed!** Error in tests.\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`"}' \
+          ${{ secrets.DISCORD_WEBHOOK }}
+
+    outputs:
+      coverage: ${{ steps.coverage.outputs.COVERAGE_PERCENT }}
+
+  build:
+    name: Build Docker Image
+    runs-on: self-hosted
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Development .env
+        run: |
+          echo "DB_USER=buska_user" > .env
+          echo "DB_PASSWORD=buska_pass" >> .env
+          echo "DB_HOST=localhost" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_NAME=buska_db" >> .env
+          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY_DEV }}" >> .env
+          echo "JWT_EXPIRES_HOURS=2" >> .env
+          echo "FLASK_ENV=development" >> .env
+          echo "FLASK_DEBUG=True" >> .env
+          echo "DEBUG=True" >> .env
+          echo "DEVELOPMENT_ENV=true" >> .env
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t buska-backend:${{ github.sha }} \
+            -t buska-backend:latest \
+            -t buska-backend:${{ github.ref_name }}-${{ github.run_number }} \
+            .
+
+      - name: Save Docker Image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker save buska-backend:${{ github.sha }} | gzip > buska-backend.tar.gz
+
+      - name: Upload Docker Image Artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: buska-backend.tar.gz
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Production
+    runs-on: self-hosted
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://buska-backend.your-domain.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Docker Image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker Image
+        run: docker load < buska-backend.tar.gz
+
+      - name: Create Production .env
+        run: |
+          echo "DB_USER=${{ secrets.DB_USER }}" > .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> .env
+          echo "JWT_EXPIRES_HOURS=${{ secrets.JWT_EXPIRES_HOURS }}" >> .env
+          echo "FLASK_ENV=production" >> .env
+          echo "FLASK_DEBUG=False" >> .env
+
+      - name: Docker Compose Deploy
+        run: |
+          docker compose -f docker-compose.yml up -d --no-build
+          docker compose -f docker-compose.yml ps
+
+      - name: Health Check
+        run: |
+          sleep 10
+          curl -f http://localhost:5000/health || exit 1
+
+      - name: Notify Discord Success
+        if: success()
+        run: |
+          MSG="🚀 **BusKá Backend Deployed!**\n**Version:** \`${{ github.run_number }}\`\n**Coverage:** \`${{ needs.test.outputs.coverage }}\`\n**Commit:** \`${GITHUB_SHA:0:7}\`"
+          PAYLOAD='{"embeds": [{"title": "Production Deployment", "description": "'"$MSG"'", "color": 3066993, "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'"}]}'
+          curl -X POST -H "Content-Type: application/json" -d "$PAYLOAD" ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: Notify Discord Failure
+        if: failure()
+        run: |
+          MSG="❌ **Deployment Failed!**\n**Branch:** \`${{ github.ref_name }}\`\n**Run:** \`${{ github.run_number }}\`"
+          PAYLOAD='{"embeds": [{"title": "Deployment Error", "description": "'"$MSG"'", "color": 15158332}]}'
+          curl -X POST -H "Content-Type: application/json" -d "$PAYLOAD" ${{ secrets.DISCORD_WEBHOOK }}
