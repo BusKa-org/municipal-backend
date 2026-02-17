@@ -4,8 +4,9 @@ from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
-from app.api.contracts import user_contract
+from app.api.contracts import aluno_contract, user_contract
 from app.core.exceptions import ValidationError
+from app.schemas.aluno_schema import AlunoAccountCreateSchema
 from app.schemas.user_schema import ChangePasswordSchema, MotoristaCreateSchema, UserResponseSchema
 from app.services import user_service
 
@@ -13,12 +14,14 @@ api = Namespace("users", description="Gerenciamento de Usuários e Perfil")
 
 # API contracts (Swagger documentation)
 models = user_contract.register_models(api)
+models_aluno = aluno_contract.register_models(api)
 
 # Validation schemas (Marshmallow)
 user_schema = UserResponseSchema()
 list_response_schema = UserResponseSchema(many=True)
 motorista_create_schema = MotoristaCreateSchema()
 change_password_schema = ChangePasswordSchema()
+aluno_account_create_schema = AlunoAccountCreateSchema()
 
 
 @api.route("")
@@ -60,6 +63,32 @@ class UserResource(Resource):
         return user_schema.dump(user), 200
 
 
+@api.route("/alunos")
+class AlunoAccountCreateResource(Resource):
+    @api.doc(
+        "create_aluno_account",
+        responses={
+            201: "Aluno account created",
+            400: "Validation error",
+            403: "Forbidden - not a gestor",
+            409: "Conflict - duplicate email/CPF",
+        },
+    )
+    @api.expect(models_aluno["create_aluno_account_request"])
+    @jwt_required()
+    def post(self):
+        """Gestor cria uma nova conta de aluno"""
+        current_user_id = get_jwt_identity()
+        data = request.get_json() or {}
+
+        errors = aluno_account_create_schema.validate(data)
+        if errors:
+            raise ValidationError("Erro de validação", details=errors)
+
+        aluno = user_service.create_aluno_account(current_user_id, data)
+        return {"message": "Aluno account created with success", "id": str(aluno.id)}, 201
+
+
 @api.route("/motoristas")
 class MotoristaCreateResource(Resource):
     @api.doc(
@@ -83,7 +112,7 @@ class MotoristaCreateResource(Resource):
             raise ValidationError("Erro de validação", details=errors)
 
         motorista = user_service.create_motorista(current_user_id, data)
-        return {"message": "Motorista cadastrado com sucesso", "id": str(motorista.usuario_id)}, 201
+        return {"message": "Motorista cadastrado com sucesso", "id": str(motorista.id)}, 201
 
 
 @api.route("/change-password")

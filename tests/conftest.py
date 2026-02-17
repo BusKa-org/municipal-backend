@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 from app import create_app
 from app.models.base import db
 from tests.factories.prefeitura_factory import PrefeituraFactory
-from tests.factories.user_factory import GestorFactory
+from tests.factories.user_factory import AlunoFactory, GestorFactory
 
 
 class AuthenticatedClient:
@@ -85,8 +85,55 @@ def prefeitura(_db):
 
 
 @pytest.fixture()
+def other_prefeitura(_db):
+    p = PrefeituraFactory()
+    _db.session.add(p)
+    _db.session.commit()
+    return p
+
+
+@pytest.fixture()
 def gestor(client, app, _db, prefeitura):
     u = GestorFactory(prefeitura_id=prefeitura.id)
+    _db.session.add(u)
+    _db.session.commit()
+
+    with app.app_context():
+        token = create_access_token(identity=str(u.id))
+
+    headers = {"Authorization": f"Bearer {token}"}
+    return Actor(user=u, headers=headers, client=AuthenticatedClient(client, headers))
+
+
+@pytest.fixture()
+def other_gestor(client, app, _db, other_prefeitura):
+    u = GestorFactory(prefeitura_id=other_prefeitura.id)
+    _db.session.add(u)
+    _db.session.commit()
+
+    with app.app_context():
+        token = create_access_token(identity=str(u.id))
+
+    headers = {"Authorization": f"Bearer {token}"}
+    return Actor(user=u, headers=headers, client=AuthenticatedClient(client, headers))
+
+
+@pytest.fixture()
+def aluno(client, app, _db, prefeitura):
+    u = AlunoFactory(prefeitura_id=prefeitura.id)
+    _db.session.add(u)
+    _db.session.commit()
+
+    with app.app_context():
+        token = create_access_token(identity=str(u.id))
+
+    headers = {"Authorization": f"Bearer {token}"}
+    return Actor(user=u, headers=headers, client=AuthenticatedClient(client, headers))
+
+
+@pytest.fixture()
+def other_aluno(client, app, _db, other_prefeitura):
+    u = AlunoFactory(prefeitura_id=other_prefeitura.id)
     _db.session.add(u)
     _db.session.commit()
 
