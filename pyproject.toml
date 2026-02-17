@@ -26,13 +26,19 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 6b49408 (test: bootstrap pytest fixtures, factories, and auth integration tests)
     "pytest-mock>=3.14.0",
     "faker>=26.0.0",
     "factory-boy>=3.3.0",
     "requests>=2.32.0",
     "pytest-xdist>=3.6.0",
+<<<<<<< HEAD
 =======
 >>>>>>> d2b1ded (test: setup pytest structure)
+=======
+>>>>>>> 6b49408 (test: bootstrap pytest fixtures, factories, and auth integration tests)
     "black>=24.0.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
