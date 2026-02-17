@@ -4,7 +4,7 @@ from datetime import timedelta
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
@@ -183,5 +183,34 @@ Inclua o header: `Authorization: Bearer <seu_token>`
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(spec, f, indent=2, ensure_ascii=False)
             print(f"[*] OpenAPI spec exported to {output_path}")
+
+    # ==========================================
+    # Health / Readiness Endpoints
+    # ==========================================
+
+    @app.get("/health")
+    def health() -> tuple[Response, int]:
+        """Liveness probe — server is running."""
+        return (
+            jsonify(
+                status="ok",
+                service="buska-backend",
+                environment=settings.ENV,
+            ),
+            200,
+        )
+
+    @app.get("/ready")
+    def ready() -> tuple[Response, int]:
+        """Readiness probe — server can handle requests (DB reachable)."""
+        try:
+            # Minimal DB check (safe + fast)
+            from sqlalchemy import text
+
+            db.session.execute(text("SELECT 1"))
+            return jsonify(status="ok", ready=True), 200
+        except Exception:
+            logger.error("Readiness check failed", exc_info=True)
+            return jsonify(status="error", ready=False), 503
 
     return app
