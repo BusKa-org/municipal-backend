@@ -43,6 +43,7 @@ def create_app() -> Flask:
     load_dotenv()
     settings = Settings()
     app = Flask(__name__)
+    app.url_map.strict_slashes = False
 
     if not firebase_admin._apps:
         if settings.FIREBASE_CREDENTIALS:

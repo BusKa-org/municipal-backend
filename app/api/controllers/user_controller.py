@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract, user_contract
+
 from app.schemas.aluno_schema import AlunoProvisionAccountRequestSchema
 from app.schemas.user_schema import (
     ChangePasswordRequestSchema,

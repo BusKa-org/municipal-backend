@@ -681,8 +681,8 @@ def gerar_viagens_periodo(gestor_id: str, dias_futuros: int = 14):
     hoje = date.today()
     try:
         for i in range(dias_futuros):
-            data_alvo = (hoje + timedelta(days=i)).strftime("%Y-%m-%d")
-            gerar_viagens_em_lote(user_id=gestor_id, data_str=data_alvo)
+            data_alvo = hoje + timedelta(days=i)
+            gerar_viagens_em_lote(user_id=gestor_id, data_viagem=data_alvo)
 
         logger.info(f"Gerado lote de {dias_futuros} dias para o gestor {gestor_id}")
     except Exception as e:

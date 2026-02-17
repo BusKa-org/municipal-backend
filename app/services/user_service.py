@@ -132,7 +132,7 @@ def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
             email=email,
             senha_hash=generate_password_hash(password),
             cpf=cpf_clean,
-            telefone=data.get("telefone", "").strip(),
+            telefone=(data.get("telefone") or "").strip() or None,
             role=UserRole.ALUNO,
             status=UserStatus.PENDING_SIGNUP,
         )

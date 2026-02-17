@@ -20,6 +20,18 @@
       }
     },
     "/v1/alunos/me": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Aluno exclui sua conta",
+        "operationId": "aluno_delete",
+        "tags": [
+          "alunos"
+        ]
+      },
       "put": {
         "responses": {
           "200": {
@@ -41,18 +53,6 @@
             }
           }
         ],
-        "tags": [
-          "alunos"
-        ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Aluno exclui sua conta",
-        "operationId": "aluno_delete",
         "tags": [
           "alunos"
         ]
@@ -543,6 +543,17 @@
           "type": "string"
         }
       ],
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "delete_ponto",
+        "tags": [
+          "pontos"
+        ]
+      },
       "put": {
         "responses": {
           "200": {
@@ -563,17 +574,6 @@
             }
           }
         ],
-        "tags": [
-          "pontos"
-        ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "delete_ponto",
         "tags": [
           "pontos"
         ]
@@ -658,6 +658,17 @@
           "type": "string"
         }
       ],
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "delete_rota",
+        "tags": [
+          "rotas"
+        ]
+      },
       "put": {
         "responses": {
           "200": {
@@ -675,17 +686,6 @@
             }
           }
         ],
-        "tags": [
-          "rotas"
-        ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "delete_rota",
         "tags": [
           "rotas"
         ]
@@ -1261,6 +1261,18 @@
           "type": "string"
         }
       ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "(Aluno/Motorista) Obtém a localização atual do ônibus (viagem em andamento)",
+        "operationId": "obter_localizacao_onibus",
+        "tags": [
+          "viagens"
+        ]
+      },
       "post": {
         "responses": {
           "200": {
@@ -1538,6 +1550,14 @@
           "type": "string",
           "format": "date-time",
           "description": "Data de conclusão do cadastro"
+        },
+        "municipio_nome": {
+          "type": "string",
+          "description": "Nome do município (prefeitura)"
+        },
+        "municipio_uf": {
+          "type": "string",
+          "description": "UF do município"
         },
         "matricula": {
           "type": "string",
