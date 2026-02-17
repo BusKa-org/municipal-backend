@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def _get_user_or_404(user_id: str) -> User:
     """Get user by ID or raise NotFoundError."""
     validate_uuid(user_id, "User ID")
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         raise NotFoundError("Usuário não encontrado")
     return user
