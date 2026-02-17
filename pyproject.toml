@@ -106,13 +106,9 @@ warn_return_any = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-<<<<<<< HEAD
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-ra -v --tb=short --strict-markers --cov=app --cov-report=term-missing --cov-report=html --cov-branch"
-=======
-addopts = "-ra -v --tb=short --strict-markers"
->>>>>>> d2b1ded (test: setup pytest structure)
 markers = [
   "unit: fast tests without DB",
   "integration: API/DB integration tests",
@@ -121,7 +117,6 @@ markers = [
 filterwarnings = [
   "ignore:pythonjsonlogger\\.jsonlogger has been moved:DeprecationWarning",
 ]
-<<<<<<< HEAD
 
 [tool.coverage.run]
 branch = true
@@ -131,8 +126,6 @@ omit = [
     "*/venv/*",
     "*/.venv/*",
 ]
-=======
->>>>>>> d2b1ded (test: setup pytest structure)
 
 [build-system]
 requires = ["setuptools>=61.0"]
