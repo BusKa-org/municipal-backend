@@ -23,8 +23,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-cov>=4.1.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
     "black>=24.0.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
@@ -98,7 +98,15 @@ warn_return_any = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --tb=short"
+addopts = "-ra -v --tb=short --strict-markers"
+markers = [
+  "unit: fast tests without DB",
+  "integration: API/DB integration tests",
+  "e2e: full flows, slowest",
+]
+filterwarnings = [
+  "ignore:pythonjsonlogger\\.jsonlogger has been moved:DeprecationWarning",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]
