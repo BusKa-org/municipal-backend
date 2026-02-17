@@ -2,184 +2,356 @@ name: BusKá Backend CI/CD
 
 on:
   push:
-    branches: [main, develop, chore/add-ci]
+    branches: [main, release/**]
   pull_request:
-    branches: [main, develop]
+    branches: [main, release/**]
+  workflow_dispatch:
+    inputs:
+      GIT_REFERENCE:
+        description: "Optional: branch/tag/SHA. If empty, uses the current branch."
+        required: false
+        default: ""
+      SHOULD_RUN_TESTS_BEFORE_BUILD:
+        description: "Run tests before build?"
+        type: boolean
+        required: false
+        default: true
+      SHOULD_TAG_LATEST:
+        description: "Tag as :latest? (recommended only on main)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   pull-requests: write
   contents: read
 
 env:
-  PYTHON_VERSION: '3.12'
+  PYTHON_VERSION: "3.12"
+  UV_CACHE_DIR: ~/.cache/uv
+
+# ---------------------------
+# Helper "variables" (jobs use env.RESOLVED_REF)
+# ---------------------------
 
 jobs:
+  meta:
+    name: Resolve git ref
+    runs-on: self-hosted
+    outputs:
+      resolved_ref: ${{ steps.ref.outputs.resolved_ref }}
+      should_run_tests: ${{ steps.flags.outputs.should_run_tests }}
+      should_tag_latest: ${{ steps.flags.outputs.should_tag_latest }}
+    steps:
+      - name: "Resolve ref (manual: input or current branch; else: sha)"
+        id: ref
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.GIT_REFERENCE }}" ]; then
+              echo "resolved_ref=${{ inputs.GIT_REFERENCE }}" >> "$GITHUB_OUTPUT"
+            else
+              echo "resolved_ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "resolved_ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Resolve flags"
+        id: flags
+        shell: bash
+        run: |
+          # default values for non-manual runs
+          SHOULD_RUN="true"
+          SHOULD_LATEST="false"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHOULD_RUN="${{ inputs.SHOULD_RUN_TESTS_BEFORE_BUILD }}"
+            SHOULD_LATEST="${{ inputs.SHOULD_TAG_LATEST }}"
+          fi
+
+          echo "should_run_tests=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+          echo "should_tag_latest=$SHOULD_LATEST" >> "$GITHUB_OUTPUT"
+
   lint:
     name: Code Quality & Security
     runs-on: self-hosted
+    needs: meta
+    env:
+      RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RESOLVED_REF }}
+          fetch-depth: 0
 
-      - name: Cache dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache uv
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
 
-      - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[dev]"
-          uv pip install --system ruff bandit safety
+      - name: "Install uv"
+        run: pip install -U uv
 
-      - name: Run Ruff Linter
-        run: uv run ruff check app/ tests/
+      - name: "Install dependencies (dev)"
+        run: uv pip install --system -e ".[dev]"
 
-      - name: Run Ruff Formatter
-        run: uv run ruff format --check app/ tests/
+      - name: "Pre-commit (format/lint/type)"
+        run: uv run pre-commit run --all-files
 
-      - name: Security Scan - Bandit
+      - name: "Security Scan - Bandit"
         run: uv run bandit -r app/ -f json -o bandit-report.json
         continue-on-error: true
 
-      - name: Dependency Vulnerability Check
+      - name: "Dependency Vulnerability Check (Safety)"
         run: uv run safety check --json
         continue-on-error: true
 
-      - name: Upload Security Reports
+      - name: "Upload Security Reports"
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: security-reports
-          path: |
-            bandit-report.json
+          path: bandit-report.json
           retention-days: 30
 
-  test:
-    name: Tests & Coverage
+  test_fast:
+    name: "Tests (fast - SQLite)"
     runs-on: self-hosted
-    needs: lint
+    needs: [meta, lint]
+    if: needs.meta.outputs.should_run_tests == 'true'
+    env:
+      RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RESOLVED_REF }}
+          fetch-depth: 0
+
+      - name: "Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: "Cache uv"
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: "Install uv"
+        run: pip install -U uv
+
+      - name: "Install dependencies (dev)"
+        run: uv pip install --system -e ".[dev]"
+
+      - name: "Run tests (no e2e)"
+        env:
+          ENV: test
+          JWT_SECRET_KEY: test-secret
+        run: uv run pytest -m "not e2e" -q
+
+      - name: "Upload Coverage HTML (fast)"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html-fast
+          path: htmlcov/
+          retention-days: 7
+
+  test_db:
+    name: "Tests (DB - PostGIS)"
+    runs-on: self-hosted
+    needs: [meta, lint]
+    if: needs.meta.outputs.should_run_tests == 'true'
+    env:
+      RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
     services:
       postgres:
         image: postgis/postgis:16-3.4
         env:
           POSTGRES_USER: buska_user
           POSTGRES_PASSWORD: buska_pass
-          POSTGRES_DB: buska_db
+          POSTGRES_DB: buska_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U buska_user -d buska_test"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RESOLVED_REF }}
+          fetch-depth: 0
 
-      - name: Cache dependencies
+      - name: "Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: "Cache uv"
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
 
-      - name: Install dependencies
+      - name: "Install uv"
+        run: pip install -U uv
+
+      - name: "Install dependencies (dev)"
         run: |
           uv pip install --system -e ".[dev]"
-          uv pip install --system pytest-cov pytest-xdist
+          uv pip install --system pytest-xdist
 
-      - name: Wait for PostgreSQL
+      - name: "Wait for PostgreSQL"
         run: |
-          until pg_isready -h localhost -p 5432 -U buska_user; do
+          until pg_isready -h localhost -p 5432 -U buska_user -d buska_test; do
             echo "Waiting for postgres..."
             sleep 2
           done
 
-      - name: Run Tests with Coverage
-        env:
-          DB_USER: buska_user
-          DB_PASSWORD: buska_pass
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_NAME: buska_db
-          FLASK_ENV: development
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_TEST }}
-        run: |
-          uv run pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-report=html tests/ -n auto
-          PERCENT_COV=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f%%", $1*100}')
-          echo "COVERAGE_PERCENT=$PERCENT_COV" >> $GITHUB_OUTPUT
-          echo "Coverage: $PERCENT_COV"
+      - name: "Run Integration (DB) with Coverage"
         id: coverage
+        env:
+          ENV: test
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_TEST }}
+          SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://buska_user:buska_pass@localhost:5432/buska_test
+        run: |
+          uv run pytest -m "integration and not e2e" -n auto \
+            --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=html
 
-      - name: Upload Coverage Reports
+          PERCENT_COV=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f%%", $1*100}')
+          echo "COVERAGE_PERCENT=$PERCENT_COV" >> "$GITHUB_OUTPUT"
+          echo "Coverage: $PERCENT_COV"
+
+      - name: "Upload Coverage Reports (DB)"
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-reports
+          name: coverage-reports-db
           path: |
             coverage.xml
             htmlcov/
           retention-days: 30
 
-      - name: Comment Coverage on PR
+      - name: "Comment Coverage on PR"
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 📊 Test Coverage: ${{ steps.coverage.outputs.COVERAGE_PERCENT }}`
-            })
+            const body = `## 📊 Test Coverage (DB): ${{ steps.coverage.outputs.COVERAGE_PERCENT }}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
 
-      - name: Notify CI Failure
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const botComment = comments.data.find(c => c.user.type === "Bot" && c.body.includes("Test Coverage (DB)"));
+
+            if (botComment) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: botComment.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: "Notify CI Failure (Discord)"
         if: failure()
         run: |
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"content": "❌ **CI Failed!** Error in tests.\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`"}' \
+          -d '{"content": "❌ **CI Failed!** Error in DB tests.\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`"}' \
           ${{ secrets.DISCORD_WEBHOOK }}
 
     outputs:
       coverage: ${{ steps.coverage.outputs.COVERAGE_PERCENT }}
 
   build:
-    name: Build Docker Image
+    name: "Build Docker Image"
     runs-on: self-hosted
-    needs: test
+    needs: [meta, lint, test_fast, test_db]
+    # Se manual e o usuário desmarcar testes, build ainda roda (só depende do lint + meta).
+    if: |
+      always() &&
+      needs.lint.result == 'success' &&
+      (
+        needs.meta.outputs.should_run_tests != 'true' ||
+        (needs.test_fast.result == 'success' && needs.test_db.result == 'success')
+      )
+    env:
+      RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
+      SHOULD_TAG_LATEST: ${{ needs.meta.outputs.should_tag_latest }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RESOLVED_REF }}
+          fetch-depth: 0
 
-      - name: Create Development .env
+      - name: "Compute docker tags"
+        id: tags
+        shell: bash
         run: |
-          echo "DB_USER=buska_user" > .env
-          echo "DB_PASSWORD=buska_pass" >> .env
-          echo "DB_HOST=localhost" >> .env
-          echo "DB_PORT=5432" >> .env
-          echo "DB_NAME=buska_db" >> .env
-          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY_DEV }}" >> .env
-          echo "JWT_EXPIRES_HOURS=2" >> .env
-          echo "FLASK_ENV=development" >> .env
-          echo "FLASK_DEBUG=True" >> .env
-          echo "DEBUG=True" >> .env
-          echo "DEVELOPMENT_ENV=true" >> .env
+          # sanitize ref for docker tag
+          REF="${{ env.RESOLVED_REF }}"
+          SAFE_REF=$(echo "$REF" | tr '/:@' '---' | tr -cd '[:alnum:]._-' | cut -c1-80)
 
-      - name: Build Docker Image
+          TAGS="buska-backend:${{ github.sha }}
+          buska-backend:${SAFE_REF}-${{ github.run_number }}"
+
+          # Tag latest only if main OR manual input enabled
+          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ env.SHOULD_TAG_LATEST }}" = "true" ]; then
+            TAGS="$TAGS
+          buska-backend:latest"
+          fi
+
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$TAGS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: "Create Development .env"
         run: |
-          docker build \
-            -t buska-backend:${{ github.sha }} \
-            -t buska-backend:latest \
-            -t buska-backend:${{ github.ref_name }}-${{ github.run_number }} \
-            .
+          cat > .env <<EOF
+          DB_USER=buska_user
+          DB_PASSWORD=buska_pass
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_NAME=buska_db
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY_DEV }}
+          JWT_EXPIRES_HOURS=2
+          FLASK_ENV=development
+          FLASK_DEBUG=True
+          DEBUG=True
+          DEVELOPMENT_ENV=true
+          EOF
 
-      - name: Save Docker Image
+      - name: "Build Docker Image"
+        shell: bash
+        run: |
+          echo "Building tags:"
+          echo "${{ steps.tags.outputs.tags }}"
+          while IFS= read -r tag; do
+            [ -n "$tag" ] && BUILD_TAG_ARGS="$BUILD_TAG_ARGS -t $tag"
+          done <<< "${{ steps.tags.outputs.tags }}"
+
+          docker build $BUILD_TAG_ARGS .
+
+      - name: "Save Docker Image (main only)"
         if: github.ref == 'refs/heads/main'
         run: |
           docker save buska-backend:${{ github.sha }} | gzip > buska-backend.tar.gz
 
-      - name: Upload Docker Image Artifact
+      - name: "Upload Docker Image Artifact (main only)"
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
@@ -188,9 +360,9 @@ jobs:
           retention-days: 7
 
   deploy:
-    name: Deploy to Production
+    name: "Deploy to Production"
     runs-on: self-hosted
-    needs: [test, build]
+    needs: [test_db, build]
     if: github.ref == 'refs/heads/main'
     environment:
       name: production
@@ -198,44 +370,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Docker Image
+      - name: "Download Docker Image"
         uses: actions/download-artifact@v4
         with:
           name: docker-image
 
-      - name: Load Docker Image
+      - name: "Load Docker Image"
         run: docker load < buska-backend.tar.gz
 
-      - name: Create Production .env
+      - name: "Create Production .env"
         run: |
-          echo "DB_USER=${{ secrets.DB_USER }}" > .env
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
-          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> .env
-          echo "JWT_EXPIRES_HOURS=${{ secrets.JWT_EXPIRES_HOURS }}" >> .env
-          echo "FLASK_ENV=production" >> .env
-          echo "FLASK_DEBUG=False" >> .env
+          cat > .env <<EOF
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          JWT_EXPIRES_HOURS=${{ secrets.JWT_EXPIRES_HOURS }}
+          FLASK_ENV=production
+          FLASK_DEBUG=False
+          DEBUG=False
+          EOF
 
-      - name: Docker Compose Deploy
+      - name: "Docker Compose Deploy"
         run: |
           docker compose -f docker-compose.yml up -d --no-build
           docker compose -f docker-compose.yml ps
 
-      - name: Health Check
+      - name: "Health Check"
         run: |
           sleep 10
-          curl -f http://localhost:5000/health || exit 1
+          curl -f http://localhost:5000/health
 
-      - name: Notify Discord Success
+      - name: "Notify Discord Success"
         if: success()
         run: |
-          MSG="🚀 **BusKá Backend Deployed!**\n**Version:** \`${{ github.run_number }}\`\n**Coverage:** \`${{ needs.test.outputs.coverage }}\`\n**Commit:** \`${GITHUB_SHA:0:7}\`"
+          MSG="🚀 **BusKá Backend Deployed!**\n**Version:** \`${{ github.run_number }}\`\n**Coverage(DB):** \`${{ needs.test_db.outputs.coverage }}\`\n**Commit:** \`${GITHUB_SHA:0:7}\`"
           PAYLOAD='{"embeds": [{"title": "Production Deployment", "description": "'"$MSG"'", "color": 3066993, "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'"}]}'
           curl -X POST -H "Content-Type: application/json" -d "$PAYLOAD" ${{ secrets.DISCORD_WEBHOOK }}
 
-      - name: Notify Discord Failure
+      - name: "Notify Discord Failure"
         if: failure()
         run: |
           MSG="❌ **Deployment Failed!**\n**Branch:** \`${{ github.ref_name }}\`\n**Run:** \`${{ github.run_number }}\`"
