@@ -3,7 +3,7 @@ from marshmallow import fields, validate
 from app.schemas.common import BaseSchema
 
 from .horario_schema import HorarioResponseSchema
-from .ponto_schema import PontoFlatResponseSchema
+from .ponto_schema import PontoFlatResponseSchema, PontoResponseSchema
 
 # ==========================================
 # Input Schemas (Validation)
@@ -54,6 +54,11 @@ class RotaInscricaoRequestSchema(BaseSchema):
 # ==========================================
 
 
+class RotaPontoResponseSchema(BaseSchema):
+    ordem = fields.Integer()
+    ponto = fields.Nested(PontoResponseSchema)
+
+
 class RotaResponseSchema(BaseSchema):
     id = fields.String()
     nome = fields.String()
@@ -87,9 +92,7 @@ class RotaDetailResponseSchema(RotaResponseSchema):
     horarios = fields.Nested(HorarioResponseSchema, many=True, attribute="grade_horarios")
 
     def get_pontos(self, obj):
-        return PontoFlatResponseSchema(many=True).dump(
-            [rota_ponto.ponto for rota_ponto in obj.pontos_padrao]
-        )
+        return RotaPontoResponseSchema(many=True).dump(obj.pontos_padrao)
 
 
 class RotaListResponseSchema(BaseSchema):

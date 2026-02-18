@@ -5,15 +5,15 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract, user_contract
-
 from app.schemas.aluno_schema import AlunoProvisionAccountRequestSchema
 from app.schemas.user_schema import (
     ChangePasswordRequestSchema,
     ChangePasswordResponseSchema,
+    FcmTokenRequestSchema,
+    FcmTokenResponseSchema,
     MotoristaCreateRequestSchema,
     UserListResponseSchema,
     UserResponseSchema,
-    FcmTokenRequestSchema,
 )
 from app.services import user_service
 
@@ -24,7 +24,6 @@ models = user_contract.register_models(api)
 models_aluno = aluno_contract.register_models(api)
 
 # Validation schemas (Marshmallow)
-user_schema = UserResponseSchema()
 user_list_response_schema = UserListResponseSchema()
 motorista_create_schema = MotoristaCreateRequestSchema()
 change_password_schema = ChangePasswordRequestSchema()
@@ -32,6 +31,7 @@ aluno_provision_account_request_schema = AlunoProvisionAccountRequestSchema()
 user_response_schema = UserResponseSchema()
 change_password_response_schema = ChangePasswordResponseSchema()
 fcm_token_request_schema = FcmTokenRequestSchema()
+fcm_token_response_schema = FcmTokenResponseSchema()
 
 @api.route("")
 class UserList(Resource):
@@ -169,6 +169,7 @@ class UserChangePassword(Resource):
 class UserFcmToken(Resource):
     @api.doc("update_fcm_token", responses={200: "Token atualizado", 400: "Token não enviado"})
     @api.expect(models["fcm_token_request"])
+    @api.response(200, "Token updated successfully", models["fcm_token_response"])
     @jwt_required()
     def patch(self) -> tuple[dict[str, str], int]:
         """Atualiza o Token do Firebase (Push Notifications) do aparelho do usuário"""
@@ -177,5 +178,4 @@ class UserFcmToken(Resource):
         payload = fcm_token_request_schema.load(data)
 
         user_service.update_fcm_token(current_user_id, payload)
-
-        return {"message": "Token de notificação atualizado com sucesso"}, 200
+        return fcm_token_response_schema.dump({"message": "Token de notificação atualizado com sucesso"}), 200

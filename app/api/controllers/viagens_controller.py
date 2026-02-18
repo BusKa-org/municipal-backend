@@ -110,7 +110,8 @@ class ViagemListResource(Resource):
     @jwt_required()
     def get(self) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        filters = viagem_list_query_schema.load(request.args.to_dict())
+        data = request.args.to_dict()
+        filters = viagem_list_query_schema.load(data)
         viagens = viagens_service.list_viagens_gestor(user_id, filters)
         return (
             viagem_list_response_schema.dump(
@@ -130,11 +131,8 @@ class ViagemListResource(Resource):
         user_id = get_jwt_identity()
         data = request.get_json(silent=True) or {}
         payload = viagem_create_request_schema.load(data)
-        result = viagens_service.gerar_viagem(user_id, payload)
-
-        # gerar_viagem returns {message,id,dia}. If you want to return ViagemResponseSchema instead,
-        # change service to return the Viagem ORM instance. For now, keep it consistent with existing behavior.
-        return result, 201
+        viagem = viagens_service.gerar_viagem(user_id, payload)
+        return viagem_response_schema.dump(viagem), 201
 
 
 @api.route("/gerar-lote")
@@ -187,8 +185,9 @@ class ViagemAcaoResource(Resource):
 @api.route("/<string:id>/cancelar")
 class ViagemCancelarResource(Resource):
     @api.doc("cancelar_viagem")
+    @api.response(200, "Trip cancelled successfully")
     @jwt_required()
-    def put(self, id):
+    def put(self, id: str) -> tuple[dict[str, Any], int]:
         """Cancela uma viagem agendada e notifica alunos (Gestor)"""
         user_id = get_jwt_identity()
         result = viagens_service.cancelar_viagem(user_id, id)

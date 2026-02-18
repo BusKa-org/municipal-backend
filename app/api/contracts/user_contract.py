@@ -62,13 +62,20 @@ def register_models(api):
             "message": fields.String(description="Mensagem de sucesso"),
         },
     )
-
+    
     fcm_token_request = api.model(
         "FcmTokenRequest",
         {
             "fcm_token": fields.String(
                 required=True, description="Token do dispositivo gerado pelo Firebase no Frontend"
             )
+        },
+    )
+
+    fcm_token_response = api.model(
+        "FcmTokenResponse",
+        {
+            "message": fields.String(description="Mensagem de sucesso"),
         },
     )
 
@@ -79,4 +86,5 @@ def register_models(api):
         "change_password_request": change_password_request,
         "change_password_response": change_password_response,
         "fcm_token_request": fcm_token_request,
+        "fcm_token_response": fcm_token_response,
     }

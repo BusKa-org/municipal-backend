@@ -6,6 +6,16 @@ from app.schemas.common import BaseSchema
 # Input Schemas (Validation)
 # ==========================================
 
+class FcmTokenRequestSchema(BaseSchema):
+    """Schema for updating the FCM token."""
+
+    fcm_token = fields.String(required=True)
+
+
+class FcmTokenResponseSchema(BaseSchema):
+    """Schema for updating the FCM token response."""
+
+    message = fields.String(required=True)
 
 class MotoristaCreateRequestSchema(BaseSchema):
     """Schema for creating a new driver."""
