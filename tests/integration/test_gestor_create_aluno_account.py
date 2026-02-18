@@ -4,7 +4,6 @@ import pytest
 
 from app.models.enum import UserStatus
 
-
 @pytest.mark.integration
 def test_create_aluno_requires_auth(client):
     payload = {
