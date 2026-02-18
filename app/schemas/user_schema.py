@@ -1,11 +1,13 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import fields
+
+from app.schemas.common import BaseSchema
 
 # ==========================================
 # Input Schemas (Validation)
 # ==========================================
 
 
-class MotoristaCreateSchema(Schema):
+class MotoristaCreateRequestSchema(BaseSchema):
     """Schema for creating a new driver."""
 
     nome = fields.String(required=True)
@@ -14,38 +16,24 @@ class MotoristaCreateSchema(Schema):
     cpf = fields.String(required=True)
     telefone = fields.String(load_default=None)
     cnh = fields.String(required=True)
-    salario = fields.Float(load_default=None)
 
 
-class ChangePasswordSchema(Schema):
+class ChangePasswordRequestSchema(BaseSchema):
     """Schema for changing password."""
 
     current_password = fields.String(required=True)
-    new_password = fields.String(required=True, validate=validate.Length(min=6))
+    new_password = fields.String(required=True)
 
 
-class UserCreateSchema(Schema):
-    prefeitura_id = fields.String(required=True, metadata={"description": "UUID da Prefeitura"})
-    nome = fields.String(required=True)
-    email = fields.Email(required=True)
-    password = fields.String(required=True, load_only=True)
+class ChangePasswordResponseSchema(BaseSchema):
+    """Schema for changing password response."""
 
-    telefone = fields.String(load_default=None)
-    cpf = fields.String(required=True)
-
-    role = fields.String(
-        required=True,
-        validate=validate.OneOf(["aluno", "motorista", "gestor", "ALUNO", "MOTORISTA", "GESTOR"]),
-    )
-
-    matricula = fields.String(load_default=None)
-    nome_pai = fields.String(load_default=None)
-    nome_mae = fields.String(load_default=None)
-    cnh = fields.String(load_default=None)
-    salario = fields.Float(load_default=None)
+    message = fields.String()
 
 
-class UserResponseSchema(Schema):
+class UserResponseSchema(BaseSchema):
+    """Schema for user response."""
+
     id = fields.String()
     prefeitura_id = fields.String()
     nome = fields.String()
@@ -65,7 +53,6 @@ class UserResponseSchema(Schema):
     nome_pai = fields.String(dump_default=None)
     nome_mae = fields.String(dump_default=None)
     cnh = fields.String(dump_default=None)
-    salario = fields.Float(dump_default=None)
 
     def get_role(self, obj):
         return str(obj.role.value) if hasattr(obj.role, "value") else str(obj.role)
@@ -79,3 +66,10 @@ class UserResponseSchema(Schema):
         if obj.prefeitura:
             return obj.prefeitura.estado
         return None
+
+
+class UserListResponseSchema(BaseSchema):
+    """Schema for user list response."""
+
+    items = fields.List(fields.Nested(UserResponseSchema()), required=True)
+    total = fields.Integer(required=True)

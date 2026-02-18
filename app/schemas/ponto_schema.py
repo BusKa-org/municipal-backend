@@ -1,11 +1,13 @@
-from marshmallow import Schema, fields
+from marshmallow import fields
+
+from app.schemas.common import BaseSchema
 
 # ==========================================
 # Input Schemas (Validation)
 # ==========================================
 
 
-class PontoCreateSchema(Schema):
+class PontoCreateRequestSchema(BaseSchema):
     """Schema for creating a new point."""
 
     apelido = fields.String(required=False, allow_none=True)
@@ -13,7 +15,7 @@ class PontoCreateSchema(Schema):
     longitude = fields.Float(required=True)
 
 
-class PontoUpdateSchema(Schema):
+class PontoUpdateRequestSchema(BaseSchema):
     """Schema for updating a point (all fields optional)."""
 
     apelido = fields.String()
@@ -26,10 +28,15 @@ class PontoUpdateSchema(Schema):
 # ==========================================
 
 
-class PontoResponseSchema(Schema):
-    id = fields.String()
+class PontoResponseSchema(BaseSchema):
+    id = fields.UUID()
     apelido = fields.String()
     latitude = fields.Float()
     longitude = fields.Float()
     endereco = fields.String(dump_default=None)
     instituicao = fields.String(dump_default=None)
+
+
+class PontoListResponseSchema(BaseSchema):
+    items = fields.List(fields.Nested(PontoResponseSchema), required=True)
+    total = fields.Integer(required=True)

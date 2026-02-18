@@ -6,7 +6,7 @@ from flask_restx import fields
 def register_models(api):
     """Register viagem models with the API namespace."""
 
-    create_request = api.model(
+    viagem_create_request = api.model(
         "ViagemCreateRequest",
         {
             "rota_id": fields.String(required=True, description="UUID da rota"),
@@ -17,13 +17,13 @@ def register_models(api):
         },
     )
 
-    lote_request = api.model(
+    viagem_lote_request = api.model(
         "ViagemLoteRequest",
         {"data": fields.String(required=True, description="Data para gerar viagens (YYYY-MM-DD)")},
     )
 
-    confirmacao_request = api.model(
-        "ConfirmacaoRequest",
+    viagem_confirmacao_request = api.model(
+        "ViagemConfirmacaoRequest",
         {
             "ponto_embarque_id": fields.String(
                 required=True, description="UUID do ponto de embarque"
@@ -31,12 +31,12 @@ def register_models(api):
         },
     )
 
-    acao_request = api.model(
+    viagem_acao_request = api.model(
         "ViagemAcaoRequest",
         {"acao": fields.String(required=True, description="iniciar ou finalizar")},
     )
 
-    response = api.model(
+    viagem_response = api.model(
         "ViagemResponse",
         {
             "id": fields.String(description="UUID"),
@@ -52,7 +52,7 @@ def register_models(api):
     )
 
     ponto_embarque = api.model(
-        "PontoEmbarque",
+        "ViagemPontoEmbarque",
         {
             "id": fields.String(description="UUID do ponto"),
             "apelido": fields.String(description="Nome"),
@@ -60,11 +60,20 @@ def register_models(api):
         },
     )
 
+    viagem_list_response = api.model(
+        "ViagemListResponse",
+        {
+            "items": fields.List(fields.Nested(viagem_response)),
+            "total": fields.Integer(description="Total de viagens"),
+        },
+    )
+
     return {
-        "create_request": create_request,
-        "lote_request": lote_request,
-        "confirmacao_request": confirmacao_request,
-        "acao_request": acao_request,
-        "response": response,
+        "viagem_create_request": viagem_create_request,
+        "viagem_lote_request": viagem_lote_request,
+        "viagem_confirmacao_request": viagem_confirmacao_request,
+        "viagem_acao_request": viagem_acao_request,
+        "viagem_response": viagem_response,
         "ponto_embarque": ponto_embarque,
+        "viagem_list_response": viagem_list_response,
     }

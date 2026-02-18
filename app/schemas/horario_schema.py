@@ -1,7 +1,9 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import fields, validate
+
+from app.schemas.common import BaseSchema
 
 
-class HorarioCreateSchema(Schema):
+class HorarioCreateRequestSchema(BaseSchema):
     horario_saida = fields.Time(required=True, metadata={"description": "Horário de saída (HH:MM)"})
     sentido = fields.String(
         required=True,
@@ -15,7 +17,7 @@ class HorarioCreateSchema(Schema):
     )
 
 
-class HorarioResponseSchema(Schema):
+class HorarioResponseSchema(BaseSchema):
     id = fields.String()
     horario_saida = fields.Time()
     sentido = fields.String()
@@ -23,3 +25,8 @@ class HorarioResponseSchema(Schema):
 
     def get_dias(self, obj):
         return [d.dia.value if hasattr(d.dia, "value") else d.dia for d in obj.dias]
+
+
+class HorarioListResponseSchema(BaseSchema):
+    items = fields.List(fields.Nested(HorarioResponseSchema), required=True)
+    total = fields.Integer(required=True)

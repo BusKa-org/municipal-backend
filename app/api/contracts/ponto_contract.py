@@ -6,7 +6,7 @@ from flask_restx import fields
 def register_models(api):
     """Register ponto models with the API namespace."""
 
-    create_request = api.model(
+    ponto_create_request = api.model(
         "PontoCreateRequest",
         {
             "apelido": fields.String(description="Nome do ponto (ex: Escola A)"),
@@ -15,7 +15,16 @@ def register_models(api):
         },
     )
 
-    response = api.model(
+    ponto_update_request = api.model(
+        "PontoUpdateRequest",
+        {
+            "apelido": fields.String(description="Nome do ponto (ex: Escola A)"),
+            "latitude": fields.Float(description="Latitude"),
+            "longitude": fields.Float(description="Longitude"),
+        },
+    )
+
+    ponto_response = api.model(
         "PontoResponse",
         {
             "id": fields.String(description="UUID do ponto"),
@@ -27,4 +36,17 @@ def register_models(api):
         },
     )
 
-    return {"create_request": create_request, "response": response}
+    ponto_list_response = api.model(
+        "PontoListResponse",
+        {
+            "items": fields.List(fields.Nested(ponto_response)),
+            "total": fields.Integer(description="Total de pontos"),
+        },
+    )
+
+    return {
+        "ponto_create_request": ponto_create_request,
+        "ponto_response": ponto_response,
+        "ponto_list_response": ponto_list_response,
+        "ponto_update_request": ponto_update_request,
+    }

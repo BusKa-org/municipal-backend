@@ -3,6 +3,7 @@ from typing import Any
 
 from flask import g, jsonify, request
 from flask_jwt_extended import JWTManager
+from marshmallow.exceptions import ValidationError as MarshmallowValidationError
 from werkzeug.exceptions import HTTPException
 
 from app.core.exceptions import AppError, ValidationError
@@ -67,6 +68,35 @@ def register_error_handlers(app) -> None:
         return (
             jsonify(_error_payload(code=err.code, message=err.message, details=details)),
             err.status_code,
+        )
+
+    @app.errorhandler(MarshmallowValidationError)
+    def handle_marshmallow_validation_error(err: MarshmallowValidationError):
+        # Marshmallow puts field errors in err.messages (dict) and optional info in err.valid_data
+        details = err.messages if hasattr(err, "messages") else None
+
+        logger.warning(
+            "Marshmallow validation error path=%s method=%s request_id=%s",
+            request.path,
+            request.method,
+            _request_id(),
+            extra={
+                "code": "VALIDATION_ERROR",
+                "status": 400,
+                "path": request.path,
+                "method": request.method,
+                "request_id": _request_id(),
+                "details": details,
+            },
+        )
+
+        return (
+            jsonify(
+                _error_payload(
+                    code="VALIDATION_ERROR", message="Erro de validação", details=details
+                )
+            ),
+            400,
         )
 
     @app.errorhandler(HTTPException)

@@ -6,7 +6,7 @@ from flask_restx import fields
 def register_models(api):
     """Register instituicao models with the API namespace."""
 
-    endereco_input = api.model(
+    instituicao_endereco_input = api.model(
         "InstituicaoEnderecoInput",
         {
             "rua": fields.String(description="Nome da rua"),
@@ -18,16 +18,18 @@ def register_models(api):
         },
     )
 
-    create_request = api.model(
+    instituicao_create_request = api.model(
         "InstituicaoCreateRequest",
         {
             "nome": fields.String(required=True, description="Nome da instituição"),
             "tipo": fields.String(description="Tipo (ESCOLA, CRECHE, UNIVERSIDADE)"),
-            "endereco": fields.Nested(endereco_input, required=True, description="Endereço"),
+            "endereco": fields.Nested(
+                instituicao_endereco_input, required=True, description="Endereço"
+            ),
         },
     )
 
-    response = api.model(
+    instituicao_response = api.model(
         "InstituicaoResponse",
         {
             "id": fields.String(description="UUID"),
@@ -37,4 +39,16 @@ def register_models(api):
         },
     )
 
-    return {"create_request": create_request, "response": response}
+    instituicao_list_response = api.model(
+        "InstituicaoListResponse",
+        {
+            "items": fields.List(fields.Nested(instituicao_response)),
+            "total": fields.Integer(description="Total de instituições"),
+        },
+    )
+
+    return {
+        "instituicao_create_request": instituicao_create_request,
+        "instituicao_response": instituicao_response,
+        "instituicao_list_response": instituicao_list_response,
+    }

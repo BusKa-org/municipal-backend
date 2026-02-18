@@ -62,8 +62,6 @@ class Gestor(User):
     usuario_id = db.Column(
         UUID(as_uuid=True), db.ForeignKey("usuario.id", ondelete="CASCADE"), primary_key=True
     )
-    matricula = db.Column(db.String(50))
-    salario = db.Column(db.Numeric(10, 2))
 
     __mapper_args__ = {
         "polymorphic_identity": UserRole.GESTOR,

@@ -6,8 +6,8 @@ from flask_restx import fields
 def register_models(api):
     """Register rota models with the API namespace."""
 
-    horario_input = api.model(
-        "HorarioInput",
+    rota_horario_create_request = api.model(
+        "RotaHorarioCreateRequest",
         {
             "horario_saida": fields.String(required=True, description="Horário (HH:MM)"),
             "sentido": fields.String(required=True, description="IDA, VOLTA ou CIRCULAR"),
@@ -17,26 +17,32 @@ def register_models(api):
         },
     )
 
-    ponto_input = api.model(
-        "RotaPontoInput",
+    rota_ponto_add_request = api.model(
+        "RotaPontoAddRequest",
         {
             "ponto_id": fields.String(required=True, description="UUID do ponto"),
             "ordem": fields.Integer(required=True, description="Ordem na rota"),
         },
     )
 
-    create_request = api.model(
+    rota_create_request = api.model(
         "RotaCreateRequest",
         {
             "nome": fields.String(required=True, description="Nome da rota"),
             "motorista_padrao_id": fields.String(description="UUID do motorista padrão"),
             "veiculo_padrao_id": fields.String(description="UUID do veículo padrão"),
-            "pontos": fields.List(fields.Nested(ponto_input), description="Pontos da rota"),
-            "horarios": fields.List(fields.Nested(horario_input), description="Grade de horários"),
+            "pontos": fields.List(
+                fields.Nested(rota_ponto_add_request), description="Pontos da rota"
+            ),
+            "horarios": fields.List(
+                fields.Nested(rota_horario_create_request), description="Grade de horários"
+            ),
         },
     )
 
-    response = api.model(
+    rota_update_request = rota_create_request.clone(name="RotaUpdateRequest")
+
+    rota_response = api.model(
         "RotaResponse",
         {
             "id": fields.String(description="UUID"),
@@ -49,13 +55,21 @@ def register_models(api):
         },
     )
 
-    inscricao_request = api.model(
-        "InscricaoRequest",
+    rota_list_response = api.model(
+        "RotaListResponse",
+        {
+            "items": fields.List(fields.Nested(rota_response)),
+            "total": fields.Integer(description="Total de rotas"),
+        },
+    )
+
+    rota_inscricao_request = api.model(
+        "RotaInscricaoRequest",
         {"acao": fields.String(required=True, description="inscrever ou desinscrever")},
     )
 
-    horario_response = api.model(
-        "HorarioResponse",
+    rota_horario_response = api.model(
+        "RotaHorarioResponse",
         {
             "id": fields.String(description="UUID"),
             "horario_saida": fields.String(description="Horário"),
@@ -64,11 +78,41 @@ def register_models(api):
         },
     )
 
+    rota_horario_list_response = api.model(
+        "RotaHorarioListResponse",
+        {
+            "items": fields.List(fields.Nested(rota_horario_response)),
+            "total": fields.Integer(description="Total de horários"),
+        },
+    )
+
+    rota_ponto_list_response = api.model(
+        "RotaPontoListResponse",
+        {
+            "items": fields.List(fields.Nested(rota_ponto_add_request)),
+            "total": fields.Integer(description="Total de pontos"),
+        },
+    )
+
+    rota_detail_response = api.model(
+        "RotaDetailResponse",
+        {
+            "rota": fields.Nested(rota_response),
+            "pontos": fields.Nested(rota_ponto_list_response),
+            "horarios": fields.Nested(rota_horario_list_response),
+        },
+    )
+
     return {
-        "create_request": create_request,
-        "response": response,
-        "inscricao_request": inscricao_request,
-        "horario_input": horario_input,
-        "horario_response": horario_response,
-        "ponto_input": ponto_input,
+        "rota_create_request": rota_create_request,
+        "rota_response": rota_response,
+        "rota_update_request": rota_update_request,
+        "rota_inscricao_request": rota_inscricao_request,
+        "rota_horario_create_request": rota_horario_create_request,
+        "rota_horario_response": rota_horario_response,
+        "rota_horario_list_response": rota_horario_list_response,
+        "rota_ponto_add_request": rota_ponto_add_request,
+        "rota_ponto_list_response": rota_ponto_list_response,
+        "rota_list_response": rota_list_response,
+        "rota_detail_response": rota_detail_response,
     }

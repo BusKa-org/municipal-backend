@@ -1,11 +1,13 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import fields, validate
+
+from app.schemas.common import BaseSchema
 
 # ==========================================
 # Input Schemas (Validation)
 # ==========================================
 
 
-class ViagemCreateSchema(Schema):
+class ViagemCreateRequestSchema(BaseSchema):
     """Schema for creating a new trip."""
 
     rota_id = fields.String(required=True)
@@ -15,20 +17,20 @@ class ViagemCreateSchema(Schema):
     veiculo_id = fields.String(load_default=None)
 
 
-class ViagemLoteSchema(Schema):
+class ViagemLoteRequestSchema(BaseSchema):
     """Schema for batch trip generation."""
 
     data = fields.String(required=True)
 
 
-class ViagemConfirmacaoSchema(Schema):
+class ViagemConfirmacaoRequestSchema(BaseSchema):
     """Schema for student trip confirmation."""
 
     confirmacao = fields.Boolean(required=True)
     ponto_embarque_id = fields.String(load_default=None)
 
 
-class ViagemAcaoSchema(Schema):
+class ViagemAcaoRequestSchema(BaseSchema):
     """Schema for trip control actions."""
 
     acao = fields.String(required=True, validate=validate.OneOf(["INICIAR", "FINALIZAR"]))
@@ -39,7 +41,7 @@ class ViagemAcaoSchema(Schema):
 # ==========================================
 
 
-class AlunoViagemResponseSchema(Schema):
+class ViagemAlunoConfirmacaoResponseSchema(BaseSchema):
     aluno_id = fields.String()
     nome = fields.String(attribute="aluno.nome")
     confirmacao = fields.Boolean()
@@ -47,7 +49,7 @@ class AlunoViagemResponseSchema(Schema):
     ponto_destino = fields.String(attribute="ponto_destino.apelido")
 
 
-class ViagemPontoResponseSchema(Schema):
+class ViagemPontoEmbarqueResponseSchema(BaseSchema):
     ponto_id = fields.String()
     apelido = fields.String(attribute="ponto.apelido")
     ordem = fields.Integer()
@@ -55,7 +57,7 @@ class ViagemPontoResponseSchema(Schema):
     chegada_real = fields.DateTime()
 
 
-class ViagemResponseSchema(Schema):
+class ViagemResponseSchema(BaseSchema):
     id = fields.String()
     data = fields.Date()
     status = fields.Method("get_status")
@@ -70,8 +72,12 @@ class ViagemResponseSchema(Schema):
     rota_id = fields.Method("get_rota_id")
     rota_nome = fields.Method("get_rota_nome")
 
-    pontos = fields.List(fields.Nested(ViagemPontoResponseSchema), attribute="pontos_visitados")
-    alunos = fields.List(fields.Nested(AlunoViagemResponseSchema), attribute="alunos_confirmados")
+    pontos = fields.List(
+        fields.Nested(ViagemPontoEmbarqueResponseSchema), attribute="pontos_visitados"
+    )
+    alunos = fields.List(
+        fields.Nested(ViagemAlunoConfirmacaoResponseSchema), attribute="alunos_confirmados"
+    )
 
     # Counts for dashboard
     total_alunos = fields.Method("get_total_alunos")
@@ -135,3 +141,18 @@ class ViagemResponseSchema(Schema):
                 if ultimo_ponto.ponto:
                     return ultimo_ponto.ponto.apelido
         return None
+
+
+class ViagemListResponseSchema(BaseSchema):
+    items = fields.List(fields.Nested(ViagemResponseSchema))
+    total = fields.Integer()
+
+
+class ViagemListQuerySchema(BaseSchema):
+    data_inicio = fields.Date(load_default=None)  # YYYY-MM-DD
+    data_fim = fields.Date(load_default=None)
+    status = fields.String(
+        validate=validate.OneOf(["AGENDADA", "EM_ANDAMENTO", "FINALIZADA"]), load_default=None
+    )
+    motorista_id = fields.String(load_default=None)
+    rota_id = fields.String(load_default=None)

@@ -6,7 +6,7 @@ from flask_restx import fields
 def register_models(api):
     """Register user models with the API namespace."""
 
-    response = api.model(
+    user_response = api.model(
         "UserResponse",
         {
             "id": fields.String(description="UUID do usuário"),
@@ -22,11 +22,18 @@ def register_models(api):
             "nome_pai": fields.String(description="Nome do pai (aluno)"),
             "nome_mae": fields.String(description="Nome da mãe (aluno)"),
             "cnh": fields.String(description="CNH (motorista)"),
-            "salario": fields.Float(description="Salário (motorista)"),
         },
     )
 
-    motorista_create = api.model(
+    user_list_response = api.model(
+        "UserListResponse",
+        {
+            "items": fields.List(fields.Nested(user_response)),
+            "total": fields.Integer(description="Total de usuários"),
+        },
+    )
+
+    motorista_create_request = api.model(
         "MotoristaCreateRequest",
         {
             "nome": fields.String(required=True, description="Nome completo"),
@@ -39,7 +46,7 @@ def register_models(api):
         },
     )
 
-    change_password = api.model(
+    change_password_request = api.model(
         "ChangePasswordRequest",
         {
             "current_password": fields.String(required=True, description="Senha atual"),
@@ -47,8 +54,17 @@ def register_models(api):
         },
     )
 
+    change_password_response = api.model(
+        "ChangePasswordResponse",
+        {
+            "message": fields.String(description="Mensagem de sucesso"),
+        },
+    )
+
     return {
-        "response": response,
-        "motorista_create": motorista_create,
-        "change_password": change_password,
+        "user_response": user_response,
+        "user_list_response": user_list_response,
+        "motorista_create_request": motorista_create_request,
+        "change_password_request": change_password_request,
+        "change_password_response": change_password_response,
     }

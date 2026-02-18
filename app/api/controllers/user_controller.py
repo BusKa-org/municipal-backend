@@ -5,9 +5,14 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract, user_contract
-from app.core.exceptions import ValidationError
-from app.schemas.aluno_schema import AlunoAccountCreateSchema
-from app.schemas.user_schema import ChangePasswordSchema, MotoristaCreateSchema, UserResponseSchema
+from app.schemas.aluno_schema import AlunoProvisionAccountRequestSchema
+from app.schemas.user_schema import (
+    ChangePasswordRequestSchema,
+    ChangePasswordResponseSchema,
+    MotoristaCreateRequestSchema,
+    UserListResponseSchema,
+    UserResponseSchema,
+)
 from app.services import user_service
 
 api = Namespace("users", description="Gerenciamento de Usuários e Perfil")
@@ -18,55 +23,63 @@ models_aluno = aluno_contract.register_models(api)
 
 # Validation schemas (Marshmallow)
 user_schema = UserResponseSchema()
-list_response_schema = UserResponseSchema(many=True)
-motorista_create_schema = MotoristaCreateSchema()
-change_password_schema = ChangePasswordSchema()
-aluno_account_create_schema = AlunoAccountCreateSchema()
+user_list_response_schema = UserListResponseSchema()
+motorista_create_schema = MotoristaCreateRequestSchema()
+change_password_schema = ChangePasswordRequestSchema()
+aluno_provision_account_request_schema = AlunoProvisionAccountRequestSchema()
+user_response_schema = UserResponseSchema()
+change_password_response_schema = ChangePasswordResponseSchema()
 
 
 @api.route("")
 class UserList(Resource):
     @api.doc("list_users", responses={200: "Success", 403: "Forbidden - not a gestor"})
-    @api.marshal_list_with(models["response"], code=200)
+    @api.response(200, "Success", models["user_list_response"])
     @jwt_required()
-    def get(self) -> tuple[list[dict[str, Any]], int]:
+    def get(self) -> tuple[dict[str, Any], int]:
         """Lista todos os usuários da prefeitura (Apenas Gestor)"""
         current_user_id = get_jwt_identity()
         users = user_service.get_all_users(current_user_id)
-        return list_response_schema.dump(users), 200
+        return (
+            user_list_response_schema.dump(
+                {
+                    "items": users,
+                    "total": len(users),
+                }
+            ),
+            200,
+        )
 
 
 @api.route("/me")
 class UserProfile(Resource):
     @api.doc("get_my_profile", responses={200: "Success", 404: "User not found"})
-    @api.marshal_with(models["response"], code=200)
+    @api.response(200, "Success", models["user_response"])
     @jwt_required()
     def get(self) -> tuple[dict[str, Any], int]:
         """Perfil do usuário logado"""
         current_user_id = get_jwt_identity()
         user = user_service.get_user_by_id(current_user_id)
-        return user_schema.dump(user), 200
+        return user_response_schema.dump(user), 200
 
 
 @api.route("/<string:id>")
 @api.param("id", "O UUID do usuário")
 class UserResource(Resource):
-    @api.doc(
-        "get_user_by_id",
-        responses={200: "Success", 403: "Forbidden", 404: "User not found"},
-    )
+    @api.doc("get_user_by_id", responses={200: "Success", 403: "Forbidden", 404: "User not found"})
+    @api.response(200, "Success", models["user_response"])
     @jwt_required()
     def get(self, id: str) -> tuple[dict[str, Any], int]:
         """Busca usuário por ID (próprio perfil ou mesma prefeitura se Gestor)"""
         current_user_id = get_jwt_identity()
         user = user_service.get_user_by_id(id, current_user_id)
-        return user_schema.dump(user), 200
+        return user_response_schema.dump(user), 200
 
 
 @api.route("/alunos")
-class AlunoAccountCreateResource(Resource):
+class AlunoProvisionAccountResource(Resource):
     @api.doc(
-        "create_aluno_account",
+        "aluno_provision_account",
         responses={
             201: "Aluno account created",
             400: "Validation error",
@@ -74,18 +87,15 @@ class AlunoAccountCreateResource(Resource):
             409: "Conflict - duplicate email/CPF",
         },
     )
-    @api.expect(models_aluno["create_aluno_account_request"])
+    @api.expect(models_aluno["aluno_provision_account_request"])
     @jwt_required()
     def post(self):
-        """Gestor cria uma nova conta de aluno"""
+        """Gestor provisiona uma nova conta de aluno"""
         current_user_id = get_jwt_identity()
         data = request.get_json() or {}
+        payload = aluno_provision_account_request_schema.load(data)
 
-        errors = aluno_account_create_schema.validate(data)
-        if errors:
-            raise ValidationError("Erro de validação", details=errors)
-
-        aluno = user_service.create_aluno_account(current_user_id, data)
+        aluno = user_service.create_aluno_account(current_user_id, payload)
         return {"message": "Aluno account created with success", "id": str(aluno.id)}, 201
 
 
@@ -97,22 +107,19 @@ class MotoristaCreateResource(Resource):
             201: "Motorista created",
             400: "Validation error",
             403: "Forbidden - not a gestor",
-            409: "Conflict - duplicate email/CPF/CNH",
+            409: "Conflict",
         },
     )
-    @api.expect(models["motorista_create"])
+    @api.expect(models["motorista_create_request"])
+    @api.response(201, "Motorista created", models["user_response"])
     @jwt_required()
-    def post(self) -> tuple[dict[str, str], int]:
+    def post(self) -> tuple[dict[str, Any], int]:
         """Gestor cria um novo Motorista"""
         current_user_id = get_jwt_identity()
-        data = request.get_json() or {}
+        payload = motorista_create_schema.load(request.get_json(silent=True) or {})
 
-        errors = motorista_create_schema.validate(data)
-        if errors:
-            raise ValidationError("Erro de validação", details=errors)
-
-        motorista = user_service.create_motorista(current_user_id, data)
-        return {"message": "Motorista cadastrado com sucesso", "id": str(motorista.id)}, 201
+        motorista = user_service.create_motorista(current_user_id, payload)
+        return user_response_schema.dump(motorista), 201
 
 
 @api.route("/change-password")
@@ -126,16 +133,13 @@ class UserChangePassword(Resource):
             429: "Too many attempts - rate limited",
         },
     )
-    @api.expect(models["change_password"])
+    @api.expect(models["change_password_request"])
+    @api.response(200, "Password changed successfully", models["change_password_response"])
     @jwt_required()
-    def post(self) -> tuple[dict[str, str], int]:
+    def post(self) -> tuple[dict[str, Any], int]:
         """Altera a senha do usuário logado (Requer senha atual)."""
         current_user_id = get_jwt_identity()
-        data = request.get_json() or {}
+        payload = change_password_schema.load(request.get_json(silent=True) or {})
 
-        errors = change_password_schema.validate(data)
-        if errors:
-            raise ValidationError("Erro de validação", details=errors)
-
-        user_service.change_password(current_user_id, data)
-        return {"message": "Senha alterada com sucesso"}, 200
+        user_service.change_password(current_user_id, payload)
+        return change_password_response_schema.dump({"message": "Senha alterada com sucesso"}), 200

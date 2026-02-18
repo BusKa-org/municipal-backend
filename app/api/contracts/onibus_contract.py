@@ -6,7 +6,7 @@ from flask_restx import fields
 def register_models(api):
     """Register onibus models with the API namespace."""
 
-    create_request = api.model(
+    onibus_create_request = api.model(
         "OnibusCreateRequest",
         {
             "placa": fields.String(required=True, description="Placa do veículo"),
@@ -16,7 +16,7 @@ def register_models(api):
         },
     )
 
-    response = api.model(
+    onibus_response = api.model(
         "OnibusResponse",
         {
             "id": fields.String(description="UUID do ônibus"),
@@ -27,4 +27,16 @@ def register_models(api):
         },
     )
 
-    return {"create_request": create_request, "response": response}
+    onibus_list_response = api.model(
+        "OnibusListResponse",
+        {
+            "items": fields.List(fields.Nested(onibus_response)),
+            "total": fields.Integer(description="Total de ônibus"),
+        },
+    )
+
+    return {
+        "onibus_create_request": onibus_create_request,
+        "onibus_response": onibus_response,
+        "onibus_list_response": onibus_list_response,
+    }

@@ -1,10 +1,15 @@
+from typing import Any
+
 from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import onibus_contract
-from app.core.exceptions import ValidationError
-from app.schemas.onibus_schema import OnibusCreateSchema, OnibusResponseSchema
+from app.schemas.onibus_schema import (
+    OnibusCreateRequestSchema,
+    OnibusListResponseSchema,
+    OnibusResponseSchema,
+)
 from app.services import onibus_service
 
 api = Namespace("onibus", description="Gerenciamento da Frota")
@@ -13,53 +18,57 @@ api = Namespace("onibus", description="Gerenciamento da Frota")
 models = onibus_contract.register_models(api)
 
 # Validation schemas (Marshmallow)
-create_schema = OnibusCreateSchema()
-response_schema = OnibusResponseSchema()
-list_response_schema = OnibusResponseSchema(many=True)
+onibus_create_request_schema = OnibusCreateRequestSchema()
+onibus_response_schema = OnibusResponseSchema()
+onibus_list_response_schema = OnibusListResponseSchema()
 
 
 @api.route("/")
 class OnibusListResource(Resource):
     @api.doc("list_onibus")
-    @api.marshal_list_with(models["response"], code=200)
+    @api.response(200, "Success", models["onibus_list_response"])
     @jwt_required()
-    def get(self):
+    def get(self) -> tuple[dict[str, Any], int]:
         """Lista a frota da prefeitura"""
         current_user_id = get_jwt_identity()
         onibus_list = onibus_service.list_all(current_user_id)
-        return list_response_schema.dump(onibus_list), 200
+        return (
+            onibus_list_response_schema.dump(
+                {
+                    "items": onibus_list,
+                    "total": len(onibus_list),
+                }
+            ),
+            200,
+        )
 
     @api.doc("create_onibus")
-    @api.expect(models["create_request"])
-    @api.marshal_with(models["response"], code=201)
+    @api.expect(models["onibus_create_request"])
+    @api.response(201, "Created", models["onibus_response"])
     @jwt_required()
-    def post(self):
+    def post(self) -> tuple[dict[str, Any], int]:
         """Cadastra um novo ônibus"""
         current_user_id = get_jwt_identity()
-        data = request.get_json()
-
-        errors = create_schema.validate(data)
-        if errors:
-            raise ValidationError("Erro de validação", details=errors)
-
-        onibus = onibus_service.create_onibus(current_user_id, data)
-        return response_schema.dump(onibus), 201
+        data = request.get_json(silent=True) or {}
+        payload = onibus_create_request_schema.load(data)
+        onibus = onibus_service.create_onibus(current_user_id, payload)
+        return onibus_response_schema.dump(onibus), 201
 
 
 @api.route("/<string:id>")
 class OnibusResource(Resource):
     @api.doc("get_onibus")
-    @api.marshal_with(models["response"], code=200)
+    @api.response(200, "Success", models["onibus_response"])
     @jwt_required()
-    def get(self, id):
+    def get(self, id: str) -> tuple[dict[str, Any], int]:
         """Detalhes de um ônibus"""
         current_user_id = get_jwt_identity()
         onibus = onibus_service.get_by_id(current_user_id, id)
-        return response_schema.dump(onibus), 200
+        return onibus_response_schema.dump(onibus), 200
 
     @api.doc("delete_onibus")
     @jwt_required()
-    def delete(self, id):
+    def delete(self, id: str) -> tuple[dict[str, Any], int]:
         """Remove um ônibus"""
         current_user_id = get_jwt_identity()
         onibus_service.delete_onibus(current_user_id, id)

@@ -1,4 +1,6 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import fields, validate
+
+from app.schemas.common import BaseSchema
 
 from .horario_schema import HorarioResponseSchema
 from .ponto_schema import PontoResponseSchema
@@ -8,14 +10,14 @@ from .ponto_schema import PontoResponseSchema
 # ==========================================
 
 
-class RotaPontoInputSchema(Schema):
+class RotaPontoAddRequestSchema(BaseSchema):
     """Schema for adding a point to a route."""
 
     ponto_id = fields.String(required=True)
     ordem = fields.Integer(required=True)
 
 
-class RotaHorarioInputSchema(Schema):
+class RotaHorarioCreateRequestSchema(BaseSchema):
     """Schema for route schedule input."""
 
     horario_saida = fields.String(required=True)
@@ -23,17 +25,17 @@ class RotaHorarioInputSchema(Schema):
     dias = fields.List(fields.String(), required=True)
 
 
-class RotaCreateSchema(Schema):
+class RotaCreateRequestSchema(BaseSchema):
     """Schema for creating a new route."""
 
     nome = fields.String(required=True)
     motorista_padrao_id = fields.String(load_default=None)
     veiculo_padrao_id = fields.String(load_default=None)
-    pontos = fields.List(fields.Nested(RotaPontoInputSchema), load_default=[])
-    horarios = fields.List(fields.Nested(RotaHorarioInputSchema), load_default=[])
+    pontos = fields.List(fields.Nested(RotaPontoAddRequestSchema), load_default=[])
+    horarios = fields.List(fields.Nested(RotaHorarioCreateRequestSchema), load_default=[])
 
 
-class RotaUpdateSchema(Schema):
+class RotaUpdateRequestSchema(BaseSchema):
     """Schema for updating a route."""
 
     nome = fields.String()
@@ -41,16 +43,10 @@ class RotaUpdateSchema(Schema):
     veiculo_padrao_id = fields.String(load_default=None)
 
 
-class RotaInscricaoSchema(Schema):
+class RotaInscricaoRequestSchema(BaseSchema):
     """Schema for route subscription action."""
 
     acao = fields.String(required=True, validate=validate.OneOf(["inscrever", "desinscrever"]))
-
-
-class RotaPontoAddSchema(Schema):
-    """Schema for adding points to an existing route."""
-
-    pontos = fields.List(fields.Nested(RotaPontoInputSchema), required=True)
 
 
 # ==========================================
@@ -58,12 +54,12 @@ class RotaPontoAddSchema(Schema):
 # ==========================================
 
 
-class RotaPontoResponseSchema(Schema):
+class RotaPontoResponseSchema(BaseSchema):
     ordem = fields.Integer()
     ponto = fields.Nested(PontoResponseSchema)
 
 
-class RotaResponseSchema(Schema):
+class RotaResponseSchema(BaseSchema):
     id = fields.String()
     nome = fields.String()
     motorista_id = fields.Method("get_motorista_id")
@@ -97,3 +93,8 @@ class RotaDetailResponseSchema(RotaResponseSchema):
 
     def get_pontos(self, obj):
         return RotaPontoResponseSchema(many=True).dump(obj.pontos_padrao)
+
+
+class RotaListResponseSchema(BaseSchema):
+    items = fields.List(fields.Nested(RotaResponseSchema), required=True)
+    total = fields.Integer(required=True)

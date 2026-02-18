@@ -1,9 +1,10 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import fields, validate
 
-from app.schemas.endereco_schema import EnderecoInputSchema
+from app.schemas.common import BaseSchema
+from app.schemas.endereco_schema import EnderecoResponseSchema
 
 
-class InstituicaoCreateSchema(Schema):
+class InstituicaoCreateRequestSchema(BaseSchema):
     nome = fields.String(required=True)
     cnpj = fields.String(required=True)
     tipo = fields.String(
@@ -20,14 +21,19 @@ class InstituicaoCreateSchema(Schema):
         ),
         metadata={"description": "Tipo da instituição conforme modelo"},
     )
-    endereco = fields.Nested(EnderecoInputSchema, required=True)
+    endereco = fields.Nested(EnderecoResponseSchema, required=True)
 
 
-class InstituicaoResponseSchema(Schema):
-    id = fields.String()
-    nome = fields.String()
-    cnpj = fields.String()
-    tipo = fields.String()
-    endereco = fields.Nested(EnderecoInputSchema, attribute="ponto.endereco")
-    latitude = fields.Float(attribute="ponto.latitude")
-    longitude = fields.Float(attribute="ponto.longitude")
+class InstituicaoResponseSchema(BaseSchema):
+    id = fields.String(dump_default=None)
+    nome = fields.String(dump_default=None)
+    cnpj = fields.String(dump_default=None)
+    tipo = fields.String(dump_default=None)
+    endereco = fields.Nested(EnderecoResponseSchema, attribute="ponto.endereco")
+    latitude = fields.Float(attribute="ponto.latitude", dump_default=None)
+    longitude = fields.Float(attribute="ponto.longitude", dump_default=None)
+
+
+class InstituicaoListResponseSchema(BaseSchema):
+    items = fields.List(fields.Nested(InstituicaoResponseSchema()), required=True)
+    total = fields.Integer(required=True)
