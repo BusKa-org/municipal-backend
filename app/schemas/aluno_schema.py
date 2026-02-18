@@ -34,6 +34,8 @@ class AlunoResponseSchema(Schema):
     nome = fields.String()
     matricula = fields.String()
     escola = fields.String(attribute="instituicao.nome")
+    status = fields.String(attribute="status.value")
+    signup_completed_at = fields.DateTime(attribute="signup_completed_at")
 
 
 class AlunoUpdateSchema(Schema):

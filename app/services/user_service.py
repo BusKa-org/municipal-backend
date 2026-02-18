@@ -14,7 +14,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.models.base import db
-from app.models.enum import UserRole
+from app.models.enum import UserRole, UserStatus
 from app.models.user import Aluno, Gestor, Motorista, User
 from app.utils import audit_logger, validate_cpf, validate_email, validate_password, validate_uuid
 
@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 # Helper functions
+def _require_active(user: User) -> None:
+    if user.status != UserStatus.ACTIVE:
+        raise ForbiddenError("Cadastro precisa ser finalizado antes de usar o app")
+
+
 def _get_user_or_404(user_id: str) -> User:
     """Get user by ID or raise NotFoundError."""
     validate_uuid(user_id, "User ID")
@@ -129,6 +134,7 @@ def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
             cpf=cpf_clean,
             telefone=data.get("telefone", "").strip(),
             role=UserRole.ALUNO,
+            status=UserStatus.PENDING_SIGNUP,
         )
 
         db.session.add(new_aluno)
