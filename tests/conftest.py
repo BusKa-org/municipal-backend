@@ -150,6 +150,7 @@ def aluno_pending(client, app, _db, prefeitura):
 @pytest.fixture()
 def other_aluno(client, app, _db, other_prefeitura):
     u = AlunoFactory(prefeitura_id=other_prefeitura.id)
+
     _db.session.add(u)
     _db.session.commit()
 
