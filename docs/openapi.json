@@ -111,6 +111,9 @@
           },
           "401": {
             "description": "Invalid credentials"
+          },
+          "429": {
+            "description": "Too many login attempts - rate limited"
           }
         },
         "summary": "Authenticate user and get JWT token",
@@ -199,6 +202,35 @@
         ]
       }
     },
+    "/v1/instituicoes/public": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/InstituicaoResponse"
+              }
+            }
+          }
+        },
+        "summary": "Lista todas as instituições (público - para cadastro de alunos)",
+        "operationId": "list_instituicoes_public",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "instituicoes"
+        ]
+      }
+    },
     "/v1/instituicoes/{id}": {
       "parameters": [
         {
@@ -208,6 +240,18 @@
           "type": "string"
         }
       ],
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Remove a instituição e seus vínculos",
+        "operationId": "delete_instituicao",
+        "tags": [
+          "instituicoes"
+        ]
+      },
       "get": {
         "responses": {
           "200": {
@@ -231,17 +275,63 @@
         "tags": [
           "instituicoes"
         ]
-      },
-      "delete": {
+      }
+    },
+    "/v1/notificacoes/": {
+      "post": {
         "responses": {
           "200": {
             "description": "Success"
           }
         },
-        "summary": "Remove a instituição e seus vínculos",
-        "operationId": "delete_instituicao",
+        "summary": "(Gestor) Envia um aviso para Rota ou Viagem",
+        "operationId": "gestor_enviar_notificacao",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/NotificacaoInput"
+            }
+          }
+        ],
         "tags": [
-          "instituicoes"
+          "notificacoes"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Lista as notificações do usuário logado",
+        "operationId": "listar_minhas_notificacoes",
+        "tags": [
+          "notificacoes"
+        ]
+      }
+    },
+    "/v1/notificacoes/{id}/lida": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Marca uma notificação como lida",
+        "operationId": "marcar_notificacao_lida",
+        "tags": [
+          "notificacoes"
         ]
       }
     },
@@ -315,6 +405,18 @@
           "type": "string"
         }
       ],
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Remove um ônibus",
+        "operationId": "delete_onibus",
+        "tags": [
+          "onibus"
+        ]
+      },
       "get": {
         "responses": {
           "200": {
@@ -335,18 +437,6 @@
             "description": "An optional fields mask"
           }
         ],
-        "tags": [
-          "onibus"
-        ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Remove um ônibus",
-        "operationId": "delete_onibus",
         "tags": [
           "onibus"
         ]
@@ -422,30 +512,6 @@
           "type": "string"
         }
       ],
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PontoResponse"
-            }
-          }
-        },
-        "summary": "Detalhes de um ponto",
-        "operationId": "get_ponto",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
-        "tags": [
-          "pontos"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -489,6 +555,30 @@
         "tags": [
           "pontos"
         ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PontoResponse"
+            }
+          }
+        },
+        "summary": "Detalhes de um ponto",
+        "operationId": "get_ponto",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "pontos"
+        ]
       }
     },
     "/v1/rotas/": {
@@ -517,26 +607,11 @@
       "get": {
         "responses": {
           "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/RotaResponse"
-              }
-            }
+            "description": "Success"
           }
         },
-        "summary": "Lista todas as rotas",
+        "summary": "Lista todas as rotas disponíveis",
         "operationId": "list_rotas",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
         "tags": [
           "rotas"
         ]
@@ -565,30 +640,6 @@
           "type": "string"
         }
       ],
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/RotaResponse"
-            }
-          }
-        },
-        "summary": "Obtém os detalhes de uma rota",
-        "operationId": "get_rota",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
-        "tags": [
-          "rotas"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -619,6 +670,18 @@
         },
         "summary": "Exclui uma rota",
         "operationId": "delete_rota",
+        "tags": [
+          "rotas"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Obtém os detalhes de uma rota com pontos e horários",
+        "operationId": "get_rota",
         "tags": [
           "rotas"
         ]
@@ -756,6 +819,17 @@
         "tags": [
           "rotas"
         ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "list_pontos",
+        "tags": [
+          "rotas"
+        ]
       }
     },
     "/v1/users": {
@@ -769,6 +843,9 @@
                 "$ref": "#/definitions/UserResponse"
               }
             }
+          },
+          "403": {
+            "description": "Forbidden - not a gestor"
           }
         },
         "summary": "Lista todos os usuários da prefeitura (Apenas Gestor)",
@@ -791,7 +868,16 @@
       "post": {
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "Password changed successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Incorrect current password"
+          },
+          "429": {
+            "description": "Too many attempts - rate limited"
           }
         },
         "summary": "Altera a senha do usuário logado (Requer senha atual)",
@@ -819,6 +905,9 @@
             "schema": {
               "$ref": "#/definitions/UserResponse"
             }
+          },
+          "404": {
+            "description": "User not found"
           }
         },
         "summary": "Perfil do usuário logado",
@@ -840,8 +929,17 @@
     "/v1/users/motoristas": {
       "post": {
         "responses": {
-          "200": {
-            "description": "Success"
+          "201": {
+            "description": "Motorista created"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "403": {
+            "description": "Forbidden - not a gestor"
+          },
+          "409": {
+            "description": "Conflict - duplicate email/CPF/CNH"
           }
         },
         "summary": "Gestor cria um novo Motorista",
@@ -875,9 +973,15 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "User not found"
           }
         },
-        "summary": "Busca usuário por ID",
+        "summary": "Busca usuário por ID (próprio perfil ou mesma prefeitura se Gestor)",
         "operationId": "get_user_by_id",
         "tags": [
           "users"
@@ -910,13 +1014,7 @@
       "get": {
         "responses": {
           "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/ViagemResponse"
-              }
-            }
+            "description": "Success"
           }
         },
         "summary": "Histórico completo de viagens com filtros (Apenas Gestor)",
@@ -956,13 +1054,6 @@
             "in": "query",
             "type": "string",
             "description": "UUID da rota"
-          },
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
           }
         ],
         "tags": [
@@ -1012,26 +1103,11 @@
       "get": {
         "responses": {
           "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/ViagemResponse"
-              }
-            }
+            "description": "Success"
           }
         },
-        "summary": "Lista viagens atribuídas ao motorista logado",
+        "summary": "Lista viagens atribuídas ao motorista logado com detalhes",
         "operationId": "list_my_viagens",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
         "tags": [
           "viagens"
         ]
@@ -1049,10 +1125,7 @@
       "put": {
         "responses": {
           "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/ViagemResponse"
-            }
+            "description": "Success"
           }
         },
         "summary": "Controla a viagem (Iniciar, Finalizar)",
@@ -1065,15 +1138,30 @@
             "schema": {
               "$ref": "#/definitions/ViagemAcaoRequest"
             }
-          },
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
           }
         ],
+        "tags": [
+          "viagens"
+        ]
+      }
+    },
+    "/v1/viagens/{id}/cancelar": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Cancela uma viagem agendada e notifica alunos (Gestor)",
+        "operationId": "cancelar_viagem",
         "tags": [
           "viagens"
         ]
@@ -1183,6 +1271,10 @@
       "description": "Gerenciamento de Usuários e Perfil"
     },
     {
+      "name": "notificacoes",
+      "description": "Avisos e comunicados"
+    },
+    {
       "name": "onibus",
       "description": "Gerenciamento da Frota"
     },
@@ -1227,13 +1319,42 @@
     },
     "TokenResponse": {
       "properties": {
-        "access_token": {
+        "message": {
+          "type": "string",
+          "description": "Mensagem de sucesso"
+        },
+        "token": {
           "type": "string",
           "description": "JWT Token"
         },
-        "token_type": {
+        "user": {
+          "description": "Dados do usuário",
+          "allOf": [
+            {
+              "$ref": "#/definitions/UserInfo"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "UserInfo": {
+      "properties": {
+        "id": {
           "type": "string",
-          "description": "Tipo (Bearer)"
+          "description": "ID do usuário"
+        },
+        "nome": {
+          "type": "string",
+          "description": "Nome do usuário"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email do usuário"
+        },
+        "role": {
+          "type": "string",
+          "description": "Perfil do usuário"
         }
       },
       "type": "object"
@@ -1344,6 +1465,35 @@
         "new_password": {
           "type": "string",
           "description": "Nova senha"
+        }
+      },
+      "type": "object"
+    },
+    "NotificacaoInput": {
+      "required": [
+        "mensagem",
+        "titulo"
+      ],
+      "properties": {
+        "titulo": {
+          "type": "string",
+          "description": "Título do aviso",
+          "example": "Aviso Importante"
+        },
+        "mensagem": {
+          "type": "string",
+          "description": "Corpo da mensagem",
+          "example": "O ônibus vai atrasar 10 minutos hoje."
+        },
+        "rota_id": {
+          "type": "string",
+          "description": "ID da rota (opcional se enviar viagem_id)",
+          "example": "COLE_O_UUID_DA_ROTA_AQUI"
+        },
+        "viagem_id": {
+          "type": "string",
+          "description": "ID da viagem (opcional)",
+          "example": ""
         }
       },
       "type": "object"
@@ -1469,31 +1619,6 @@
           "items": {
             "type": "string"
           }
-        }
-      },
-      "type": "object"
-    },
-    "RotaResponse": {
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "UUID"
-        },
-        "nome": {
-          "type": "string",
-          "description": "Nome"
-        },
-        "motorista_id": {
-          "type": "string",
-          "description": "UUID do motorista padrão"
-        },
-        "veiculo_id": {
-          "type": "string",
-          "description": "UUID do veículo padrão"
-        },
-        "prefeitura_id": {
-          "type": "string",
-          "description": "UUID da prefeitura"
         }
       },
       "type": "object"
@@ -1643,47 +1768,6 @@
       },
       "type": "object"
     },
-    "ViagemResponse": {
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "UUID"
-        },
-        "data": {
-          "type": "string",
-          "description": "Data"
-        },
-        "horario_saida": {
-          "type": "string",
-          "description": "Horário"
-        },
-        "sentido": {
-          "type": "string",
-          "description": "Sentido"
-        },
-        "status": {
-          "type": "string",
-          "description": "AGENDADA, EM_ANDAMENTO, FINALIZADA"
-        },
-        "rota_id": {
-          "type": "string",
-          "description": "UUID da rota"
-        },
-        "rota_nome": {
-          "type": "string",
-          "description": "Nome da rota"
-        },
-        "motorista_id": {
-          "type": "string",
-          "description": "UUID do motorista"
-        },
-        "veiculo_id": {
-          "type": "string",
-          "description": "UUID do veículo"
-        }
-      },
-      "type": "object"
-    },
     "ViagemLoteRequest": {
       "required": [
         "data"
@@ -1704,6 +1788,27 @@
         "acao": {
           "type": "string",
           "description": "iniciar ou finalizar"
+        }
+      },
+      "type": "object"
+    },
+    "InstituicaoResponse": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "UUID"
+        },
+        "nome": {
+          "type": "string",
+          "description": "Nome"
+        },
+        "tipo": {
+          "type": "string",
+          "description": "Tipo"
+        },
+        "endereco": {
+          "type": "string",
+          "description": "Endereço formatado"
         }
       },
       "type": "object"
@@ -1758,27 +1863,6 @@
         "cep": {
           "type": "string",
           "description": "CEP"
-        }
-      },
-      "type": "object"
-    },
-    "InstituicaoResponse": {
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "UUID"
-        },
-        "nome": {
-          "type": "string",
-          "description": "Nome"
-        },
-        "tipo": {
-          "type": "string",
-          "description": "Tipo"
-        },
-        "endereco": {
-          "type": "string",
-          "description": "Endereço formatado"
         }
       },
       "type": "object"
