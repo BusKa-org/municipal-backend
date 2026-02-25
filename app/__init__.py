@@ -12,6 +12,7 @@ from flask_restx import Api
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
 from .api.controllers.instituicao_controller import api as inst_ns
+from .api.controllers.notificacao_controller import api as notificacoes_ns
 from .api.controllers.onibus_controller import api as onibus_ns
 from .api.controllers.pontos_controller import api as pontos_ns
 from .api.controllers.rotas_controller import api as rotas_ns
@@ -124,6 +125,7 @@ Inclua o header: `Authorization: Bearer <seu_token>`
     # API v1 routes
     api.add_namespace(auth_ns, path="/v1/auth")
     api.add_namespace(user_ns, path="/v1/users")
+    api.add_namespace(notificacoes_ns, path="/v1/notificacoes")
     api.add_namespace(onibus_ns, path="/v1/onibus")
     api.add_namespace(rotas_ns, path="/v1/rotas")
     api.add_namespace(pontos_ns, path="/v1/pontos")

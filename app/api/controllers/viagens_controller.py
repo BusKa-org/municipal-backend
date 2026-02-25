@@ -161,3 +161,14 @@ class ViagemAcaoResource(Resource):
 
         viagem = viagens_service.controlar_viagem(user_id, id, data)
         return response_schema.dump(viagem), 200
+
+
+@api.route("/<string:id>/cancelar")
+class ViagemCancelarResource(Resource):
+    @api.doc("cancelar_viagem")
+    @jwt_required()
+    def put(self, id):
+        """Cancela uma viagem agendada e notifica alunos (Gestor)"""
+        user_id = get_jwt_identity()
+        result = viagens_service.cancelar_viagem(user_id, id)
+        return result, 200
