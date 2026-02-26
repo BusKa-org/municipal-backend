@@ -5,9 +5,12 @@ from typing import Any
 
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify
+from flask_apscheduler import APScheduler
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
+
+from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
 
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
@@ -30,6 +33,7 @@ from .utils import (
 
 jwt = JWTManager()
 logger = logging.getLogger(__name__)
+scheduler = APScheduler()
 
 
 def create_app() -> Flask:
@@ -71,6 +75,16 @@ def create_app() -> Flask:
 
     db.init_app(app)
     jwt.init_app(app)
+    scheduler.init_app(app)
+    scheduler.start()
+
+    scheduler.add_job(
+        id="job_24h", func=verificar_viagens_24h, args=[app], trigger="interval", minutes=60
+    )
+
+    scheduler.add_job(
+        id="job_10min", func=verificar_viagens_10min, args=[app], trigger="interval", minutes=2
+    )
 
     # ==========================================
     # Security Headers
