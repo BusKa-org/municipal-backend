@@ -75,6 +75,8 @@ class ViagemPonto(db.Model):
     chegada_estimada = db.Column(db.DateTime(timezone=True), nullable=True)
     chegada_real = db.Column(db.DateTime(timezone=True), nullable=True)
 
+    aviso_aproximacao_enviado = db.Column(db.Boolean, server_default="false", nullable=False)
+
     viagem = relationship("Viagem", back_populates="pontos_visitados")
     ponto = relationship("Ponto")
 
