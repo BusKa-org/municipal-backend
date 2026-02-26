@@ -1,6 +1,7 @@
 """Trips (Viagem) service - trip management, student confirmations."""
 
 import logging
+import math
 from datetime import datetime
 from typing import Any
 
@@ -523,3 +524,76 @@ def cancelar_viagem(user_id: str, viagem_id: str) -> dict[str, Any]:
         db.session.rollback()
         logger.error(f"Erro ao cancelar viagem: {e}")
         raise AppError(f"Erro ao cancelar viagem: {str(e)}", 500)
+
+
+def _calcular_distancia_metros(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calcula a distância em metros entre duas coordenadas geográficas usando Haversine."""
+    R = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(delta_phi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    )
+    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
+
+
+def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
+    """Recebe o GPS do motorista, calcula a distância e avisa os alunos do próximo ponto."""
+    user = db.session.get(User, user_id)
+    if not user or user.role != UserRole.MOTORISTA:
+        raise ForbiddenError("Apenas motoristas podem enviar localização em tempo real")
+
+    viagem = db.session.get(Viagem, viagem_id)
+    if not viagem:
+        raise NotFoundError("Viagem não encontrada")
+
+    if viagem.status != StatusViagem.EM_ANDAMENTO:
+        raise ValidationError(f"A viagem não está em andamento (Status: {viagem.status.name})")
+
+    proximos_pontos = (
+        ViagemPonto.query.filter_by(viagem_id=viagem.id, visitado=False)
+        .order_by(ViagemPonto.ordem)
+        .all()
+    )
+
+    if not proximos_pontos:
+        return {"message": "Todos os pontos já foram visitados. Viagem quase concluída!"}
+
+    proximo_ponto = proximos_pontos[0]
+    ponto_geo = proximo_ponto.ponto
+
+    distancia_metros = _calcular_distancia_metros(
+        float(data["latitude"]),
+        float(data["longitude"]),
+        float(ponto_geo.latitude),
+        float(ponto_geo.longitude),
+    )
+
+    DISTANCIA_GATILHO = 1000
+
+    if distancia_metros <= DISTANCIA_GATILHO and not proximo_ponto.aviso_aproximacao_enviado:
+        alunos_embarque = AlunosConfirmados.query.filter_by(
+            viagem_id=viagem.id, confirmacao=True, ponto_embarque_id=ponto_geo.id
+        ).all()
+
+        for conf in alunos_embarque:
+            NotificacaoService._criar_notificacao_interna(
+                usuario_id=conf.aluno_id,
+                titulo="🚌 O Ônibus está chegando!",
+                mensagem=f"O motorista está a aproximadamente {int(distancia_metros)} metros do seu ponto de embarque ({ponto_geo.apelido}). Prepare-se!",
+            )
+
+        proximo_ponto.aviso_aproximacao_enviado = True
+        db.session.commit()
+        return {
+            "message": "Localização atualizada e alunos do próximo ponto notificados!",
+            "distancia_metros": int(distancia_metros),
+        }
+
+    return {
+        "message": "Localização atualizada silenciosamente.",
+        "distancia_metros": int(distancia_metros),
+    }

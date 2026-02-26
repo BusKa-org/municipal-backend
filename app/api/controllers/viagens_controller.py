@@ -172,3 +172,17 @@ class ViagemCancelarResource(Resource):
         user_id = get_jwt_identity()
         result = viagens_service.cancelar_viagem(user_id, id)
         return result, 200
+
+
+@api.route("/<string:id>/localizacao")
+class ViagemLocalizacaoResource(Resource):
+    @api.doc("atualizar_localizacao_onibus")
+    @api.expect(models["localizacao_request"])
+    @jwt_required()
+    def post(self, id):
+        """(Motorista) Envia coordenada GPS atual do ônibus em tempo real"""
+        user_id = get_jwt_identity()
+        data = request.get_json()
+
+        result = viagens_service.atualizar_localizacao(user_id, id, data)
+        return result, 200
