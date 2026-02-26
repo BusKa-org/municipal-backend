@@ -20,6 +20,7 @@ class User(db.Model):
     senha_hash = db.Column(db.String(255), nullable=False)
     telefone = db.Column(db.String(20))
     cpf = db.Column(db.String(14), unique=True, nullable=False)
+    receber_notificacoes = db.Column(db.Boolean, default=True, nullable=False)
 
     role = db.Column(db.Enum(UserRole, name="user_role"), nullable=False, default=UserRole.ALUNO)
 
