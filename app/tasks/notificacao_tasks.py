@@ -26,7 +26,9 @@ def verificar_viagens_24h(app):
         ).all()
 
         for viagem in viagens:
-            inscricoes = RotaAluno.query.filter_by(rota_id=viagem.rota_id).all()
+            if not viagem.horario_rota:
+                continue
+            inscricoes = RotaAluno.query.filter_by(rota_id=viagem.horario_rota.rota_id).all()
 
             for insc in inscricoes:
                 aluno = db.session.get(User, insc.aluno_id)

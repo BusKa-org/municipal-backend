@@ -3,10 +3,15 @@ from unittest.mock import MagicMock, patch
 from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
 
 
+class MockHorarioRota:
+    def __init__(self):
+        self.rota_id = "rota_1"
+
+
 class MockViagem:
     def __init__(self):
         self.id = "viagem_1"
-        self.rota_id = "rota_1"
+        self.horario_rota = MockHorarioRota()
         self.motorista_id = "motorista_1"
         self.aviso_24h_enviado = False
         self.aviso_10min_enviado = False
