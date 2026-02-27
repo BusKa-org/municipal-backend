@@ -3,8 +3,10 @@ import logging
 from datetime import timedelta
 from typing import Any
 
+import firebase_admin
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify
+from firebase_admin import credentials
 from flask_apscheduler import APScheduler
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -40,6 +42,17 @@ def create_app() -> Flask:
     app = Flask(__name__)
 
     load_dotenv()
+
+    if not firebase_admin._apps:
+        if settings.FIREBASE_CREDENTIALS:
+            cert_dict = json.loads(settings.FIREBASE_CREDENTIALS)
+            cred = credentials.Certificate(cert_dict)
+            logger.info("Firebase initialized via GitHub Secrets (Environment Variable).")
+        else:
+            cred = credentials.Certificate("firebase-credentials.json")
+            logger.info("Firebase initialized via local file.")
+
+        firebase_admin.initialize_app(cred)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
