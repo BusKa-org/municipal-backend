@@ -4,7 +4,6 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from .base import db
 from .enum import UserRole
-from .notificacao import Notificacao  # noqa: F401
 
 
 class User(db.Model):
@@ -21,6 +20,8 @@ class User(db.Model):
     telefone = db.Column(db.String(20))
     cpf = db.Column(db.String(14), unique=True, nullable=False)
     receber_notificacoes = db.Column(db.Boolean, default=True, nullable=False)
+
+    fcm_token = db.Column(db.String(255), nullable=True)
 
     role = db.Column(db.Enum(UserRole, name="user_role"), nullable=False, default=UserRole.ALUNO)
 

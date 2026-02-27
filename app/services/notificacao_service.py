@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+from firebase_admin import messaging
+
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from app.models.base import db
 from app.models.enum import UserRole
@@ -21,6 +23,26 @@ class NotificacaoService:
     def _criar_notificacao_interna(usuario_id: str, titulo: str, mensagem: str) -> Notificacao:
         nova = Notificacao(usuario_id=usuario_id, titulo=titulo, mensagem=mensagem)
         db.session.add(nova)
+
+        usuario = db.session.get(User, usuario_id)
+
+        if usuario and getattr(usuario, "fcm_token", None):
+            try:
+                mensagem_fcm = messaging.Message(
+                    notification=messaging.Notification(
+                        title=titulo,
+                        body=mensagem,
+                    ),
+                    token=usuario.fcm_token,
+                )
+                response = messaging.send(mensagem_fcm)
+                logger.info(f"Push enviado com sucesso para {usuario.email}. ID: {response}")
+
+            except Exception as e:
+                logger.error(
+                    f"Falha ao enviar Push Notification via Firebase para {usuario.email}: {str(e)}"
+                )
+
         return nova
 
     @staticmethod
