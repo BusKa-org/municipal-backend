@@ -117,3 +117,22 @@ class NotificacaoService:
         except Exception as e:
             db.session.rollback()
             raise AppError(f"Erro ao atualizar notificação: {str(e)}", 500)
+
+    @staticmethod
+    def notificar_alunos_viagem_iniciada(viagem_id: str) -> None:
+        """Busca os alunos confirmados na viagem e dispara o aviso de partida."""
+        try:
+            confirmados = AlunosConfirmados.query.filter_by(
+                viagem_id=viagem_id, confirmacao=True
+            ).all()
+
+            for conf in confirmados:
+                NotificacaoService._criar_notificacao_interna(
+                    usuario_id=conf.aluno_id,
+                    titulo="🚌 Viagem Iniciada!",
+                    mensagem="O motorista acabou de iniciar a rota. Acompanhe o trajeto no aplicativo!",
+                )
+        except Exception as e:
+            logger.error(
+                f"Falha ao orquestrar notificações de início da viagem {viagem_id}: {str(e)}"
+            )

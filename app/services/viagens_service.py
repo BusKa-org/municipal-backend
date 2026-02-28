@@ -436,6 +436,8 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
             viagem.status = StatusViagem.EM_ANDAMENTO
             viagem.inicio_real = datetime.utcnow()
 
+            NotificacaoService.notificar_alunos_viagem_iniciada(viagem_id=viagem_id)
+
         elif acao == "FINALIZAR":
             if viagem.status != StatusViagem.EM_ANDAMENTO:
                 raise ValidationError("A viagem precisa estar em andamento para ser finalizada")
