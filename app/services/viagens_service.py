@@ -2,7 +2,7 @@
 
 import logging
 import math
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.exceptions import (
@@ -75,7 +75,7 @@ def get_proximas_viagens_aluno(user_id: str) -> list[dict]:
     if not aluno or aluno.role != UserRole.ALUNO:
         raise ForbiddenError("Apenas alunos podem ver sua agenda de viagens")
 
-    hoje = datetime.utcnow().date()
+    hoje = datetime.now(UTC).date()
 
     query = (
         db.session.query(Viagem, HorarioRota, Rota, AlunosConfirmados)
@@ -434,7 +434,7 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
                     f"Não é possível iniciar viagem com status {viagem.status.name}"
                 )
             viagem.status = StatusViagem.EM_ANDAMENTO
-            viagem.inicio_real = datetime.utcnow()
+            viagem.inicio_real = datetime.now(UTC)
 
             NotificacaoService.notificar_alunos_viagem_iniciada(viagem_id=viagem_id)
 
@@ -442,7 +442,7 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
             if viagem.status != StatusViagem.EM_ANDAMENTO:
                 raise ValidationError("A viagem precisa estar em andamento para ser finalizada")
             viagem.status = StatusViagem.FINALIZADA
-            viagem.fim_real = datetime.utcnow()
+            viagem.fim_real = datetime.now(UTC)
         else:
             raise ValidationError("Ação inválida. Use INICIAR ou FINALIZAR")
 
