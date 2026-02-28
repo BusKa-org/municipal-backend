@@ -1,9 +1,6 @@
 import time
 from datetime import datetime, timedelta
 
-import pytest
-
-from app import create_app
 from app.models.base import db
 from app.models.enum import SentidoViagem, StatusViagem, UserRole
 from app.models.notificacao import Notificacao
@@ -12,14 +9,6 @@ from app.models.rota import HorarioRota, Rota, RotaAluno
 from app.models.user import Aluno, Motorista
 from app.models.viagem import Viagem
 from app.tasks.notificacao_tasks import verificar_viagens_24h
-
-
-@pytest.fixture
-def app():
-    """Inicia a aplicação Flask real conectada ao banco de dados."""
-    app = create_app()
-    with app.app_context():
-        yield app
 
 
 def test_integracao_job_24h_banco_real(app):
