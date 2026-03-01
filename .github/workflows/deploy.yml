@@ -8,15 +8,49 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: buska_user
+          POSTGRES_PASSWORD: buska_pass
+          POSTGRES_DB: buska_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: |
+
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - run: pytest tests/ -v --tb=short
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U buska_user; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+
+      - name: Run tests
+        env:
+          DB_USER: buska_user
+          DB_PASSWORD: buska_pass
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: buska_db
+          JWT_SECRET_KEY: test_secret
+        run: pytest tests/ -v --tb=short
 
   deploy:
     needs: test
