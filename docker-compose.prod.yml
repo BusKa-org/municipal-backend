@@ -40,7 +40,8 @@ services:
     networks:
       - buska_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000/docs/ || exit 1"]
+      # Usa endpoint de health real da API
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
