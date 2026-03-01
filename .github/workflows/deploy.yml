@@ -77,8 +77,8 @@ jobs:
 
       - name: Deploy containers
         run: |
-          docker compose -f docker-compose.prod.yml down || true
-          docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+          docker-compose -f docker-compose.prod.yml down || true
+          docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
       - name: Health check
         run: |
