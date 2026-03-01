@@ -83,7 +83,7 @@ jobs:
       - name: Health check
         run: |
           for i in {1..30}; do
-            if curl -sf http://localhost:5000/docs/ > /dev/null; then
+            if curl -sf http://localhost:5000/health > /dev/null; then
               echo "API is healthy"
               exit 0
             fi
@@ -91,4 +91,8 @@ jobs:
             sleep 5
           done
           echo "Health check failed"
+          echo "==== docker ps ===="
+          docker ps
+          echo "==== docker logs buska_api ===="
+          docker logs buska_api || true
           exit 1
