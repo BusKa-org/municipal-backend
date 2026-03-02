@@ -89,7 +89,7 @@ def test_atualizar_localizacao_dispara_notificacao(
 
     resultado = viagens_service.atualizar_localizacao("motorista_id", "viagem_123", payload_gps)
 
-    assert "notificados" in resultado["message"]
+    assert "notificações" in resultado["message"]
     assert resultado["distancia_metros"] <= 1000
     assert mock_criar_notificacao.call_count == 2
     assert ponto_destino.aviso_aproximacao_enviado is True
