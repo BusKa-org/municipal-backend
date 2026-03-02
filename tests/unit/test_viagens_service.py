@@ -85,8 +85,6 @@ def test_atualizar_localizacao_dispara_notificacao(
 
     payload_gps = {"latitude": -7.2308, "longitude": -35.8812}
 
-    from app.services import viagens_service
-
     resultado = viagens_service.atualizar_localizacao("motorista_id", "viagem_123", payload_gps)
 
     assert "notificados" in resultado["message"]
