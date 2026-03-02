@@ -104,3 +104,7 @@ class AlunosConfirmados(db.Model):
     ponto_embarque = relationship("Ponto", foreign_keys=[ponto_embarque_id])
 
     ponto_destino = relationship("Ponto", foreign_keys=[ponto_destino_id])
+
+    embarcou = db.Column(db.Boolean, default=False, nullable=False)
+
+    tentativas_auto_checkin = db.Column(db.Integer, default=0, nullable=False)
