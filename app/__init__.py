@@ -7,11 +7,11 @@ import firebase_admin
 from dotenv import load_dotenv
 from firebase_admin import credentials
 from flask import Flask, jsonify
-from flask_apscheduler import APScheduler
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
+from app.extensions import scheduler
 from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
 
 from .api.controllers.aluno_controller import api as alunos_ns
@@ -35,7 +35,6 @@ from .utils import (
 
 jwt = JWTManager()
 logger = logging.getLogger(__name__)
-scheduler = APScheduler()
 
 
 def create_app() -> Flask:
