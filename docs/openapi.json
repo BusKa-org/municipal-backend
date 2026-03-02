@@ -142,6 +142,33 @@
       }
     },
     "/v1/instituicoes/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/InstituicaoResponse"
+              }
+            }
+          }
+        },
+        "summary": "Lista todas as instituições da prefeitura",
+        "operationId": "list_instituicoes",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "instituicoes"
+        ]
+      },
       "post": {
         "responses": {
           "201": {
@@ -162,33 +189,6 @@
               "$ref": "#/definitions/InstituicaoCreateRequest"
             }
           },
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
-        "tags": [
-          "instituicoes"
-        ]
-      },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/InstituicaoResponse"
-              }
-            }
-          }
-        },
-        "summary": "Lista todas as instituições da prefeitura",
-        "operationId": "list_instituicoes",
-        "parameters": [
           {
             "name": "X-Fields",
             "in": "header",
@@ -240,18 +240,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Remove a instituição e seus vínculos",
-        "operationId": "delete_instituicao",
-        "tags": [
-          "instituicoes"
-        ]
-      },
       "get": {
         "responses": {
           "200": {
@@ -275,9 +263,33 @@
         "tags": [
           "instituicoes"
         ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Remove a instituição e seus vínculos",
+        "operationId": "delete_instituicao",
+        "tags": [
+          "instituicoes"
+        ]
       }
     },
     "/v1/notificacoes/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Lista as notificações do usuário logado",
+        "operationId": "listar_minhas_notificacoes",
+        "tags": [
+          "notificacoes"
+        ]
+      },
       "post": {
         "responses": {
           "200": {
@@ -296,18 +308,6 @@
             }
           }
         ],
-        "tags": [
-          "notificacoes"
-        ]
-      },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Lista as notificações do usuário logado",
-        "operationId": "listar_minhas_notificacoes",
         "tags": [
           "notificacoes"
         ]
@@ -336,6 +336,33 @@
       }
     },
     "/v1/onibus/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/OnibusResponse"
+              }
+            }
+          }
+        },
+        "summary": "Lista a frota da prefeitura",
+        "operationId": "list_onibus",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "onibus"
+        ]
+      },
       "post": {
         "responses": {
           "201": {
@@ -367,33 +394,6 @@
         "tags": [
           "onibus"
         ]
-      },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/OnibusResponse"
-              }
-            }
-          }
-        },
-        "summary": "Lista a frota da prefeitura",
-        "operationId": "list_onibus",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
-        "tags": [
-          "onibus"
-        ]
       }
     },
     "/v1/onibus/{id}": {
@@ -405,18 +405,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Remove um ônibus",
-        "operationId": "delete_onibus",
-        "tags": [
-          "onibus"
-        ]
-      },
       "get": {
         "responses": {
           "200": {
@@ -440,9 +428,48 @@
         "tags": [
           "onibus"
         ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Remove um ônibus",
+        "operationId": "delete_onibus",
+        "tags": [
+          "onibus"
+        ]
       }
     },
     "/v1/pontos/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PontoResponse"
+              }
+            }
+          }
+        },
+        "summary": "Lista todos os pontos da prefeitura",
+        "operationId": "list_pontos",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "pontos"
+        ]
+      },
       "post": {
         "responses": {
           "201": {
@@ -474,21 +501,28 @@
         "tags": [
           "pontos"
         ]
-      },
+      }
+    },
+    "/v1/pontos/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
       "get": {
         "responses": {
           "200": {
             "description": "Success",
             "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/PontoResponse"
-              }
+              "$ref": "#/definitions/PontoResponse"
             }
           }
         },
-        "summary": "Lista todos os pontos da prefeitura",
-        "operationId": "list_pontos",
+        "summary": "Detalhes de um ponto",
+        "operationId": "get_ponto",
         "parameters": [
           {
             "name": "X-Fields",
@@ -501,17 +535,19 @@
         "tags": [
           "pontos"
         ]
-      }
-    },
-    "/v1/pontos/{id}": {
-      "parameters": [
-        {
-          "name": "id",
-          "in": "path",
-          "required": true,
-          "type": "string"
-        }
-      ],
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Exclui um ponto (se não estiver em uso)",
+        "operationId": "delete_ponto",
+        "tags": [
+          "pontos"
+        ]
+      },
       "put": {
         "responses": {
           "200": {
@@ -543,45 +579,21 @@
         "tags": [
           "pontos"
         ]
-      },
-      "delete": {
+      }
+    },
+    "/v1/rotas/": {
+      "get": {
         "responses": {
           "200": {
             "description": "Success"
           }
         },
-        "summary": "Exclui um ponto (se não estiver em uso)",
-        "operationId": "delete_ponto",
+        "summary": "Lista todas as rotas disponíveis",
+        "operationId": "list_rotas",
         "tags": [
-          "pontos"
+          "rotas"
         ]
       },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PontoResponse"
-            }
-          }
-        },
-        "summary": "Detalhes de um ponto",
-        "operationId": "get_ponto",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
-        "tags": [
-          "pontos"
-        ]
-      }
-    },
-    "/v1/rotas/": {
       "post": {
         "responses": {
           "200": {
@@ -600,18 +612,6 @@
             }
           }
         ],
-        "tags": [
-          "rotas"
-        ]
-      },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Lista todas as rotas disponíveis",
-        "operationId": "list_rotas",
         "tags": [
           "rotas"
         ]
@@ -640,6 +640,30 @@
           "type": "string"
         }
       ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Obtém os detalhes de uma rota com pontos e horários",
+        "operationId": "get_rota",
+        "tags": [
+          "rotas"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Exclui uma rota",
+        "operationId": "delete_rota",
+        "tags": [
+          "rotas"
+        ]
+      },
       "put": {
         "responses": {
           "200": {
@@ -661,30 +685,6 @@
         "tags": [
           "rotas"
         ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Exclui uma rota",
-        "operationId": "delete_rota",
-        "tags": [
-          "rotas"
-        ]
-      },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Obtém os detalhes de uma rota com pontos e horários",
-        "operationId": "get_rota",
-        "tags": [
-          "rotas"
-        ]
       }
     },
     "/v1/rotas/{id}/horarios": {
@@ -696,6 +696,33 @@
           "type": "string"
         }
       ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/HorarioResponse"
+              }
+            }
+          }
+        },
+        "summary": "Lista a grade de horários de uma rota",
+        "operationId": "list_horarios",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "rotas"
+        ]
+      },
       "post": {
         "responses": {
           "201": {
@@ -716,33 +743,6 @@
               "$ref": "#/definitions/HorarioInput"
             }
           },
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
-        "tags": [
-          "rotas"
-        ]
-      },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/HorarioResponse"
-              }
-            }
-          }
-        },
-        "summary": "Lista a grade de horários de uma rota",
-        "operationId": "list_horarios",
-        "parameters": [
           {
             "name": "X-Fields",
             "in": "header",
@@ -798,6 +798,17 @@
           "type": "string"
         }
       ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "list_pontos",
+        "tags": [
+          "rotas"
+        ]
+      },
       "post": {
         "responses": {
           "200": {
@@ -816,17 +827,6 @@
             }
           }
         ],
-        "tags": [
-          "rotas"
-        ]
-      },
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "list_pontos",
         "tags": [
           "rotas"
         ]
@@ -889,6 +889,33 @@
             "in": "body",
             "schema": {
               "$ref": "#/definitions/ChangePasswordRequest"
+            }
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/v1/users/fcm-token": {
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "Token atualizado"
+          },
+          "400": {
+            "description": "Token não enviado"
+          }
+        },
+        "summary": "Atualiza o Token do Firebase (Push Notifications) do aparelho do usuário",
+        "operationId": "update_fcm_token",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/FcmTokenRequest"
             }
           }
         ],
@@ -989,28 +1016,6 @@
       }
     },
     "/v1/viagens/": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Gera uma nova viagem manual (Gestor)",
-        "operationId": "create_viagem",
-        "parameters": [
-          {
-            "name": "payload",
-            "required": true,
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/ViagemCreateRequest"
-            }
-          }
-        ],
-        "tags": [
-          "viagens"
-        ]
-      },
       "get": {
         "responses": {
           "200": {
@@ -1054,6 +1059,28 @@
             "in": "query",
             "type": "string",
             "description": "UUID da rota"
+          }
+        ],
+        "tags": [
+          "viagens"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Gera uma nova viagem manual (Gestor)",
+        "operationId": "create_viagem",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/ViagemCreateRequest"
+            }
           }
         ],
         "tags": [
@@ -1191,6 +1218,38 @@
             "in": "body",
             "schema": {
               "$ref": "#/definitions/ConfirmacaoRequest"
+            }
+          }
+        ],
+        "tags": [
+          "viagens"
+        ]
+      }
+    },
+    "/v1/viagens/{id}/localizacao": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "(Motorista) Envia coordenada GPS atual do ônibus em tempo real",
+        "operationId": "atualizar_localizacao_onibus",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/LocalizacaoRequest"
             }
           }
         ],
@@ -1465,6 +1524,18 @@
         "new_password": {
           "type": "string",
           "description": "Nova senha"
+        }
+      },
+      "type": "object"
+    },
+    "FcmTokenRequest": {
+      "required": [
+        "fcm_token"
+      ],
+      "properties": {
+        "fcm_token": {
+          "type": "string",
+          "description": "Token do dispositivo gerado pelo Firebase no Frontend"
         }
       },
       "type": "object"
@@ -1788,6 +1859,23 @@
         "acao": {
           "type": "string",
           "description": "iniciar ou finalizar"
+        }
+      },
+      "type": "object"
+    },
+    "LocalizacaoRequest": {
+      "required": [
+        "latitude",
+        "longitude"
+      ],
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "description": "Latitude atual do ônibus"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude atual do ônibus"
         }
       },
       "type": "object"
