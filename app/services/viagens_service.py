@@ -1,8 +1,7 @@
 """Trips (Viagem) service - trip management, student confirmations."""
 
 import logging
-import math
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core.exceptions import (
@@ -12,14 +11,17 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.extensions import scheduler
 from app.models.base import db
 from app.models.enum import SentidoViagem, StatusViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import Aluno, User
-from app.models.viagem import AlunosConfirmados, Viagem, ViagemPonto
+from app.models.viagem import AlunosConfirmados, TelemetriaViagem, Viagem, ViagemPonto
 from app.services.notificacao_service import NotificacaoService
+from app.tasks.viagem_tasks import realizar_auto_checkin
 from app.utils import audit_logger
+from app.utils.geo_utils import calcular_distancia_metros
 
 logger = logging.getLogger(__name__)
 
@@ -528,22 +530,8 @@ def cancelar_viagem(user_id: str, viagem_id: str) -> dict[str, Any]:
         raise AppError(f"Erro ao cancelar viagem: {str(e)}", 500)
 
 
-def _calcular_distancia_metros(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calcula a distância em metros entre duas coordenadas geográficas usando Haversine."""
-    R = 6371000
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-
-    a = (
-        math.sin(delta_phi / 2.0) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
-    )
-    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
-
-
 def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
-    """Recebe o GPS do motorista, calcula a distância e avisa os alunos do próximo ponto."""
+    """Atualiza o GPS do motorista, salva telemetria e engatilha o Auto-Checkin."""
     user = db.session.get(User, user_id)
     if not user or user.role != UserRole.MOTORISTA:
         raise ForbiddenError("Apenas motoristas podem enviar localização em tempo real")
@@ -554,6 +542,18 @@ def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
 
     if viagem.status != StatusViagem.EM_ANDAMENTO:
         raise ValidationError(f"A viagem não está em andamento (Status: {viagem.status.name})")
+
+    agora = datetime.now(UTC)
+
+    viagem.motorista_lat = data["latitude"]
+    viagem.motorista_lon = data["longitude"]
+    viagem.motorista_gps_hora = agora
+
+    rastro = TelemetriaViagem(
+        viagem_id=viagem.id, latitude=data["latitude"], longitude=data["longitude"], timestamp=agora
+    )
+    db.session.add(rastro)
+    db.session.commit()
 
     proximos_pontos = (
         ViagemPonto.query.filter_by(viagem_id=viagem.id, visitado=False)
@@ -567,7 +567,7 @@ def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
     proximo_ponto = proximos_pontos[0]
     ponto_geo = proximo_ponto.ponto
 
-    distancia_metros = _calcular_distancia_metros(
+    distancia_metros = calcular_distancia_metros(
         float(data["latitude"]),
         float(data["longitude"]),
         float(ponto_geo.latitude),
@@ -577,25 +577,76 @@ def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
     DISTANCIA_GATILHO = 1000
 
     if distancia_metros <= DISTANCIA_GATILHO and not proximo_ponto.aviso_aproximacao_enviado:
-        alunos_embarque = AlunosConfirmados.query.filter_by(
-            viagem_id=viagem.id, confirmacao=True, ponto_embarque_id=ponto_geo.id
+        alunos_neste_ponto = AlunosConfirmados.query.filter_by(
+            viagem_id=viagem.id, confirmacao=True, ponto_embarque_id=ponto_geo.id, embarcou=False
         ).all()
 
-        for conf in alunos_embarque:
+        data_execucao = agora + timedelta(minutes=5)
+
+        for conf in alunos_neste_ponto:
             NotificacaoService._criar_notificacao_interna(
                 usuario_id=conf.aluno_id,
                 titulo="🚌 O Ônibus está chegando!",
-                mensagem=f"O motorista está a aproximadamente {int(distancia_metros)} metros do seu ponto de embarque ({ponto_geo.apelido}). Prepare-se!",
+                mensagem=f"O motorista está a aproximadamente {int(distancia_metros)}m do seu ponto de embarque ({ponto_geo.apelido}). Prepare-se!",
             )
+
+            job_id = f"checkin_{viagem.id}_{conf.aluno_id}"
+
+            if not scheduler.get_job(job_id):
+
+                scheduler.add_job(
+                    id=job_id,
+                    func=realizar_auto_checkin,
+                    args=[str(viagem.id), str(conf.aluno_id), 1],
+                    trigger="date",
+                    run_date=data_execucao,
+                )
 
         proximo_ponto.aviso_aproximacao_enviado = True
         db.session.commit()
         return {
-            "message": "Localização atualizada e alunos do próximo ponto notificados!",
+            "message": "Localização salva. Ponto próximo alcançado, notificações e auto-checkin engatilhados!",
             "distancia_metros": int(distancia_metros),
         }
 
     return {
-        "message": "Localização atualizada silenciosamente.",
+        "message": "Localização atualizada silenciosamente com telemetria.",
         "distancia_metros": int(distancia_metros),
+    }
+
+
+def atualizar_localizacao_aluno(user_id: str, viagem_id: str, data: dict) -> dict:
+    """Updates the student's current GPS coordinates for auto-checkin."""
+    user = db.session.get(User, user_id)
+    if not user or user.role != UserRole.ALUNO:
+        raise ForbiddenError("Apenas alunos podem enviar a localização de embarque.")
+
+    viagem = db.session.get(Viagem, viagem_id)
+    if not viagem:
+        raise NotFoundError("Viagem não encontrada.")
+
+    if viagem.status != StatusViagem.EM_ANDAMENTO:
+        raise ValidationError("A viagem precisa de estar em andamento para rastrear o embarque.")
+
+    conf = AlunosConfirmados.query.filter_by(viagem_id=viagem.id, aluno_id=user_id).first()
+    if not conf or not conf.confirmacao:
+        raise ForbiddenError("O utilizador não está confirmado nesta viagem.")
+
+    if conf.embarcou:
+        return {
+            "message": "Embarque já realizado. O rastreio em tempo real pode ser desligado.",
+            "embarcou": True,
+        }
+
+    agora = datetime.now(UTC)
+
+    conf.aluno_lat = data["latitude"]
+    conf.aluno_lon = data["longitude"]
+    conf.aluno_gps_hora = agora
+
+    db.session.commit()
+
+    return {
+        "message": "Localização do aluno atualizada com sucesso para validação de check-in.",
+        "embarcou": False,
     }
