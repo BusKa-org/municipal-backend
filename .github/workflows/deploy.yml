@@ -60,15 +60,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Create .env.prod
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          cat > .env.prod << EOF
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          API_PORT=5000
-          JWT_SECRET_KEY=${{ secrets.JWT_SECRET }}
-          JWT_EXPIRES_HOURS=2
-          EOF
+          printf 'DB_USER=%s\nDB_PASSWORD=%s\nDB_NAME=%s\nAPI_PORT=5000\nJWT_SECRET_KEY=%s\nJWT_EXPIRES_HOURS=2\n' \
+            "$DB_USER" "$DB_PASSWORD" "$DB_NAME" "$JWT_SECRET" > .env.prod
+          chmod 600 .env.prod
 
       - name: Build image
         run: |
@@ -77,8 +77,63 @@ jobs:
 
       - name: Deploy containers
         run: |
+          # Não usar --volumes: preserva o banco se já estiver funcional
           docker-compose -f docker-compose.prod.yml down || true
           docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+      - name: Wait for database
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          for i in {1..60}; do
+            if docker exec buska_db_prod pg_isready -U "$DB_USER" -d "$DB_NAME" 2>/dev/null; then
+              echo "Database is ready"
+              break
+            fi
+            echo "Waiting for database... ($i/60)"
+            sleep 2
+          done
+
+      - name: Ensure DB extensions and schema (idempotent)
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: localhost
+          DB_PORT: "5432"
+        run: |
+          docker exec buska_db_prod psql -U "$DB_USER" -d "$DB_NAME" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' || true
+
+      - name: Set up Python for migrations
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dev dependencies for Alembic and seed
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run migrations (no-op if already up to date)
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: localhost
+          DB_PORT: "5432"
+        run: python -m alembic upgrade head
+
+      - name: Seed database (skips if data already exists)
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET }}
+        run: python seed.py
 
       - name: Health check
         run: |
