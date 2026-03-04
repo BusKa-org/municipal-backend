@@ -3,7 +3,8 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID
 
 from .base import db
-from .enum import UserRole
+from .enum import UserRole, UserStatus
+from .notificacao import Notificacao  # noqa: F401
 
 
 class User(db.Model):
@@ -24,6 +25,10 @@ class User(db.Model):
     fcm_token = db.Column(db.String(255), nullable=True)
 
     role = db.Column(db.Enum(UserRole, name="user_role"), nullable=False, default=UserRole.ALUNO)
+    status = db.Column(
+        db.Enum(UserStatus, name="user_status"), nullable=False, default=UserStatus.PENDING_SIGNUP
+    )
+    signup_completed_at = db.Column(db.DateTime(timezone=True))
 
     created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
     updated_at = db.Column(
