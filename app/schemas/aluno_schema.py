@@ -21,11 +21,21 @@ class AlunoCreateSchema(Schema):
     endereco_casa = fields.Nested(EnderecoInputSchema, required=True)
 
 
+class AlunoAccountCreateSchema(Schema):
+    nome = fields.String(required=True)
+    email = fields.Email(required=True)
+    password = fields.String(required=True)
+    cpf = fields.String(required=True)
+    telefone = fields.String()
+
+
 class AlunoResponseSchema(Schema):
     id = fields.String()
     nome = fields.String()
     matricula = fields.String()
     escola = fields.String(attribute="instituicao.nome")
+    status = fields.String(attribute="status.value")
+    signup_completed_at = fields.DateTime(attribute="signup_completed_at")
 
 
 class AlunoUpdateSchema(Schema):
