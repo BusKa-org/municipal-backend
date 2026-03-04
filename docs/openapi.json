@@ -345,8 +345,8 @@
             }
           }
         },
-        "summary": "Cadastra um novo ônibus",
-        "operationId": "create_onibus",
+        "summary": "(Gestor) Envia um aviso para Rota ou Viagem",
+        "operationId": "gestor_enviar_notificacao",
         "parameters": [
           {
             "name": "payload",

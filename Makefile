@@ -212,8 +212,17 @@ help:
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean           Remove cache files"
+	@echo ""
+	@echo "Docker (production):"
+	@echo "  docker-up       Start stack (banco preservado)"
+	@echo "  docker-down     Stop stack (não apaga volume)"
+	@echo "  docker-init-db  Extensão + migrações + seed (idempotente)"
+	@echo "  docker-clean    Stop + apagar volumes e imagens (reset total)"
 
 # Docker production targets
+# docker-down NÃO usa --volumes: banco é preservado entre deploys.
+# Use docker-clean apenas para reset total (apaga dados).
+
 docker-build:
 	docker build -t buska-backend:latest .
 
@@ -222,6 +231,11 @@ docker-up:
 
 docker-down:
 	docker compose -f docker-compose.prod.yml down
+
+docker-init-db:
+	@echo "Inicializa o banco prod (extensão + migrações + seed). Idempotente."
+	@test -f .env.prod || (echo "Crie .env.prod com DB_USER, DB_PASSWORD, DB_NAME" && exit 1)
+	export $$(grep -v '^#' .env.prod | xargs) && export DB_HOST=localhost && export DB_PORT=5432 && bash scripts/init-db.sh
 
 docker-logs:
 	docker compose -f docker-compose.prod.yml logs -f

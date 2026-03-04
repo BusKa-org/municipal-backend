@@ -6,11 +6,12 @@ from typing import Any
 import firebase_admin
 from dotenv import load_dotenv
 from firebase_admin import credentials
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
+from app.core.error_handlers import register_error_handlers, register_jwt_handlers
 from app.extensions import scheduler
 from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
 
@@ -24,7 +25,6 @@ from .api.controllers.rotas_controller import api as rotas_ns
 from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
 from .core.config import settings
-from .core.exceptions import AppError, ValidationError
 from .models.base import db
 from .utils import (
     check_production_security,
@@ -87,6 +87,7 @@ def create_app() -> Flask:
 
     db.init_app(app)
     jwt.init_app(app)
+
     scheduler.init_app(app)
     scheduler.start()
 
@@ -163,31 +164,8 @@ Inclua o header: `Authorization: Bearer <seu_token>`
     # Error Handlers
     # ==========================================
 
-    @app.errorhandler(AppError)
-    def handle_app_error(error: AppError) -> tuple[Any, int]:
-        """Handle all custom application errors."""
-        logger.warning(
-            f"Application error: {error.message}",
-            extra={
-                "error_type": error.__class__.__name__,
-                "status_code": error.status_code,
-            },
-        )
-
-        response: dict[str, Any] = {"error": error.message}
-        if isinstance(error, ValidationError) and error.details:
-            response["details"] = error.details
-        return jsonify(response), error.status_code
-
-    @app.errorhandler(404)
-    def handle_not_found(error: Any) -> tuple[Any, int]:
-        logger.warning(f"Resource not found: {error}")
-        return jsonify({"error": "Recurso não encontrado"}), 404
-
-    @app.errorhandler(500)
-    def handle_internal_error(error: Any) -> tuple[Any, int]:
-        logger.error(f"Internal server error: {error}", exc_info=True)
-        return jsonify({"error": "Erro interno do servidor"}), 500
+    register_jwt_handlers(jwt)
+    register_error_handlers(app)
 
     # ==========================================
     # OpenAPI Export Endpoint
@@ -211,5 +189,34 @@ Inclua o header: `Authorization: Bearer <seu_token>`
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(spec, f, indent=2, ensure_ascii=False)
             print(f"[*] OpenAPI spec exported to {output_path}")
+
+    # ==========================================
+    # Health / Readiness Endpoints
+    # ==========================================
+
+    @app.get("/health")
+    def health() -> tuple[Response, int]:
+        """Liveness probe — server is running."""
+        return (
+            jsonify(
+                status="ok",
+                service="buska-backend",
+                environment=settings.ENV,
+            ),
+            200,
+        )
+
+    @app.get("/ready")
+    def ready() -> tuple[Response, int]:
+        """Readiness probe — server can handle requests (DB reachable)."""
+        try:
+            # Minimal DB check (safe + fast)
+            from sqlalchemy import text
+
+            db.session.execute(text("SELECT 1"))
+            return jsonify(status="ok", ready=True), 200
+        except Exception:
+            logger.error("Readiness check failed", exc_info=True)
+            return jsonify(status="error", ready=False), 503
 
     return app
