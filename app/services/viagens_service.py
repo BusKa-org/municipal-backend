@@ -445,6 +445,28 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
                 raise ValidationError("A viagem precisa estar em andamento para ser finalizada")
             viagem.status = StatusViagem.FINALIZADA
             viagem.fim_real = datetime.now(UTC)
+
+            rastros = (
+                TelemetriaViagem.query.filter_by(viagem_id=viagem.id)
+                .order_by(TelemetriaViagem.timestamp.asc())
+                .all()
+            )
+
+            km_total = 0.0
+            if len(rastros) > 1:
+                distancia_metros = 0.0
+                for i in range(len(rastros) - 1):
+                    p1 = rastros[i]
+                    p2 = rastros[i + 1]
+                    distancia_metros += calcular_distancia_metros(
+                        float(p1.latitude),
+                        float(p1.longitude),
+                        float(p2.latitude),
+                        float(p2.longitude),
+                    )
+                km_total = round(distancia_metros / 1000.0, 2)
+
+            viagem.km_real = km_total
         else:
             raise ValidationError("Ação inválida. Use INICIAR ou FINALIZAR")
 
