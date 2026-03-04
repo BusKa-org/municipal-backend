@@ -1,7 +1,6 @@
 import time
 from datetime import datetime, timedelta
 
-from app.models.base import db
 from app.models.enum import SentidoViagem, StatusViagem, UserRole
 from app.models.notificacao import Notificacao
 from app.models.prefeitura import Prefeitura
@@ -11,15 +10,15 @@ from app.models.viagem import Viagem
 from app.tasks.notificacao_tasks import verificar_viagens_24h
 
 
-def test_integracao_job_24h_banco_real(app):
+def test_integracao_job_24h_banco_real(app, _db):
     timestamp = str(int(time.time() * 1000))[-8:]
     cnh_unica = f"888{timestamp}"
     cpf_mot = f"999{timestamp}"
     cpf_alu = f"777{timestamp}"
 
     prefeitura = Prefeitura(nome=f"Pref Teste {timestamp}", estado="PB")
-    db.session.add(prefeitura)
-    db.session.flush()
+    _db.session.add(prefeitura)
+    _db.session.flush()
 
     motorista = Motorista(
         nome="Motorista Isolado",
@@ -44,15 +43,15 @@ def test_integracao_job_24h_banco_real(app):
 
     rota = Rota(nome=f"Rota {timestamp}", prefeitura_id=prefeitura.id)
 
-    db.session.add_all([motorista, aluno, rota])
-    db.session.flush()
+    _db.session.add_all([motorista, aluno, rota])
+    _db.session.flush()
 
     horario = HorarioRota(rota_id=rota.id, horario_saida="12:00", sentido=SentidoViagem.IDA)
-    db.session.add(horario)
-    db.session.flush()
+    _db.session.add(horario)
+    _db.session.flush()
 
     inscricao = RotaAluno(rota_id=rota.id, aluno_id=aluno.usuario_id)
-    db.session.add(inscricao)
+    _db.session.add(inscricao)
 
     amanha = datetime.now() + timedelta(days=1)
 
@@ -63,16 +62,16 @@ def test_integracao_job_24h_banco_real(app):
         status=StatusViagem.AGENDADA,
         aviso_24h_enviado=False,
     )
-    db.session.add(viagem_teste)
+    _db.session.add(viagem_teste)
 
-    db.session.commit()
+    _db.session.commit()
 
     notificacao_criada = None
 
     try:
         verificar_viagens_24h(app)
 
-        db.session.refresh(viagem_teste)
+        _db.session.refresh(viagem_teste)
         assert (
             viagem_teste.aviso_24h_enviado is True
         ), "A flag anti-spam não foi atualizada no banco!"
@@ -86,12 +85,12 @@ def test_integracao_job_24h_banco_real(app):
 
     finally:
         if notificacao_criada:
-            db.session.delete(notificacao_criada)
-        db.session.delete(viagem_teste)
-        db.session.delete(inscricao)
-        db.session.delete(horario)
-        db.session.delete(rota)
-        db.session.delete(aluno)
-        db.session.delete(motorista)
-        db.session.delete(prefeitura)
-        db.session.commit()
+            _db.session.delete(notificacao_criada)
+        _db.session.delete(viagem_teste)
+        _db.session.delete(inscricao)
+        _db.session.delete(horario)
+        _db.session.delete(rota)
+        _db.session.delete(aluno)
+        _db.session.delete(motorista)
+        _db.session.delete(prefeitura)
+        _db.session.commit()

@@ -5,15 +5,15 @@ from typing import Any
 
 import firebase_admin
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify
 from firebase_admin import credentials
+from flask import Flask, Response, jsonify
 from flask_apscheduler import APScheduler
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
-from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
 from app.core.error_handlers import register_error_handlers, register_jwt_handlers
+from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
 
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
@@ -47,12 +47,20 @@ def create_app() -> Flask:
         if settings.FIREBASE_CREDENTIALS:
             cert_dict = json.loads(settings.FIREBASE_CREDENTIALS)
             cred = credentials.Certificate(cert_dict)
+            firebase_admin.initialize_app(cred)
             logger.info("Firebase initialized via GitHub Secrets (Environment Variable).")
         else:
-            cred = credentials.Certificate("firebase-credentials.json")
-            logger.info("Firebase initialized via local file.")
-
-        firebase_admin.initialize_app(cred)
+            try:
+                cred = credentials.Certificate("firebase-credentials.json")
+                firebase_admin.initialize_app(cred)
+                logger.info("Firebase initialized via local file.")
+            except FileNotFoundError:
+                if settings.DEBUG:
+                    logger.warning(
+                        "Firebase credentials not found. Running in development mode without Firebase."
+                    )
+                else:
+                    raise
 
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
