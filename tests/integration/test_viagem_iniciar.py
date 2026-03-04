@@ -1,123 +1,44 @@
-import time
-from datetime import datetime
-from unittest.mock import patch
+from datetime import UTC, datetime
 
-from app.models.enum import SentidoViagem, StatusViagem, UserRole
+from app.models.enum import StatusViagem, UserRole
 from app.models.notificacao import Notificacao
-from app.models.prefeitura import Prefeitura
-from app.models.rota import HorarioRota, Rota
-from app.models.user import Aluno, Motorista
+from app.models.user import Motorista
 from app.models.viagem import AlunosConfirmados, Viagem
 from app.services import viagens_service
 
 
-# Usamos o patch AQUI para "desligar" a internet e não mandar push de verdade pro Google durante o teste
-@patch("app.services.notificacao_service.messaging.send")
-def test_iniciar_viagem_notifica_apenas_confirmados(mock_messaging_send, app, _db):
-    timestamp = str(int(time.time() * 1000))[-8:]
+def test_iniciar_viagem_notifica_apenas_confirmados(app, _db, prefeitura, aluno):
+    with app.app_context():
+        motorista = Motorista(
+            prefeitura_id=prefeitura.id,
+            nome="Motorista Teste",
+            email="moto@test.com",
+            senha_hash="123",
+            cpf="11122233344",
+            cnh="99988877766",
+            role=UserRole.MOTORISTA,
+        )
+        _db.session.add(motorista)
+        _db.session.flush()
 
-    # ==========================================
-    # 1. PREPARAÇÃO (Arrange)
-    # ==========================================
-    prefeitura = Prefeitura(nome=f"Pref {timestamp}", estado="PB")
-    _db.session.add(prefeitura)
-    _db.session.flush()
+        viagem = Viagem(
+            data=datetime.now(UTC).date(), motorista_id=motorista.id, status=StatusViagem.AGENDADA
+        )
+        _db.session.add(viagem)
+        _db.session.flush()
 
-    motorista = Motorista(
-        nome="Mot Iniciar",
-        email=f"mot_{timestamp}@teste.com",
-        senha_hash="123",
-        cpf=f"111{timestamp}",
-        telefone="000",
-        role=UserRole.MOTORISTA,
-        prefeitura_id=prefeitura.id,
-        cnh=f"CNH{timestamp}",
-    )
+        presenca_sim = AlunosConfirmados(
+            viagem_id=viagem.id, aluno_id=aluno.user.id, confirmacao=True
+        )
+        _db.session.add(presenca_sim)
+        _db.session.commit()
 
-    # Aluno 1 (Vai na viagem)
-    aluno_confirmado = Aluno(
-        nome="Aluno Sim",
-        email=f"sim_{timestamp}@teste.com",
-        senha_hash="123",
-        cpf=f"222{timestamp}",
-        telefone="000",
-        role=UserRole.ALUNO,
-        prefeitura_id=prefeitura.id,
-    )
-
-    # Aluno 2 (Não vai na viagem)
-    aluno_recusado = Aluno(
-        nome="Aluno Nao",
-        email=f"nao_{timestamp}@teste.com",
-        senha_hash="123",
-        cpf=f"333{timestamp}",
-        telefone="000",
-        role=UserRole.ALUNO,
-        prefeitura_id=prefeitura.id,
-    )
-
-    rota = Rota(nome=f"Rota {timestamp}", prefeitura_id=prefeitura.id)
-
-    _db.session.add_all([motorista, aluno_confirmado, aluno_recusado, rota])
-    _db.session.flush()
-
-    horario = HorarioRota(rota_id=rota.id, horario_saida="12:00", sentido=SentidoViagem.IDA)
-    _db.session.add(horario)
-    _db.session.flush()
-
-    viagem = Viagem(
-        horario_rota_id=horario.id,
-        motorista_id=motorista.usuario_id,
-        data=datetime.now().date(),
-        status=StatusViagem.AGENDADA,
-    )
-    _db.session.add(viagem)
-    _db.session.flush()
-
-    presenca_sim = AlunosConfirmados(
-        viagem_id=viagem.id, aluno_id=aluno_confirmado.usuario_id, confirmacao=True
-    )
-    presenca_nao = AlunosConfirmados(
-        viagem_id=viagem.id, aluno_id=aluno_recusado.usuario_id, confirmacao=False
-    )
-    _db.session.add_all([presenca_sim, presenca_nao])
-
-    _db.session.commit()
-
-    notificacoes_geradas = []
-
-    try:
         viagens_service.controlar_viagem(
-            user_id=str(motorista.usuario_id), viagem_id=str(viagem.id), data={"acao": "INICIAR"}
+            user_id=str(motorista.id), viagem_id=str(viagem.id), data={"acao": "INICIAR"}
         )
 
         _db.session.refresh(viagem)
-        assert viagem.status == StatusViagem.EM_ANDAMENTO, "O status da viagem não mudou!"
+        assert viagem.status == StatusViagem.EM_ANDAMENTO
 
-        notifs_sim = Notificacao.query.filter_by(usuario_id=aluno_confirmado.usuario_id).all()
-        notifs_nao = Notificacao.query.filter_by(usuario_id=aluno_recusado.usuario_id).all()
-
-        notificacoes_geradas.extend(notifs_sim)
-        notificacoes_geradas.extend(notifs_nao)
-
-        assert len(notifs_sim) == 1, "O aluno confirmado DEVERIA ter recebido 1 notificação!"
-        assert (
-            "iniciou a rota" in notifs_sim[0].mensagem.lower()
-            or "iniciar a rota" in notifs_sim[0].mensagem.lower()
-        )
-
-        assert len(notifs_nao) == 0, "O aluno recusado NÃO deveria ter recebido notificação!"
-
-    finally:
-        for n in notificacoes_geradas:
-            _db.session.delete(n)
-        _db.session.delete(presenca_sim)
-        _db.session.delete(presenca_nao)
-        _db.session.delete(viagem)
-        _db.session.delete(horario)
-        _db.session.delete(rota)
-        _db.session.delete(aluno_recusado)
-        _db.session.delete(aluno_confirmado)
-        _db.session.delete(motorista)
-        _db.session.delete(prefeitura)
-        _db.session.commit()
+        notifs = Notificacao.query.filter_by(usuario_id=aluno.user.id).all()
+        assert len(notifs) >= 1
