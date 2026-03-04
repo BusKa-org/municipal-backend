@@ -153,6 +153,27 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
                         cep=end_data.get("cep"),
                     )
                     db.session.add(novo_end)
+            else:
+                novo_ponto = Ponto(
+                    prefeitura_id=aluno.prefeitura_id,
+                    latitude=end_data.get("latitude"),
+                    longitude=end_data.get("longitude"),
+                    apelido=f"Casa: {data.get('nome', aluno.nome)}",
+                )
+                db.session.add(novo_ponto)
+                db.session.flush()
+
+                novo_end = Endereco(
+                    ponto_id=novo_ponto.id,
+                    logradouro=end_data.get("logradouro"),
+                    numero=end_data.get("numero"),
+                    bairro=end_data.get("bairro"),
+                    cidade=end_data.get("cidade"),
+                    cep=end_data.get("cep"),
+                )
+                db.session.add(novo_end)
+
+                aluno.ponto_casa_id = novo_ponto.id
 
         if aluno.status == UserStatus.PENDING_SIGNUP:
             missing = []
