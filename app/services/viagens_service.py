@@ -650,3 +650,27 @@ def atualizar_localizacao_aluno(user_id: str, viagem_id: str, data: dict) -> dic
         "message": "Localização do aluno atualizada com sucesso para validação de check-in.",
         "embarcou": False,
     }
+
+
+def obter_progresso_viagem(gestor_id: str, viagem_id: str):
+    """Retorna os pontos pelos quais o motorista já passou, em ordem cronológica."""
+    user = db.session.get(User, gestor_id)
+    if not user or user.role != UserRole.GESTOR:
+        raise ForbiddenError("Apenas gestores podem auditar o trajeto")
+
+    pontos_visitados = (
+        ViagemPonto.query.filter(
+            ViagemPonto.viagem_id == viagem_id, ViagemPonto.chegada_real.isnot(None)
+        )
+        .order_by(ViagemPonto.chegada_real.asc())
+        .all()
+    )
+
+    return [
+        {
+            "ponto_id": str(vp.ponto_id),
+            "apelido": vp.ponto.apelido,
+            "horario_passagem": str(vp.chegada_real),
+        }
+        for vp in pontos_visitados
+    ]

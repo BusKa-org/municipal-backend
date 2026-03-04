@@ -17,6 +17,7 @@ from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viage
 
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
+from .api.controllers.dashboard_controller import api as dashboard_ns
 from .api.controllers.instituicao_controller import api as inst_ns
 from .api.controllers.notificacao_controller import api as notificacoes_ns
 from .api.controllers.onibus_controller import api as onibus_ns
@@ -159,6 +160,7 @@ Inclua o header: `Authorization: Bearer <seu_token>`
     api.add_namespace(viagem_ns, path="/v1/viagens")
     api.add_namespace(inst_ns, path="/v1/instituicoes")
     api.add_namespace(alunos_ns, path="/v1/alunos")
+    api.add_namespace(dashboard_ns, path="/v1/dashboard")
 
     # ==========================================
     # Error Handlers
