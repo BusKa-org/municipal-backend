@@ -1,7 +1,7 @@
 """Trips (Viagem) service - trip management, student confirmations."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from app.core.exceptions import (
@@ -11,8 +11,9 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.core.transaction import transactional
 from app.models.base import db
-from app.models.enum import SentidoViagem, StatusViagem, UserRole
+from app.models.enum import DiaDaSemana, SentidoViagem, StatusViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import Aluno, User
@@ -21,21 +22,34 @@ from app.models.viagem import AlunosConfirmados, Viagem, ViagemPonto
 logger = logging.getLogger(__name__)
 
 
-def _get_dia_semana_enum(data_obj):
+def _get_dia_semana_enum(data_obj: date) -> DiaDaSemana:
     """Convert weekday (0=Monday) to DiaDaSemana enum."""
-    dias_map = {0: "SEG", 1: "TER", 2: "QUA", 3: "QUI", 4: "SEX", 5: "SAB", 6: "DOM"}
-    return dias_map.get(data_obj.weekday())
+    dias_map = {
+        0: DiaDaSemana.SEG,
+        1: DiaDaSemana.TER,
+        2: DiaDaSemana.QUA,
+        3: DiaDaSemana.QUI,
+        4: DiaDaSemana.SEX,
+        5: DiaDaSemana.SAB,
+        6: DiaDaSemana.DOM,
+    }
+    dia = dias_map.get(data_obj.weekday())
+    if not dia:
+        raise ValidationError("Data inválida para cálculo do dia da semana")
+    return dia
 
 
-def _popular_dados_da_viagem(viagem_obj, rota_obj, horario_obj):
+def _popular_dados_da_viagem(viagem_obj: Viagem, rota_obj: Rota) -> None:
     """Helper function that copies students and stops from route to trip."""
-    inscricoes = RotaAluno.query.filter_by(rota_id=rota_obj.id).all()
+    inscricoes = db.session.query(RotaAluno).filter_by(rota_id=rota_obj.id).all()
 
     # Batch load all alunos to avoid N+1 queries
     aluno_ids = [i.aluno_id for i in inscricoes]
-    alunos_map = {
-        a.usuario_id: a for a in Aluno.query.filter(Aluno.usuario_id.in_(aluno_ids)).all()
-    }
+    if aluno_ids:
+        alunos = db.session.query(Aluno).filter(Aluno.usuario_id.in_(aluno_ids)).all()
+        alunos_map = {a.usuario_id: a for a in alunos}
+    else:
+        alunos_map = {}
 
     for inscricao in inscricoes:
         aluno = alunos_map.get(inscricao.aluno_id)
@@ -51,7 +65,9 @@ def _popular_dados_da_viagem(viagem_obj, rota_obj, horario_obj):
         )
         db.session.add(conf)
 
-    pontos_rota = RotaPonto.query.filter_by(rota_id=rota_obj.id).order_by(RotaPonto.ordem).all()
+    pontos_rota = (
+        db.session.query(RotaPonto).filter_by(rota_id=rota_obj.id).order_by(RotaPonto.ordem).all()
+    )
 
     ordem_real = 1
     for pr in pontos_rota:
@@ -62,20 +78,16 @@ def _popular_dados_da_viagem(viagem_obj, rota_obj, horario_obj):
         ordem_real += 1
 
 
-def get_proximas_viagens_aluno(user_id: str) -> list[dict]:
-    """
-    Retorna as próximas viagens agendadas para o aluno logado.
-
-    Raises: ForbiddenError
-    """
+def get_proximas_viagens_aluno(user_id: str) -> list[Viagem]:
+    """Returns upcoming scheduled trips for the logged student."""
     aluno = db.session.get(User, user_id)
     if not aluno or aluno.role != UserRole.ALUNO:
         raise ForbiddenError("Apenas alunos podem ver sua agenda de viagens")
 
-    hoje = datetime.utcnow().date()
+    hoje = datetime.now(UTC).date()
 
     query = (
-        db.session.query(Viagem, HorarioRota, Rota, AlunosConfirmados)
+        db.session.query(Viagem)
         .join(HorarioRota, Viagem.horario_rota_id == HorarioRota.id)
         .join(Rota, HorarioRota.rota_id == Rota.id)
         .join(RotaAluno, Rota.id == RotaAluno.rota_id)
@@ -91,42 +103,18 @@ def get_proximas_viagens_aluno(user_id: str) -> list[dict]:
         .order_by(Viagem.data.asc(), HorarioRota.horario_saida.asc())
     )
 
-    resultados = query.all()
+    viagens = query.all()
 
-    agenda = []
-    for viagem, horario, rota, confirmacao in resultados:
-        status_conf = confirmacao.confirmacao if confirmacao else False
-        ponto_emb = (
-            str(confirmacao.ponto_embarque_id)
-            if (confirmacao and confirmacao.ponto_embarque_id)
-            else None
-        )
-
-        agenda.append(
-            {
-                "viagem_id": str(viagem.id),
-                "data": str(viagem.data),
-                "dia_semana": _get_dia_semana_enum(viagem.data),
-                "horario_saida": str(horario.horario_saida),
-                "sentido": horario.sentido.name,
-                "rota_id": str(rota.id),
-                "rota_nome": rota.nome,
-                "status_confirmacao": status_conf,
-                "ponto_embarque_id": ponto_emb,
-            }
-        )
-
-    return agenda
+    return viagens
 
 
-def confirmar_presenca_aluno(user_id: str, viagem_id: str, data: dict[str, Any]) -> dict[str, Any]:
-    """
-    Permite ao aluno confirmar participação.
-
-    Raises: ForbiddenError, NotFoundError, ValidationError, AppError
-    """
+def confirmar_presenca_aluno(
+    user_id: str, viagem_id: str, data: dict[str, Any]
+) -> AlunosConfirmados:
+    """Student confirms or cancels attendance."""
     aluno = db.session.get(Aluno, user_id)
     if not aluno:
+        # fallback to role check (polymorphic table)
         aluno_user = db.session.get(User, user_id)
         if aluno_user and aluno_user.role == UserRole.ALUNO:
             aluno = db.session.get(Aluno, user_id)
@@ -134,62 +122,53 @@ def confirmar_presenca_aluno(user_id: str, viagem_id: str, data: dict[str, Any])
     if not aluno:
         raise ForbiddenError("Aluno não encontrado")
 
-    viagem = db.session.get(Viagem, viagem_id)
-    if not viagem:
-        raise NotFoundError("Viagem não encontrada")
-
-    registro = AlunosConfirmados.query.filter_by(
-        viagem_id=viagem.id, aluno_id=aluno.usuario_id
-    ).first()
-
-    if not registro:
-        horario_temp = db.session.get(HorarioRota, viagem.horario_rota_id)
-        if not horario_temp:
-            raise NotFoundError("Horário da viagem não encontrado")
-
-        inscricao = RotaAluno.query.filter_by(
-            rota_id=horario_temp.rota_id, aluno_id=aluno.usuario_id
-        ).first()
-
-        if not inscricao:
-            raise ForbiddenError("Você não está inscrito na rota desta viagem")
-
-        registro = AlunosConfirmados(
-            viagem_id=viagem.id,
-            aluno_id=aluno.usuario_id,
-            confirmacao=False,
-            ponto_embarque_id=None,
-            ponto_destino_id=None,
-        )
-        db.session.add(registro)
-
-    confirmacao = data.get("confirmacao")
+    confirmacao: bool = data["confirmacao"]
     ponto_embarque_id = data.get("ponto_embarque_id")
 
-    try:
-        if confirmacao:
-            if not ponto_embarque_id:
-                raise ValidationError(
-                    "Para confirmar, é necessário selecionar um ponto de embarque"
-                )
+    with transactional():
+        viagem = db.session.get(Viagem, viagem_id)
+        if not viagem:
+            raise NotFoundError("Viagem não encontrada")
 
+        registro = db.session.get(AlunosConfirmados, (viagem.id, aluno.usuario_id))
+
+        if not registro:
             horario = db.session.get(HorarioRota, viagem.horario_rota_id)
             if not horario:
                 raise NotFoundError("Horário da viagem não encontrado")
 
-            ponto_valido = RotaPonto.query.filter_by(
-                rota_id=horario.rota_id, ponto_id=ponto_embarque_id
-            ).first()
+            inscricao = db.session.get(RotaAluno, (horario.rota_id, aluno.usuario_id))
+            if not inscricao:
+                raise ForbiddenError("Você não está inscrito na rota desta viagem")
 
+            registro = AlunosConfirmados(
+                viagem_id=viagem.id,
+                aluno_id=aluno.usuario_id,
+                confirmacao=False,
+                ponto_embarque_id=None,
+                ponto_destino_id=None,
+            )
+            db.session.add(registro)
+
+        if confirmacao:
+            horario = db.session.get(HorarioRota, viagem.horario_rota_id)
+            if not horario:
+                raise NotFoundError("Horário da viagem não encontrado")
+
+            # schema already enforces ponto_embarque_id presence on confirmacao=True
+            ponto_valido = (
+                db.session.query(RotaPonto)
+                .filter_by(rota_id=horario.rota_id, ponto_id=ponto_embarque_id)
+                .first()
+            )
             if not ponto_valido:
-                raise ValidationError("Este ponto não pertence à rota desta viagem")
+                raise NotFoundError("Ponto de embarque não encontrado na rota")
 
             ponto_destino_inferido = None
-
             if horario.sentido == SentidoViagem.IDA:
                 if aluno.instituicao and aluno.instituicao.ponto_id:
                     ponto_destino_inferido = aluno.instituicao.ponto_id
-            elif horario.sentido == SentidoViagem.VOLTA:
+            else:
                 if aluno.ponto_casa_id:
                     ponto_destino_inferido = aluno.ponto_casa_id
 
@@ -201,17 +180,7 @@ def confirmar_presenca_aluno(user_id: str, viagem_id: str, data: dict[str, Any])
             registro.ponto_embarque_id = None
             registro.ponto_destino_id = None
 
-        db.session.commit()
-
-        status_str = "confirmada" if confirmacao else "cancelada"
-        return {"message": f"Presença {status_str} com sucesso"}
-
-    except (ValidationError, ForbiddenError):
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error confirming attendance: {e}")
-        raise AppError(f"Erro ao confirmar presença: {str(e)}", 500)
+        return registro
 
 
 def listar_pontos_embarque(user_id: str, viagem_id: str) -> list[dict]:
@@ -232,7 +201,9 @@ def listar_pontos_embarque(user_id: str, viagem_id: str) -> list[dict]:
     if not horario:
         raise AppError("Horário não encontrado", 500)
 
-    inscricao = RotaAluno.query.filter_by(rota_id=horario.rota_id, aluno_id=aluno.id).first()
+    inscricao = (
+        db.session.query(RotaAluno).filter_by(rota_id=horario.rota_id, aluno_id=aluno.id).first()
+    )
 
     if not inscricao:
         raise ForbiddenError("Você não está inscrito na rota desta viagem")
@@ -260,7 +231,7 @@ def listar_pontos_embarque(user_id: str, viagem_id: str) -> list[dict]:
     return resultado
 
 
-def gerar_viagem(user_id: str, data_input: dict) -> dict:
+def gerar_viagem(user_id: str, data_input: dict) -> Viagem:
     """
     Gera UMA viagem para UMA rota específica (Modo Manual).
 
@@ -271,10 +242,10 @@ def gerar_viagem(user_id: str, data_input: dict) -> dict:
         raise ForbiddenError("Permissão negada")
 
     rota_id = data_input.get("rota_id")
-    data_str = data_input.get("data")
-
-    if not data_str:
-        raise ValidationError("Campo 'data' é obrigatório")
+    data_viagem = data_input.get("data")
+    if not data_viagem:
+        raise ValidationError("Data é obrigatória")
+    data_viagem = datetime.strptime(data_viagem, "%Y-%m-%d").date()
 
     rota = db.session.get(Rota, rota_id)
     if not rota:
@@ -282,11 +253,6 @@ def gerar_viagem(user_id: str, data_input: dict) -> dict:
 
     if rota.prefeitura_id != user.prefeitura_id:
         raise ForbiddenError("Acesso negado")
-
-    try:
-        data_viagem = datetime.strptime(data_str, "%Y-%m-%d").date()
-    except (ValueError, TypeError):
-        raise ValidationError("Data inválida. Use YYYY-MM-DD")
 
     dia_semana = _get_dia_semana_enum(data_viagem)
 
@@ -296,14 +262,20 @@ def gerar_viagem(user_id: str, data_input: dict) -> dict:
         .filter(HorarioRota.rota_id == rota.id, DiasOperacao.dia == dia_semana)
         .first()
     )
-
     if not horario_selecionado:
-        raise ValidationError(f"Esta rota não opera em {dia_semana}")
+        raise NotFoundError(f"Horário não encontrado para a rota {rota.nome} no dia {dia_semana}")
 
-    if Viagem.query.filter_by(data=data_viagem, horario_rota_id=horario_selecionado.id).first():
-        raise ConflictError("Viagem já gerada para este dia/horário")
+    existente = (
+        db.session.query(Viagem.id)
+        .filter_by(data=data_viagem, horario_rota_id=horario_selecionado.id)
+        .first()
+    )
+    if existente:
+        raise ConflictError(
+            f"Viagem já gerada para este dia/horário: {data_viagem} {horario_selecionado.horario_saida.strftime('%H:%M')}"
+        )
 
-    try:
+    with transactional():
         nova_viagem = Viagem(
             data=data_viagem,
             horario_rota_id=horario_selecionado.id,
@@ -312,42 +284,21 @@ def gerar_viagem(user_id: str, data_input: dict) -> dict:
             status=StatusViagem.AGENDADA,
         )
         db.session.add(nova_viagem)
-        db.session.flush()
+        db.session.flush()  # ensure nova_viagem.id
 
-        _popular_dados_da_viagem(nova_viagem, rota, horario_selecionado)
+        _popular_dados_da_viagem(nova_viagem, rota)
 
-        db.session.commit()
-
-        return {
-            "message": "Viagem gerada com sucesso",
-            "id": str(nova_viagem.id),
-            "dia": dia_semana,
-        }
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error generating trip: {e}")
-        raise AppError(f"Erro ao gerar viagem: {str(e)}", 500)
+        return nova_viagem
 
 
-def gerar_viagens_em_lote(user_id: str, data_str: str) -> dict:
-    """
-    Gera viagens para TODAS as rotas da prefeitura em uma data específica.
-
-    Raises: ForbiddenError, ValidationError, AppError
-    """
+def gerar_viagens_em_lote(user_id: str, data_viagem: date) -> dict[str, Any]:
+    """Batch create trips for all routes of a prefeitura on a specific date."""
     user = db.session.get(User, user_id)
     if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Permissão negada. Apenas gestores podem gerar lote.")
 
-    try:
-        data_viagem = datetime.strptime(data_str, "%Y-%m-%d").date()
-    except ValueError:
-        raise ValidationError("Data inválida. Use YYYY-MM-DD")
-
     dia_semana = _get_dia_semana_enum(data_viagem)
-
-    rotas = Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
+    rotas = db.session.query(Rota).filter(Rota.prefeitura_id == user.prefeitura_id).all()
 
     relatorio: dict[str, Any] = {
         "total_rotas_analisadas": len(rotas),
@@ -355,7 +306,7 @@ def gerar_viagens_em_lote(user_id: str, data_str: str) -> dict:
         "detalhes": [],
     }
 
-    try:
+    with transactional():
         for rota in rotas:
             horarios_validos = (
                 db.session.query(HorarioRota)
@@ -364,11 +315,13 @@ def gerar_viagens_em_lote(user_id: str, data_str: str) -> dict:
                 .all()
             )
 
-            if not horarios_validos:
-                continue
-
             for horario in horarios_validos:
-                if Viagem.query.filter_by(data=data_viagem, horario_rota_id=horario.id).first():
+                existe = (
+                    db.session.query(Viagem.id)
+                    .filter_by(data=data_viagem, horario_rota_id=horario.id)
+                    .first()
+                )
+                if existe:
                     continue
 
                 nova_viagem = Viagem(
@@ -381,33 +334,25 @@ def gerar_viagens_em_lote(user_id: str, data_str: str) -> dict:
                 db.session.add(nova_viagem)
                 db.session.flush()
 
-                _popular_dados_da_viagem(nova_viagem, rota, horario)
+                _popular_dados_da_viagem(nova_viagem, rota)
 
                 relatorio["viagens_criadas"] += 1
                 relatorio["detalhes"].append(
                     f"Viagem criada: {rota.nome} - {horario.horario_saida}"
                 )
 
-        db.session.commit()
         return relatorio
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error generating batch trips: {e}")
-        raise AppError(f"Erro ao gerar viagens em lote: {str(e)}", 500)
 
 
 def list_viagens_motorista(user_id: str) -> list[Viagem]:
     """List trips assigned to the driver."""
-    return Viagem.query.filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
+    return (
+        db.session.query(Viagem).filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
+    )
 
 
 def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viagem:
-    """
-    Inicia ou Finaliza viagem.
-
-    Raises: NotFoundError, ForbiddenError, ValidationError, AppError
-    """
+    """Start or finish a trip. Expects schema-validated payload with 'acao'."""
     user = db.session.get(User, user_id)
     viagem = db.session.get(Viagem, viagem_id)
 
@@ -421,50 +366,36 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
         raise ForbiddenError("Esta viagem não pertence a você")
 
     acao = data.get("acao")
-    if not acao:
-        raise ValidationError("Campo 'acao' obrigatório")
 
-    try:
+    with transactional():
         if acao == "INICIAR":
             if viagem.status != StatusViagem.AGENDADA:
                 raise ValidationError(
                     f"Não é possível iniciar viagem com status {viagem.status.name}"
                 )
             viagem.status = StatusViagem.EM_ANDAMENTO
-            viagem.inicio_real = datetime.utcnow()
+            viagem.inicio_real = datetime.now(UTC)
 
         elif acao == "FINALIZAR":
             if viagem.status != StatusViagem.EM_ANDAMENTO:
                 raise ValidationError("A viagem precisa estar em andamento para ser finalizada")
             viagem.status = StatusViagem.FINALIZADA
-            viagem.fim_real = datetime.utcnow()
-        else:
-            raise ValidationError("Ação inválida. Use INICIAR ou FINALIZAR")
+            viagem.fim_real = datetime.now(UTC)
 
-        db.session.commit()
         return viagem
 
-    except ValidationError:
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error controlling trip: {e}")
-        raise AppError(f"Erro ao controlar viagem: {str(e)}", 500)
 
-
-def list_viagens_gestor(user_id: str, filters: dict) -> list[Viagem]:
-    """
-    List all trips with filters (gestor only).
-
-    Raises: ForbiddenError
-    """
+def list_viagens_gestor(user_id: str, filters: dict[str, Any]) -> list[Viagem]:
     user = db.session.get(User, user_id)
     if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores podem acessar o histórico completo")
 
-    query = Viagem.query
-    query = query.join(HorarioRota).join(Rota)
-    query = query.filter(Rota.prefeitura_id == user.prefeitura_id)
+    query = (
+        db.session.query(Viagem)
+        .join(HorarioRota)
+        .join(Rota)
+        .filter(Rota.prefeitura_id == user.prefeitura_id)
+    )
 
     if filters.get("data_inicio"):
         query = query.filter(Viagem.data >= filters.get("data_inicio"))
@@ -473,7 +404,7 @@ def list_viagens_gestor(user_id: str, filters: dict) -> list[Viagem]:
         query = query.filter(Viagem.data <= filters.get("data_fim"))
 
     if filters.get("status"):
-        query = query.filter(Viagem.status == StatusViagem(filters.get("status")))
+        query = query.filter(Viagem.status == filters.get("status"))
 
     if filters.get("motorista_id"):
         query = query.filter(Viagem.motorista_id == filters.get("motorista_id"))

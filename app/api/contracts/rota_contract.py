@@ -2,9 +2,14 @@
 
 from flask_restx import fields
 
+from app.api.contracts.ponto_contract import register_models as register_ponto_models
+
 
 def register_models(api):
     """Register rota models with the API namespace."""
+
+    ponto_models = register_ponto_models(api)
+    ponto_flat_response = ponto_models["ponto_flat_response"]
 
     rota_horario_create_request = api.model(
         "RotaHorarioCreateRequest",
@@ -40,7 +45,20 @@ def register_models(api):
         },
     )
 
-    rota_update_request = rota_create_request.clone(name="RotaUpdateRequest")
+    rota_update_request = api.model(
+        "RotaUpdateRequest",
+        {
+            "nome": fields.String(required=True, description="Nome da rota"),
+            "motorista_padrao_id": fields.String(description="UUID do motorista padrão"),
+            "veiculo_padrao_id": fields.String(description="UUID do veículo padrão"),
+            "pontos": fields.List(
+                fields.Nested(rota_ponto_add_request), description="Pontos da rota"
+            ),
+            "horarios": fields.List(
+                fields.Nested(rota_horario_create_request), description="Grade de horários"
+            ),
+        },
+    )
 
     rota_response = api.model(
         "RotaResponse",
@@ -89,7 +107,7 @@ def register_models(api):
     rota_ponto_list_response = api.model(
         "RotaPontoListResponse",
         {
-            "items": fields.List(fields.Nested(rota_ponto_add_request)),
+            "items": fields.List(fields.Nested(ponto_flat_response)),
             "total": fields.Integer(description="Total de pontos"),
         },
     )
@@ -97,9 +115,9 @@ def register_models(api):
     rota_detail_response = api.model(
         "RotaDetailResponse",
         {
-            "rota": fields.Nested(rota_response),
-            "pontos": fields.Nested(rota_ponto_list_response),
-            "horarios": fields.Nested(rota_horario_list_response),
+            **rota_response,
+            "pontos": fields.List(fields.Nested(ponto_flat_response)),
+            "horarios": fields.List(fields.Nested(rota_horario_response)),
         },
     )
 

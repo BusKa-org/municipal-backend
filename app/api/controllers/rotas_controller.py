@@ -4,14 +4,14 @@ from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
-from app.api.contracts import rota_contract
+from app.api.contracts import ponto_contract, rota_contract
 from app.schemas.horario_schema import (
     HorarioCreateRequestSchema,
     HorarioListResponseSchema,
     HorarioResponseSchema,
 )
 from app.schemas.ponto_schema import (
-    PontoListResponseSchema,
+    PontoFlatListResponseSchema,
 )
 from app.schemas.rota_schema import (
     RotaCreateRequestSchema,
@@ -28,6 +28,7 @@ api = Namespace("rotas", description="Gestão de Rotas")
 
 # API contracts (Swagger documentation)
 models = rota_contract.register_models(api)
+ponto_models = ponto_contract.register_models(api)
 
 # Validation schemas (Marshmallow)
 rota_response_schema = RotaResponseSchema()
@@ -43,7 +44,7 @@ horario_create_request_schema = HorarioCreateRequestSchema()
 horario_response_schema = HorarioResponseSchema()
 horario_list_response_schema = HorarioListResponseSchema()
 
-ponto_list_response_schema = PontoListResponseSchema()
+ponto_flat_list_response_schema = PontoFlatListResponseSchema()
 
 
 @api.route("/")
@@ -115,13 +116,13 @@ class RotaInscricaoResource(Resource):
 @api.route("/<string:id>/pontos")
 class RotaPontosResource(Resource):
     @api.doc("list_rota_pontos")
-    @api.response(200, "Success", models["rota_ponto_list_response"])
+    @api.response(200, "Success", ponto_models["ponto_flat_list_response"])
     @jwt_required()
     def get(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
         pontos = rotas_service.get_pontos_by_rota(current_user_id, id)
         return (
-            ponto_list_response_schema.dump(
+            ponto_flat_list_response_schema.dump(
                 {
                     "items": pontos,
                     "total": len(pontos),

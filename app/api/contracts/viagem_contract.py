@@ -25,9 +25,8 @@ def register_models(api):
     viagem_confirmacao_request = api.model(
         "ViagemConfirmacaoRequest",
         {
-            "ponto_embarque_id": fields.String(
-                required=True, description="UUID do ponto de embarque"
-            )
+            "confirmacao": fields.Boolean(required=True, description="Confirmado"),
+            "ponto_embarque_id": fields.String(description="UUID do ponto de embarque (opcional)"),
         },
     )
 
@@ -51,12 +50,45 @@ def register_models(api):
         },
     )
 
-    ponto_embarque = api.model(
-        "ViagemPontoEmbarque",
+    viagem_aluno_confirmacao_response = api.model(
+        "ViagemAlunoConfirmacaoResponse",
         {
-            "id": fields.String(description="UUID do ponto"),
-            "apelido": fields.String(description="Nome"),
-            "ordem": fields.Integer(description="Ordem na rota"),
+            "aluno_id": fields.String(description="UUID do aluno"),
+            "nome": fields.String(description="Nome do aluno"),
+            "confirmacao": fields.Boolean(description="Confirmado"),
+            "ponto_embarque": fields.String(description="UUID do ponto de embarque"),
+        },
+    )
+
+    viagem_agenda_aluno_response = api.model(
+        "ViagemAgendaAlunoResponse",
+        {
+            "viagem_id": fields.String(description="UUID da viagem"),
+            "data": fields.String(description="Data"),
+            "dia_semana": fields.String(description="Dia da semana"),
+            "horario_saida": fields.String(description="Horário"),
+            "sentido": fields.String(description="Sentido"),
+            "rota_id": fields.String(description="UUID da rota"),
+            "rota_nome": fields.String(description="Nome da rota"),
+            "status_confirmacao": fields.Boolean(description="Confirmado"),
+            "ponto_embarque_id": fields.String(description="UUID do ponto de embarque"),
+        },
+    )
+
+    viagem_agenda_aluno_list_response = api.model(
+        "ViagemAgendaAlunoListResponse",
+        {
+            "items": fields.List(fields.Nested(viagem_agenda_aluno_response)),
+            "total": fields.Integer(description="Total de viagens"),
+        },
+    )
+
+    viagem_lote_response = api.model(
+        "ViagemLoteResponse",
+        {
+            "total_rotas_analisadas": fields.Integer(description="Total de rotas analisadas"),
+            "viagens_criadas": fields.Integer(description="Total de viagens criadas"),
+            "detalhes": fields.List(fields.String(description="Detalhes da viagem")),
         },
     )
 
@@ -74,6 +106,9 @@ def register_models(api):
         "viagem_confirmacao_request": viagem_confirmacao_request,
         "viagem_acao_request": viagem_acao_request,
         "viagem_response": viagem_response,
-        "ponto_embarque": ponto_embarque,
         "viagem_list_response": viagem_list_response,
+        "viagem_aluno_confirmacao_response": viagem_aluno_confirmacao_response,
+        "viagem_lote_response": viagem_lote_response,
+        "viagem_agenda_aluno_list_response": viagem_agenda_aluno_list_response,
+        "viagem_agenda_aluno_response": viagem_agenda_aluno_response,
     }

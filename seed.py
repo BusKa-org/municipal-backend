@@ -72,8 +72,6 @@ def seed_database():
             cpf="11111111111",
             telefone="11999990001",
             role=UserRole.GESTOR,
-            matricula="GESTOR-001",
-            salario=12000.00,
         )
         db.session.add(admin_gestor)
 

@@ -1,6 +1,76 @@
-from marshmallow import fields, validate
+from __future__ import annotations
 
+from datetime import date, datetime
+from typing import Any
+
+from marshmallow import ValidationError as MarshmallowValidationError
+from marshmallow import fields, validates_schema
+from marshmallow.validate import OneOf, Range
+
+from app.models.enum import StatusViagem
 from app.schemas.common import BaseSchema
+from app.schemas.validators import validate_uuid4
+
+# -------------------------
+# Common helpers / fields
+# -------------------------
+
+
+class DateISOField(fields.Field):
+    """YYYY-MM-DD <-> datetime.date"""
+
+    default_error_messages = {
+        "invalid": "Data inválida. Use YYYY-MM-DD",
+        "required": "Campo obrigatório",
+    }
+
+    def _deserialize(self, value: Any, attr: str | None, data: Any, **kwargs) -> date:
+        if value is None:
+            raise MarshmallowValidationError(self.error_messages["required"])
+
+        if isinstance(value, date) and not isinstance(value, datetime):
+            return value
+
+        if isinstance(value, str):
+            try:
+                return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+            except ValueError:
+                raise MarshmallowValidationError(self.error_messages["invalid"])
+
+        raise MarshmallowValidationError(self.error_messages["invalid"])
+
+    def _serialize(self, value: Any, attr: str, obj: Any, **kwargs) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, date):
+            return value.isoformat()
+        return str(value)
+
+
+class EnumByNameField(fields.Field):
+    """Accepts enum by NAME (e.g. 'AGENDADA') and returns Enum instance."""
+
+    def __init__(self, enum_cls, **kwargs):
+        super().__init__(**kwargs)
+        self.enum_cls = enum_cls
+        self.allowed = [e.name for e in enum_cls]
+
+    def _deserialize(self, value: Any, attr: str | None, data: Any, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, self.enum_cls):
+            return value
+        if isinstance(value, str):
+            v = value.strip()
+            if v in self.allowed:
+                return self.enum_cls[v]
+        raise MarshmallowValidationError(f"Valor inválido. Use um de: {', '.join(self.allowed)}")
+
+    def _serialize(self, value: Any, attr: str, obj: Any, **kwargs):
+        if value is None:
+            return None
+        return value.name if hasattr(value, "name") else str(value)
+
 
 # ==========================================
 # Input Schemas (Validation)
@@ -10,35 +80,72 @@ from app.schemas.common import BaseSchema
 class ViagemCreateRequestSchema(BaseSchema):
     """Schema for creating a new trip."""
 
-    rota_id = fields.String(required=True)
-    horario_id = fields.String(required=True)
+    rota_id = fields.UUID(required=True)
     data = fields.Date(required=True)
-    motorista_id = fields.String(load_default=None)
-    veiculo_id = fields.String(load_default=None)
 
 
 class ViagemLoteRequestSchema(BaseSchema):
-    """Schema for batch trip generation."""
+    """POST /viagens/gerar-lote"""
 
-    data = fields.String(required=True)
+    data = DateISOField(required=True)
 
 
 class ViagemConfirmacaoRequestSchema(BaseSchema):
     """Schema for student trip confirmation."""
 
     confirmacao = fields.Boolean(required=True)
-    ponto_embarque_id = fields.String(load_default=None)
+    ponto_embarque_id = fields.UUID(load_default=None, allow_none=True)
+
+    @validates_schema
+    def validate_confirmacao(self, data: dict[str, Any], **kwargs) -> None:
+        if data.get("confirmacao") is True and not data.get("ponto_embarque_id"):
+            raise MarshmallowValidationError(
+                {"ponto_embarque_id": ["Para confirmar, selecione um ponto de embarque."]}
+            )
 
 
 class ViagemAcaoRequestSchema(BaseSchema):
-    """Schema for trip control actions."""
+    """PUT /viagens/<id>/acao"""
 
-    acao = fields.String(required=True, validate=validate.OneOf(["INICIAR", "FINALIZAR"]))
+    acao = fields.String(required=True, validate=OneOf(["INICIAR", "FINALIZAR"]))
+
+
+class ViagemListQuerySchema(BaseSchema):
+    """GET /viagens?data_inicio=...&status=..."""
+
+    # NOTE: these are query params, so everything comes as string.
+    data_inicio = DateISOField(required=False, allow_none=True)
+    data_fim = DateISOField(required=False, allow_none=True)
+
+    status = EnumByNameField(StatusViagem, required=False, allow_none=True)
+    motorista_id = fields.String(required=False, allow_none=True, validate=validate_uuid4)
+    rota_id = fields.String(required=False, allow_none=True, validate=validate_uuid4)
+
+    # Optional pagination (even if you don't use yet, it makes "total" correct later)
+    page = fields.Integer(required=False, load_default=1, validate=Range(min=1))
+    per_page = fields.Integer(required=False, load_default=20, validate=Range(min=1, max=100))
+
+    @validates_schema
+    def validate_date_range(self, data: dict[str, Any], **kwargs) -> None:
+        di = data.get("data_inicio")
+        df = data.get("data_fim")
+        if di and df and df < di:
+            raise MarshmallowValidationError({"data_fim": ["data_fim deve ser >= data_inicio."]})
 
 
 # ==========================================
 # Response Schemas (Serialization)
 # ==========================================
+
+
+class MessageResponseSchema(BaseSchema):
+    message = fields.String(required=True)
+
+
+class ViagemLoteResponseSchema(BaseSchema):
+    total_rotas_analisadas = fields.Integer(required=True)
+    viagens_criadas = fields.Integer(required=True)
+    detalhes = fields.List(fields.String(), required=True)
 
 
 class ViagemAlunoConfirmacaoResponseSchema(BaseSchema):
@@ -49,7 +156,7 @@ class ViagemAlunoConfirmacaoResponseSchema(BaseSchema):
     ponto_destino = fields.String(attribute="ponto_destino.apelido")
 
 
-class ViagemPontoEmbarqueResponseSchema(BaseSchema):
+class ViagemPontoResponseSchema(BaseSchema):
     ponto_id = fields.String()
     apelido = fields.String(attribute="ponto.apelido")
     ordem = fields.Integer()
@@ -72,9 +179,7 @@ class ViagemResponseSchema(BaseSchema):
     rota_id = fields.Method("get_rota_id")
     rota_nome = fields.Method("get_rota_nome")
 
-    pontos = fields.List(
-        fields.Nested(ViagemPontoEmbarqueResponseSchema), attribute="pontos_visitados"
-    )
+    pontos = fields.List(fields.Nested(ViagemPontoResponseSchema), attribute="pontos_visitados")
     alunos = fields.List(
         fields.Nested(ViagemAlunoConfirmacaoResponseSchema), attribute="alunos_confirmados"
     )
@@ -143,16 +248,81 @@ class ViagemResponseSchema(BaseSchema):
         return None
 
 
+class ViagemAgendaAlunoResponseSchema(BaseSchema):
+    """
+    Keeps the old agenda payload shape your frontend expects.
+
+    Requires schema context: context={"aluno_id": <uuid>}
+    """
+
+    viagem_id = fields.Method("get_viagem_id")
+    data = fields.Date()
+    dia_semana = fields.Method("get_dia_semana")
+    horario_saida = fields.Method("get_horario_saida")
+    sentido = fields.Method("get_sentido")
+    rota_id = fields.Method("get_rota_id")
+    rota_nome = fields.Method("get_rota_nome")
+    status_confirmacao = fields.Method("get_status_confirmacao")
+    ponto_embarque_id = fields.Method("get_ponto_embarque_id")
+
+    def _aluno_id(self) -> str | None:
+        ctx = getattr(self, "context", None)
+        if isinstance(ctx, dict) and ctx.get("aluno_id"):
+            return ctx["aluno_id"]
+
+        parent = getattr(self, "parent", None)
+        pctx = getattr(parent, "context", None) if parent else None
+        if isinstance(pctx, dict):
+            return pctx.get("aluno_id")
+
+        return None
+
+    def get_viagem_id(self, obj):
+        return str(obj.id)
+
+    def get_dia_semana(self, obj):
+        # enum name like "SEG"
+        # DiaDaSemana is your enum already; easiest is to reuse weekday mapping
+        dias_map = {0: "SEG", 1: "TER", 2: "QUA", 3: "QUI", 4: "SEX", 5: "SAB", 6: "DOM"}
+        return dias_map.get(obj.data.weekday()) if obj.data else None
+
+    def get_horario_saida(self, obj):
+        return str(obj.horario_rota.horario_saida) if obj.horario_rota else None
+
+    def get_sentido(self, obj):
+        return obj.horario_rota.sentido.name if obj.horario_rota else None
+
+    def get_rota_id(self, obj):
+        rota = obj.horario_rota.rota if obj.horario_rota else None
+        return str(rota.id) if rota else None
+
+    def get_rota_nome(self, obj):
+        rota = obj.horario_rota.rota if obj.horario_rota else None
+        return rota.nome if rota else None
+
+    def _find_confirmacao(self, obj):
+        aluno_id = self._aluno_id()
+        if not aluno_id:
+            return None
+        for c in obj.alunos_confirmados or []:
+            if str(c.aluno_id) == str(aluno_id):
+                return c
+        return None
+
+    def get_status_confirmacao(self, obj):
+        c = self._find_confirmacao(obj)
+        return bool(c.confirmacao) if c else False
+
+    def get_ponto_embarque_id(self, obj):
+        c = self._find_confirmacao(obj)
+        return str(c.ponto_embarque_id) if (c and c.ponto_embarque_id) else None
+
+
 class ViagemListResponseSchema(BaseSchema):
     items = fields.List(fields.Nested(ViagemResponseSchema))
     total = fields.Integer()
 
 
-class ViagemListQuerySchema(BaseSchema):
-    data_inicio = fields.Date(load_default=None)  # YYYY-MM-DD
-    data_fim = fields.Date(load_default=None)
-    status = fields.String(
-        validate=validate.OneOf(["AGENDADA", "EM_ANDAMENTO", "FINALIZADA"]), load_default=None
-    )
-    motorista_id = fields.String(load_default=None)
-    rota_id = fields.String(load_default=None)
+class ViagemAgendaAlunoListResponseSchema(BaseSchema):
+    items = fields.List(fields.Nested(ViagemAgendaAlunoResponseSchema))
+    total = fields.Integer()

@@ -21,7 +21,11 @@ def validate_optional_string(value: str | None, field_name: str = "Texto") -> st
     Returns:
         string
     """
-    return value if value else None
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise MarshmallowValidationError(f"{field_name} deve ser uma string")
+    return value
 
 
 def validate_uuid4(value: str, field_name: str = "ID") -> str:

@@ -36,6 +36,25 @@ def register_models(api):
         },
     )
 
+    ponto_flat_response = api.model(
+        "PontoFlatResponse",
+        {
+            "id": fields.String(description="UUID do ponto"),
+            "apelido": fields.String(description="Nome/apelido"),
+            "latitude": fields.Float(description="Latitude"),
+            "longitude": fields.Float(description="Longitude"),
+            "ordem": fields.Integer(description="Ordem"),
+        },
+    )
+
+    ponto_flat_list_response = api.model(
+        "PontoFlatListResponse",
+        {
+            "items": fields.List(fields.Nested(ponto_flat_response)),
+            "total": fields.Integer(description="Total de pontos"),
+        },
+    )
+
     ponto_list_response = api.model(
         "PontoListResponse",
         {
@@ -47,6 +66,8 @@ def register_models(api):
     return {
         "ponto_create_request": ponto_create_request,
         "ponto_response": ponto_response,
+        "ponto_flat_response": ponto_flat_response,
+        "ponto_flat_list_response": ponto_flat_list_response,
         "ponto_list_response": ponto_list_response,
         "ponto_update_request": ponto_update_request,
     }

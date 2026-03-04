@@ -37,6 +37,19 @@ class PontoResponseSchema(BaseSchema):
     instituicao = fields.String(dump_default=None)
 
 
+class PontoFlatResponseSchema(BaseSchema):
+    id = fields.String()
+    apelido = fields.String()
+    latitude = fields.Float()
+    longitude = fields.Float()
+    ordem = fields.Integer()
+
+
+class PontoFlatListResponseSchema(BaseSchema):
+    items = fields.List(fields.Nested(PontoFlatResponseSchema), required=True)
+    total = fields.Integer(required=True)
+
+
 class PontoListResponseSchema(BaseSchema):
     items = fields.List(fields.Nested(PontoResponseSchema), required=True)
     total = fields.Integer(required=True)
