@@ -45,7 +45,20 @@ def register_models(api):
         },
     )
 
-    rota_update_request = rota_create_request.clone(name="RotaUpdateRequest")
+    rota_update_request = api.model(
+        "RotaUpdateRequest",
+        {
+            "nome": fields.String(required=True, description="Nome da rota"),
+            "motorista_padrao_id": fields.String(description="UUID do motorista padrão"),
+            "veiculo_padrao_id": fields.String(description="UUID do veículo padrão"),
+            "pontos": fields.List(
+                fields.Nested(rota_ponto_add_request), description="Pontos da rota"
+            ),
+            "horarios": fields.List(
+                fields.Nested(rota_horario_create_request), description="Grade de horários"
+            ),
+        },
+    )
 
     rota_response = api.model(
         "RotaResponse",

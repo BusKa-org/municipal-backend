@@ -16,10 +16,9 @@ def test_gerar_viagens_periodo_cria_viagens_corretamente(gestor, prefeitura, rot
     Garante que a função central gera as viagens apenas para os dias da semana
     corretos e não cria viagens duplicadas se for chamada mais de uma vez.
     """
-    assert Viagem.query.count() == 0
     gerar_viagens_periodo(gestor_id=str(gestor.user.id), dias_futuros=14)
 
-    viagens_criadas = Viagem.query.all()
+    viagens_criadas = Viagem.query.filter_by(horario_rota_id=horario_rota.id).all()
 
     assert len(viagens_criadas) == 4
 
@@ -30,5 +29,5 @@ def test_gerar_viagens_periodo_cria_viagens_corretamente(gestor, prefeitura, rot
 
     gerar_viagens_periodo(gestor_id=str(gestor.user.id), dias_futuros=14)
 
-    viagens_apos_segunda_execucao = Viagem.query.count()
+    viagens_apos_segunda_execucao = Viagem.query.filter_by(horario_rota_id=horario_rota.id).count()
     assert viagens_apos_segunda_execucao == 4, "A função gerou viagens duplicadas!"

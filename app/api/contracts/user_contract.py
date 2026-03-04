@@ -80,6 +80,7 @@ def register_models(api):
     )
 
     return {
+        "fcm_token_request": fcm_token_request,
         "user_response": user_response,
         "user_list_response": user_list_response,
         "motorista_create_request": motorista_create_request,

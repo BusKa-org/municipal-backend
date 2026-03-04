@@ -156,7 +156,7 @@ class ViagemAlunoConfirmacaoResponseSchema(BaseSchema):
     ponto_destino = fields.String(attribute="ponto_destino.apelido")
 
 
-class ViagemPontoEmbarqueResponseSchema(BaseSchema):
+class ViagemPontoResponseSchema(BaseSchema):
     ponto_id = fields.String()
     apelido = fields.String(attribute="ponto.apelido")
     ordem = fields.Integer()
@@ -179,9 +179,7 @@ class ViagemResponseSchema(BaseSchema):
     rota_id = fields.Method("get_rota_id")
     rota_nome = fields.Method("get_rota_nome")
 
-    pontos = fields.List(
-        fields.Nested(ViagemPontoEmbarqueResponseSchema), attribute="pontos_visitados"
-    )
+    pontos = fields.List(fields.Nested(ViagemPontoResponseSchema), attribute="pontos_visitados")
     alunos = fields.List(
         fields.Nested(ViagemAlunoConfirmacaoResponseSchema), attribute="alunos_confirmados"
     )
@@ -256,7 +254,6 @@ class ViagemResponseSchema(BaseSchema):
         if obj.alunos_confirmados:
             return sum(1 for a in obj.alunos_confirmados if a.embarcou)
         return 0
-
 
 class ViagemAgendaAlunoResponseSchema(BaseSchema):
     """

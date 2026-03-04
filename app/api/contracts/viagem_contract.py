@@ -58,14 +58,6 @@ def register_models(api):
         },
     )
 
-    ponto_embarque = api.model(
-        "ViagemPontoEmbarque",
-        {
-            "latitude": fields.Float(required=True, description="Latitude atual do ônibus"),
-            "longitude": fields.Float(required=True, description="Longitude atual do ônibus"),
-        },
-    )
-
     viagem_aluno_confirmacao_response = api.model(
         "ViagemAlunoConfirmacaoResponse",
         {
@@ -105,14 +97,6 @@ def register_models(api):
             "total_rotas_analisadas": fields.Integer(description="Total de rotas analisadas"),
             "viagens_criadas": fields.Integer(description="Total de viagens criadas"),
             "detalhes": fields.List(fields.String(description="Detalhes da viagem")),
-        },
-    )
-
-    viagem_list_response = api.model(
-        "ViagemListResponse",
-        {
-            "items": fields.List(fields.Nested(viagem_response)),
-            "total": fields.Integer(description="Total de viagens"),
         },
     )
 

@@ -169,7 +169,7 @@ class UserChangePassword(Resource):
 class UserFcmToken(Resource):
     @api.doc("update_fcm_token", responses={200: "Token atualizado", 400: "Token não enviado"})
     @api.expect(models["fcm_token_request"])
-    @api.response(200, "Token updated successfully", models["fcm_token_response"])
+    @api.response(200, "Token updated successfully")
     @jwt_required()
     def patch(self) -> tuple[dict[str, str], int]:
         """Atualiza o Token do Firebase (Push Notifications) do aparelho do usuário"""
