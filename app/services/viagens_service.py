@@ -272,6 +272,7 @@ def gerar_viagem(user_id: str, data_input: dict) -> dict:
 
     rota_id = data_input.get("rota_id")
     data_str = data_input.get("data")
+    motorista_id = data_input.get("motorista_id")
 
     if not data_str:
         raise ValidationError("Campo 'data' é obrigatório")
@@ -307,7 +308,7 @@ def gerar_viagem(user_id: str, data_input: dict) -> dict:
         nova_viagem = Viagem(
             data=data_viagem,
             horario_rota_id=horario_selecionado.id,
-            motorista_id=rota.motorista_padrao_id,
+            motorista_id=motorista_id,
             veiculo_id=rota.veiculo_padrao_id,
             status=StatusViagem.AGENDADA,
         )
