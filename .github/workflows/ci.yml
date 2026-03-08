@@ -91,7 +91,7 @@ jobs:
           enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: uv sync --frozen
+        run: uv sync --frozen --extra dev
 
       - name: "Pre-commit (format/lint/type)"
         run: uv run pre-commit run --all-files
@@ -132,7 +132,7 @@ jobs:
           enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: uv sync --frozen
+        run: uv sync --frozen --extra dev
 
       - name: "Run tests (no e2e)"
         env:
@@ -183,7 +183,7 @@ jobs:
           enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: uv sync --frozen
+        run: uv sync --frozen --extra dev
 
       - name: "Wait for PostgreSQL"
         run: |
@@ -388,7 +388,7 @@ jobs:
           enable-cache: true
 
       - name: "Install dependencies"
-        run: uv sync --frozen
+        run: uv sync --frozen --extra dev
 
       - name: "Run migrations"
         env:
