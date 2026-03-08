@@ -41,3 +41,9 @@ class UserRole(enum.Enum):
 
     def __str__(self):
         return self.value
+
+
+class UserStatus(enum.Enum):
+    PENDING_SIGNUP = "PENDING_SIGNUP"
+    ACTIVE = "ACTIVE"
+    DISABLED = "DISABLED"

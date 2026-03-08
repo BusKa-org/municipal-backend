@@ -16,6 +16,8 @@ def register_models(api):
             "telefone": fields.String(description="Telefone"),
             "cpf": fields.String(description="CPF"),
             "role": fields.String(description="Perfil (ALUNO, MOTORISTA, GESTOR)"),
+            "status": fields.String(description="Status (PENDING_SIGNUP, ACTIVE, DISABLED)"),
+            "signup_completed_at": fields.DateTime(description="Data de conclusão do cadastro"),
             "matricula": fields.String(description="Matrícula (aluno)"),
             "nome_pai": fields.String(description="Nome do pai (aluno)"),
             "nome_mae": fields.String(description="Nome da mãe (aluno)"),
