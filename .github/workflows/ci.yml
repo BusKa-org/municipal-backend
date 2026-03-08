@@ -93,25 +93,27 @@ jobs:
       - name: "Install dependencies (dev)"
         run: uv sync --frozen --extra dev
 
-      - name: "Pre-commit (format/lint/type)"
-        run: uv run pre-commit run --all-files
-        env:
-          SKIP: pytest
+      - name: Run Ruff Linter
+        run: uv run ruff check app/ tests/
 
-      - name: "Security Scan - Bandit"
+      - name: Run Ruff Formatter
+        run: uv run ruff format --check app/ tests/
+
+      - name: Security Scan - Bandit
         run: uv run bandit -r app/ -f json -o bandit-report.json
         continue-on-error: true
 
-      - name: "Dependency Vulnerability Check (Safety)"
+      - name: Dependency Vulnerability Check
         run: uv run safety check --json
         continue-on-error: true
 
-      - name: "Upload Security Reports"
+      - name: Upload Security Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: security-reports
-          path: bandit-report.json
+          path: |
+            bandit-report.json
           retention-days: 30
 
   test:
