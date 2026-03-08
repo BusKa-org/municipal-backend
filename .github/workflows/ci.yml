@@ -95,6 +95,8 @@ jobs:
 
       - name: "Pre-commit (format/lint/type)"
         run: uv run pre-commit run --all-files
+        env:
+          SKIP: pytest
 
       - name: "Security Scan - Bandit"
         run: uv run bandit -r app/ -f json -o bandit-report.json
