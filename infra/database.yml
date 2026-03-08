@@ -4,10 +4,10 @@ services:
     container_name: buska_db
     restart: always
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
 
     volumes:
       - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql

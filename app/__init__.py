@@ -19,7 +19,7 @@ from .api.controllers.pontos_controller import api as pontos_ns
 from .api.controllers.rotas_controller import api as rotas_ns
 from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
-from .core.config import settings
+from .core.config import Settings
 from .models.base import db
 from .utils import (
     check_production_security,
@@ -33,9 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
-
     load_dotenv()
+    settings = Settings()
+    app = Flask(__name__)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
