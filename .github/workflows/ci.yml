@@ -96,8 +96,8 @@ jobs:
       - name: Run Ruff Linter
         run: uv run ruff check app/ tests/
 
-      - name: Run Ruff Formatter
-        run: uv run ruff format --check app/ tests/
+      - name: Check formatting with Black
+        run: uv run black --check app/ tests/
 
       - name: Security Scan - Bandit
         run: uv run bandit -r app/ -f json -o bandit-report.json
