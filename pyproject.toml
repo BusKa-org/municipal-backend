@@ -71,6 +71,9 @@ ignore = [
     "B904",   # raise-without-from-inside-except (intentional: converting to user-friendly errors)
 ]
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = false  # Too noisy with SQLAlchemy queries
@@ -123,6 +126,10 @@ omit = [
     "*/venv/*",
     "*/.venv/*",
 ]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
 
 [build-system]
 requires = ["setuptools>=61.0"]
