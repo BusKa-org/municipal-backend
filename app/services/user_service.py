@@ -231,3 +231,15 @@ def change_password(user_id: str, data: dict[str, Any]) -> None:
         db.session.rollback()
         logger.error(f"Error changing password: {e}", exc_info=True)
         raise AppError(f"Erro ao atualizar senha: {str(e)}", 500)
+
+
+def get_motoristas_by_municipio(gestor_id: str):
+    from app.models.user import User
+
+    gestor = _get_user_or_404(gestor_id)
+
+    motoristas = User.query.filter(
+        User.prefeitura_id == gestor.prefeitura_id, User.role == UserRole.MOTORISTA
+    ).all()
+
+    return motoristas
