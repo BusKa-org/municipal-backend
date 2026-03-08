@@ -164,10 +164,14 @@ jobs:
         id: coverage
         env:
           ENV: test
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_TEST }}
-          SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://buska_user:buska_pass@localhost:5432/buska_db
+          DB_USER: buska_user
+          DB_PASSWORD: buska_pass
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: buska_db
+          JWT_SECRET_KEY: test_secret
         run: |
-          uv run pytest -m "not e2e" -n auto \
+          uv run pytest -m "not e2e" \
             --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=html
 
           PERCENT_COV=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f%%", $1*100}')
