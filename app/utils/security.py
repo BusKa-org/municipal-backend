@@ -51,7 +51,7 @@ def setup_security_headers(app: Flask) -> None:
 
         # Permissions policy (formerly Feature Policy)
         response.headers["Permissions-Policy"] = (
-            "geolocation=(self), " "microphone=(), " "camera=(), " "payment=()"
+            "geolocation=(self), microphone=(), camera=(), payment=()"
         )
 
         # HSTS - force HTTPS (only in production)

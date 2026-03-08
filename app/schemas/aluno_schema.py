@@ -29,7 +29,6 @@ class AlunoResponseSchema(Schema):
 
 
 class AlunoUpdateSchema(Schema):
-
     nome = fields.String()
     telefone = fields.String()
 
