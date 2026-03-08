@@ -28,7 +28,6 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
-  UV_CACHE_DIR: ~/.cache/uv
 
 # ---------------------------
 # Helper "variables" (jobs use env.RESOLVED_REF)
@@ -37,7 +36,7 @@ env:
 jobs:
   meta:
     name: Resolve git ref
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       resolved_ref: ${{ steps.ref.outputs.resolved_ref }}
       should_run_tests: ${{ steps.flags.outputs.should_run_tests }}
@@ -75,7 +74,7 @@ jobs:
 
   lint:
     name: Code Quality & Security
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: meta
     env:
       RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
@@ -85,24 +84,14 @@ jobs:
           ref: ${{ env.RESOLVED_REF }}
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Cache uv
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-
-
-      - name: "Install uv"
-        run: pip install -U uv
+          enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync --frozen
 
       - name: "Pre-commit (format/lint/type)"
         run: uv run pre-commit run --all-files
@@ -125,7 +114,7 @@ jobs:
 
   test_fast:
     name: "Tests (fast - SQLite)"
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [meta, lint]
     if: needs.meta.outputs.should_run_tests == 'true'
     env:
@@ -136,24 +125,14 @@ jobs:
           ref: ${{ env.RESOLVED_REF }}
           fetch-depth: 0
 
-      - name: "Setup Python"
-        uses: actions/setup-python@v5
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: "Cache uv"
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-
-
-      - name: "Install uv"
-        run: pip install -U uv
+          enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync --frozen
 
       - name: "Run tests (no e2e)"
         env:
@@ -197,27 +176,14 @@ jobs:
           ref: ${{ env.RESOLVED_REF }}
           fetch-depth: 0
 
-      - name: "Setup Python"
-        uses: actions/setup-python@v5
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: "Cache uv"
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.UV_CACHE_DIR }}
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-
-
-      - name: "Install uv"
-        run: pip install -U uv
+          enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install pytest-xdist
+        run: uv sync --frozen
 
       - name: "Wait for PostgreSQL"
         run: |
@@ -280,7 +246,7 @@ jobs:
 
   build:
     name: "Build Docker Image"
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [meta, lint, test_fast, test_db]
     # Se manual e o usuário desmarcar testes, build ainda roda (só depende do lint + meta).
     if: |
@@ -411,23 +377,18 @@ jobs:
       - name: "Ensure DB extensions (idempotent)"
         env:
           DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
-          DB_HOST: localhost
-          DB_PORT: "5432"
         run: |
           docker exec buska_db_prod psql -U "$DB_USER" -d "$DB_NAME" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' || true
 
-      - name: "Setup Python"
-        uses: actions/setup-python@v5
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: "Install uv"
-        run: pip install -U uv
+          enable-cache: true
 
       - name: "Install dependencies"
-        run: uv pip install -e ".[dev]"
+        run: uv sync --frozen
 
       - name: "Run migrations"
         env:
@@ -436,7 +397,7 @@ jobs:
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_HOST: localhost
           DB_PORT: "5432"
-        run: python -m alembic upgrade head
+        run: uv run alembic upgrade head
 
       - name: "Seed database (skips if data already exists)"
         env:
@@ -446,7 +407,7 @@ jobs:
           DB_HOST: localhost
           DB_PORT: "5432"
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET }}
-        run: python seed.py
+        run: uv run python seed.py
 
       - name: "Health Check"
         run: |
