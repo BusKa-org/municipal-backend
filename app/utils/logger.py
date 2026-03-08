@@ -3,7 +3,7 @@
 import logging
 import sys
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from flask import Flask, g, has_request_context, request
@@ -40,7 +40,7 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         """Add custom fields to log record."""
         super().add_fields(log_record, record, message_dict)
 
-        log_record["timestamp"] = datetime.utcnow().isoformat() + "Z"
+        log_record["timestamp"] = datetime.now(UTC).isoformat() + "Z"
         log_record["level"] = record.levelname
         log_record["logger"] = record.name
 
@@ -74,14 +74,12 @@ def setup_logging(app: Flask) -> None:
     if is_debug:
         # Human-readable format for development
         formatter = logging.Formatter(
-            fmt="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+            fmt="%(asctime)s [%(levelname)s] %(name)s [%(request_id)s] %(method)s %(path)s - %(message)s",
             datefmt="%H:%M:%S",
         )
     else:
         # JSON format for production
-        formatter = CustomJsonFormatter(
-            "%(timestamp)s %(level)s %(logger)s %(request_id)s %(message)s"
-        )
+        formatter = CustomJsonFormatter()
 
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
@@ -93,9 +91,7 @@ def setup_logging(app: Flask) -> None:
     console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
 
-    # Only add request ID filter in production (for JSON logs)
-    if not is_debug:
-        console_handler.addFilter(RequestIdFilter())
+    console_handler.addFilter(RequestIdFilter())
 
     root_logger.addHandler(console_handler)
 
