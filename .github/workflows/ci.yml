@@ -91,7 +91,7 @@ jobs:
           enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --dev
 
       - name: Run Ruff Linter
         run: uv run ruff check app/ tests/
@@ -151,7 +151,7 @@ jobs:
           enable-cache: true
 
       - name: "Install dependencies (dev)"
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --dev
 
       - name: "Wait for PostgreSQL"
         run: |
@@ -355,7 +355,7 @@ jobs:
           enable-cache: true
 
       - name: "Install dependencies"
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --dev
 
       - name: "Run migrations"
         env:
