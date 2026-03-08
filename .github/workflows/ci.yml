@@ -171,7 +171,7 @@ jobs:
 
   test_db:
     name: "Tests (DB - PostGIS)"
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [meta, lint]
     if: needs.meta.outputs.should_run_tests == 'true'
     env:
@@ -182,11 +182,11 @@ jobs:
         env:
           POSTGRES_USER: buska_user
           POSTGRES_PASSWORD: buska_pass
-          POSTGRES_DB: buska_test
+          POSTGRES_DB: buska_db
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U buska_user -d buska_test"
+          --health-cmd "pg_isready -U buska_user -d buska_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -215,12 +215,13 @@ jobs:
 
       - name: "Install dependencies (dev)"
         run: |
-          uv pip install --system -e ".[dev]"
-          uv pip install --system pytest-xdist
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pytest-xdist
 
       - name: "Wait for PostgreSQL"
         run: |
-          until pg_isready -h localhost -p 5432 -U buska_user -d buska_test; do
+          until pg_isready -h localhost -p 5432 -U buska_user -d buska_db; do
             echo "Waiting for postgres..."
             sleep 2
           done
@@ -230,7 +231,7 @@ jobs:
         env:
           ENV: test
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_TEST }}
-          SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://buska_user:buska_pass@localhost:5432/buska_test
+          SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://buska_user:buska_pass@localhost:5432/buska_db
         run: |
           uv run pytest -m "integration and not e2e" -n auto \
             --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=html
@@ -363,10 +364,9 @@ jobs:
     name: "Deploy to Production"
     runs-on: self-hosted
     needs: [test_db, build]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     environment:
       name: production
-      url: https://buska-backend.your-domain.com
     steps:
       - uses: actions/checkout@v4
 
@@ -378,30 +378,92 @@ jobs:
       - name: "Load Docker Image"
         run: docker load < buska-backend.tar.gz
 
-      - name: "Create Production .env"
+      - name: "Create .env.prod"
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          cat > .env <<EOF
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-          JWT_EXPIRES_HOURS=${{ secrets.JWT_EXPIRES_HOURS }}
-          FLASK_ENV=production
-          FLASK_DEBUG=False
-          DEBUG=False
-          EOF
+          printf 'DB_USER=%s\nDB_PASSWORD=%s\nDB_NAME=%s\nAPI_PORT=5000\nJWT_SECRET_KEY=%s\nJWT_EXPIRES_HOURS=2\n' \
+            "$DB_USER" "$DB_PASSWORD" "$DB_NAME" "$JWT_SECRET" > .env.prod
+          chmod 600 .env.prod
 
-      - name: "Docker Compose Deploy"
+      - name: "Deploy containers"
         run: |
-          docker compose -f docker-compose.yml up -d --no-build
-          docker compose -f docker-compose.yml ps
+          docker-compose -f docker-compose.prod.yml down || true
+          docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+      - name: "Wait for database"
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          for i in {1..60}; do
+            if docker exec buska_db_prod pg_isready -U "$DB_USER" -d "$DB_NAME" 2>/dev/null; then
+              echo "Database is ready"
+              break
+            fi
+            echo "Waiting for database... ($i/60)"
+            sleep 2
+          done
+
+      - name: "Ensure DB extensions (idempotent)"
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: localhost
+          DB_PORT: "5432"
+        run: |
+          docker exec buska_db_prod psql -U "$DB_USER" -d "$DB_NAME" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' || true
+
+      - name: "Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: "Install uv"
+        run: pip install -U uv
+
+      - name: "Install dependencies"
+        run: uv pip install -e ".[dev]"
+
+      - name: "Run migrations"
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: localhost
+          DB_PORT: "5432"
+        run: python -m alembic upgrade head
+
+      - name: "Seed database (skips if data already exists)"
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET }}
+        run: python seed.py
 
       - name: "Health Check"
         run: |
-          sleep 10
-          curl -f http://localhost:5000/health
+          for i in {1..30}; do
+            if curl -sf http://localhost:5000/health > /dev/null; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 5
+          done
+          echo "Health check failed"
+          echo "==== docker ps ===="
+          docker ps
+          echo "==== docker logs buska_api ===="
+          docker logs buska_api || true
+          exit 1
 
       - name: "Notify Discord Success"
         if: success()
