@@ -21,21 +21,6 @@ dependencies = [
     "alembic>=1.13.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=9.0.2",
-    "pytest-cov>=7.0.0",
-    "pytest-mock>=3.14.0",
-    "faker>=26.0.0",
-    "factory-boy>=3.3.0",
-    "requests>=2.32.0",
-    "pytest-xdist>=3.6.0",
-    "black>=24.0.0",
-    "ruff>=0.2.0",
-    "mypy>=1.8.0",
-    "pre-commit>=3.6.0",
-]
-
 # ==========================================
 # Tool Configurations
 # ==========================================
@@ -134,6 +119,23 @@ skip_covered = false
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pytest-mock>=3.14.0",
+    "faker>=26.0.0",
+    "factory-boy>=3.3.0",
+    "requests>=2.32.0",
+    "pytest-xdist>=3.6.0",
+    "black>=24.0.0",
+    "ruff>=0.2.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+    "bandit>=1.9.4",
+    "safety>=3.7.0",
+]
 
 [tool.setuptools]
 packages = ["app"]
