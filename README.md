@@ -210,3 +210,4 @@ make run
 # Rodar com configurações menos estritas
 mypy app --no-strict-optional --ignore-missing-imports
 ```
+
