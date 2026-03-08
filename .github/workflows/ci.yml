@@ -112,44 +112,8 @@ jobs:
           path: bandit-report.json
           retention-days: 30
 
-  test_fast:
-    name: "Tests (fast - SQLite)"
-    runs-on: ubuntu-latest
-    needs: [meta, lint]
-    if: needs.meta.outputs.should_run_tests == 'true'
-    env:
-      RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RESOLVED_REF }}
-          fetch-depth: 0
-
-      - name: "Install uv"
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          enable-cache: true
-
-      - name: "Install dependencies (dev)"
-        run: uv sync --frozen --extra dev
-
-      - name: "Run tests (no e2e)"
-        env:
-          ENV: test
-          JWT_SECRET_KEY: test-secret
-        run: uv run pytest -m "not e2e" -q
-
-      - name: "Upload Coverage HTML (fast)"
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-html-fast
-          path: htmlcov/
-          retention-days: 7
-
-  test_db:
-    name: "Tests (DB - PostGIS)"
+  test:
+    name: "Tests"
     runs-on: ubuntu-latest
     needs: [meta, lint]
     if: needs.meta.outputs.should_run_tests == 'true'
@@ -199,7 +163,7 @@ jobs:
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY_TEST }}
           SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://buska_user:buska_pass@localhost:5432/buska_db
         run: |
-          uv run pytest -m "integration and not e2e" -n auto \
+          uv run pytest -m "not e2e" -n auto \
             --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=html
 
           PERCENT_COV=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f%%", $1*100}')
@@ -221,12 +185,12 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const body = `## 📊 Test Coverage (DB): ${{ steps.coverage.outputs.COVERAGE_PERCENT }}`;
+            const body = `## 📊 Test Coverage: ${{ steps.coverage.outputs.COVERAGE_PERCENT }}`;
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
 
             const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
-            const botComment = comments.data.find(c => c.user.type === "Bot" && c.body.includes("Test Coverage (DB)"));
+            const botComment = comments.data.find(c => c.user.type === "Bot" && c.body.includes("Test Coverage:"));
 
             if (botComment) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: botComment.id, body });
@@ -247,14 +211,13 @@ jobs:
   build:
     name: "Build Docker Image"
     runs-on: ubuntu-latest
-    needs: [meta, lint, test_fast, test_db]
-    # Se manual e o usuário desmarcar testes, build ainda roda (só depende do lint + meta).
+    needs: [meta, lint, test]
     if: |
       always() &&
       needs.lint.result == 'success' &&
       (
         needs.meta.outputs.should_run_tests != 'true' ||
-        (needs.test_fast.result == 'success' && needs.test_db.result == 'success')
+        needs.test.result == 'success'
       )
     env:
       RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
@@ -329,7 +292,7 @@ jobs:
   deploy:
     name: "Deploy to Production"
     runs-on: self-hosted
-    needs: [test_db, build]
+    needs: [test, build]
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     environment:
       name: production
@@ -429,7 +392,7 @@ jobs:
       - name: "Notify Discord Success"
         if: success()
         run: |
-          MSG="🚀 **BusKá Backend Deployed!**\n**Version:** \`${{ github.run_number }}\`\n**Coverage(DB):** \`${{ needs.test_db.outputs.coverage }}\`\n**Commit:** \`${GITHUB_SHA:0:7}\`"
+          MSG="🚀 **BusKá Backend Deployed!**\n**Version:** \`${{ github.run_number }}\`\n**Coverage:** \`${{ needs.test.outputs.coverage }}\`\n**Commit:** \`${GITHUB_SHA:0:7}\`"
           PAYLOAD='{"embeds": [{"title": "Production Deployment", "description": "'"$MSG"'", "color": 3066993, "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'"}]}'
           curl -X POST -H "Content-Type: application/json" -d "$PAYLOAD" ${{ secrets.DISCORD_WEBHOOK }}
 
