@@ -4,7 +4,6 @@ from datetime import timedelta
 from typing import Any
 
 import firebase_admin
-from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 from firebase_admin import credentials
 from flask import Flask, Response, jsonify
@@ -14,8 +13,7 @@ from flask_restx import Api
 
 from app.core.error_handlers import register_error_handlers, register_jwt_handlers
 from app.extensions import scheduler
-from app.tasks.agendamento_tasks import job_gerar_viagens_semanais
-from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
+from app.utils.scheduler_setup import init_scheduler
 
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
@@ -91,24 +89,12 @@ def create_app() -> Flask:
     db.init_app(app)
     jwt.init_app(app)
 
+    # ==========================================
+    # Scheduler Configuration
+    # ==========================================
     scheduler.init_app(app)
-    scheduler.start()
 
-    scheduler.add_job(
-        id="job_24h", func=verificar_viagens_24h, args=[app], trigger="interval", minutes=60
-    )
-
-    scheduler.add_job(
-        id="job_10min", func=verificar_viagens_10min, args=[app], trigger="interval", minutes=2
-    )
-
-    scheduler.add_job(
-        id="job_viagens_semanais",
-        func=job_gerar_viagens_semanais,
-        args=[app],
-        trigger=CronTrigger(day_of_week="sun", hour=2, minute=0, timezone="America/Sao_Paulo"),
-        replace_existing=True,
-    )
+    init_scheduler(app, scheduler)
 
     # ==========================================
     # Security Headers
