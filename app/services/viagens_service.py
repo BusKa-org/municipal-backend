@@ -1,7 +1,7 @@
 """Trips (Viagem) service - trip management, student confirmations."""
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app.core.exceptions import (
@@ -696,3 +696,19 @@ def obter_progresso_viagem(gestor_id: str, viagem_id: str):
         }
         for vp in pontos_visitados
     ]
+
+
+def gerar_viagens_periodo(gestor_id: str, dias_futuros: int = 14):
+    """
+    Função centralizada para gerar viagens em lote para os próximos N dias.
+    Pode ser chamada tanto por Jobs em background quanto por ações de usuário.
+    """
+    hoje = date.today()
+    try:
+        for i in range(dias_futuros):
+            data_alvo = (hoje + timedelta(days=i)).strftime("%Y-%m-%d")
+            gerar_viagens_em_lote(user_id=gestor_id, data_str=data_alvo)
+
+        logger.info(f"Gerado lote de {dias_futuros} dias para o gestor {gestor_id}")
+    except Exception as e:
+        logger.error(f"Erro ao gerar período de viagens para gestor {gestor_id}: {e}")
