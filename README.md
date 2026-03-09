@@ -120,7 +120,7 @@ buska-backend/
 
 ## Variáveis de Ambiente
 
-Copie `.env.example` para `.env.prod` e configure:
+Copie o `.env.example` para `.env.prod` e configure:
 
 ```bash
 # Database
