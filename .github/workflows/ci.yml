@@ -540,6 +540,9 @@ jobs:
           cat image-tag.txt
           docker images | head -20
 
+          export API_IMAGE=$(cat image-tag.txt)
+          echo "API_IMAGE=$API_IMAGE" >> $GITHUB_ENV
+
       - name: "Create .env.prod"
         env:
           DB_USER: ${{ secrets.DB_USER }}
