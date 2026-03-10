@@ -33,4 +33,13 @@ def register_models(api):
         },
     )
 
-    return {"login_request": login_request, "token_response": token_response}
+    forgot_password_request = api.model(
+        "ForgotPasswordRequest",
+        {"email": fields.String(required=True, description="Email para recuperação de senha")},
+    )
+
+    return {
+        "login_request": login_request,
+        "token_response": token_response,
+        "forgot_password_request": forgot_password_request,
+    }

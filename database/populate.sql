@@ -1,3 +1,5 @@
+SET client_encoding = 'UTF8';
+
 INSERT INTO prefeitura (nome, estado) VALUES
 ('ÁGUA BRANCA','PB'),
 ('AGUIAR','PB'),

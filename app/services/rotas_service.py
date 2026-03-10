@@ -507,8 +507,7 @@ def delete_rota(user_id: str, rota_id: str) -> None:
             },
         )
         logger.error(
-            f"Critical: Cross-tenant route deletion attempt by user {user_id} "
-            f"on route {rota_id}"
+            f"Critical: Cross-tenant route deletion attempt by user {user_id} on route {rota_id}"
         )
         raise ForbiddenError("Acesso negado")
 

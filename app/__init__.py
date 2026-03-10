@@ -25,7 +25,7 @@ from .api.controllers.pontos_controller import api as pontos_ns
 from .api.controllers.rotas_controller import api as rotas_ns
 from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
-from .core.config import settings
+from .core.config import Settings
 from .models.base import db
 from .utils import (
     check_production_security,
@@ -39,9 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
-
     load_dotenv()
+    settings = Settings()
+    app = Flask(__name__)
 
     if not firebase_admin._apps:
         if settings.FIREBASE_CREDENTIALS:
@@ -59,6 +59,12 @@ def create_app() -> Flask:
     app.config["JWT_SECRET_KEY"] = settings.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=settings.JWT_EXPIRES_HOURS)
     app.config["DEBUG"] = settings.DEBUG
+
+    app.config["MAIL_SERVER"] = settings.MAIL_SERVER
+    app.config["MAIL_USERNAME"] = settings.MAIL_USERNAME
+    app.config["MAIL_PASSWORD"] = settings.MAIL_PASSWORD
+    app.config["MAIL_PORT"] = 587
+    app.config["MAIL_USE_TLS"] = True
 
     # ==========================================
     # Logging Configuration

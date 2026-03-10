@@ -42,6 +42,11 @@ class Settings:
             "JWT_EXPIRES_HOURS", default=2, min_val=1, max_val=720
         )
 
+        # Mail settings (optional - used for forgot password)
+        self.MAIL_SERVER = os.getenv("MAIL_SERVER", "")
+        self.MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
+        self.MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+
         # CORS settings
         self.CORS_ORIGINS = self._parse_cors_origins()
 
@@ -137,7 +142,3 @@ class Settings:
         else:
             # Fail fast in production
             raise ConfigurationError(error_msg)
-
-
-# Module-level instance (created once at import time)
-settings = Settings()

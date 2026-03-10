@@ -88,7 +88,6 @@ class ViagemConfirmacaoResource(Resource):
 
 @api.route("/")
 class ViagemListResource(Resource):
-
     @api.doc("list_all_viagens")
     @api.expect(filter_parser, validate=True)
     @jwt_required()
@@ -117,7 +116,6 @@ class ViagemListResource(Resource):
 
 @api.route("/gerar-lote")
 class ViagemLoteResource(Resource):
-
     @api.doc("gerar_viagens_lote")
     @api.expect(models["lote_request"])
     @jwt_required()
