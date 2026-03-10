@@ -141,7 +141,3 @@ class Settings:
         else:
             # Fail fast in production
             raise ConfigurationError(error_msg)
-
-
-# Module-level instance (created once at import time)
-settings = Settings()
