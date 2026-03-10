@@ -255,6 +255,8 @@ def request_password_reset(email_raw: str, base_url: str) -> None:
         raise ValidationError("Formato de email inválido")
 
     user = User.query.filter_by(email=email).first()
+    print(user)
+    print(email)
     if not user:
         logger.info("Password reset requested for unknown email: %s", email)
         return
