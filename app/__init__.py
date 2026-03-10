@@ -43,6 +43,12 @@ def create_app() -> Flask:
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=settings.JWT_EXPIRES_HOURS)
     app.config["DEBUG"] = settings.DEBUG
 
+    app.config["MAIL_SERVER"] = settings.MAIL_SERVER
+    app.config["MAIL_USERNAME"] = settings.MAIL_USERNAME
+    app.config["MAIL_PASSWORD"] = settings.MAIL_PASSWORD
+    app.config["MAIL_PORT"] = 587
+    app.config["MAIL_USE_TLS"] = True
+
     # ==========================================
     # Logging Configuration
     # ==========================================

@@ -1,6 +1,8 @@
 """Authentication service - login and registration."""
 
 import logging
+import secrets
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from flask_jwt_extended import create_access_token
@@ -15,9 +17,11 @@ from app.core.exceptions import (
 )
 from app.models.base import db
 from app.models.enum import UserRole
+from app.models.password_reset import PasswordResetToken
 from app.models.prefeitura import Prefeitura
 from app.models.user import Aluno, Gestor, Motorista, User
 from app.utils import audit_logger, validate_cpf, validate_email, validate_password
+from app.utils.email_sender import send_email
 
 logger = logging.getLogger(__name__)
 
@@ -237,3 +241,69 @@ def register_user(data: dict[str, Any]) -> User:
             details={"error": str(e), "role": role_str},
         )
         raise AppError(f"Erro ao registrar usuário: {str(e)}", 500)
+
+
+def request_password_reset(email_raw: str, base_url: str) -> None:
+    """
+    Send password recovery email with link if the user exists.
+    Always returns without error (does not reveal if email exists).
+    Raises only on validation or mail delivery failure.
+    """
+    try:
+        email = validate_email(email_raw.strip())
+    except ValidationError:
+        raise ValidationError("Formato de email inválido")
+
+    user = User.query.filter_by(email=email).first()
+    print(user)
+    print(email)
+    if not user:
+        logger.info("Password reset requested for unknown email: %s", email)
+        return
+
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(hours=1)
+    reset_record = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
+    db.session.add(reset_record)
+    db.session.commit()
+
+    link = f"{base_url.rstrip('/')}/v1/auth/reset-password?token={token}"
+    subject = "Recuperação de senha - BusKá"
+    body_plain = (
+        f"Olá, {user.nome}.\n\n"
+        "Você solicitou a recuperação de senha no BusKá.\n\n"
+        f"Acesse o link abaixo para redefinir sua senha (válido por 1 hora):\n{link}\n\n"
+        "Se não foi você, ignore este e-mail.\n\n"
+        "Equipe BusKá"
+    )
+    body_html = (
+        f"<p>Olá, {user.nome}.</p>"
+        "<p>Você solicitou a recuperação de senha no BusKá.</p>"
+        f'<p><a href="{link}">Redefinir senha</a> (válido por 1 hora)</p>'
+        "<p>Se não foi você, ignore este e-mail.</p>"
+        "<p>Equipe BusKá</p>"
+    )
+    send_email(to=email, subject=subject, body_plain=body_plain, body_html=body_html)
+
+
+def reset_password(token: str, new_password: str) -> None:
+    """Reset user password using a valid token. Invalidates the token."""
+    record = PasswordResetToken.query.filter_by(token=token).first()
+    if not record:
+        raise ValidationError("Link inválido ou expirado")
+    if record.is_expired():
+        db.session.delete(record)
+        db.session.commit()
+        raise ValidationError("Link expirado. Solicite uma nova recuperação de senha.")
+
+    new_password = validate_password(new_password, "Nova senha")
+    user = User.query.get(record.user_id)
+    if not user:
+        db.session.delete(record)
+        db.session.commit()
+        raise ValidationError("Link inválido")
+
+    user.senha_hash = generate_password_hash(new_password)
+    db.session.delete(record)
+    db.session.commit()
+    logger.info("Password reset completed for user %s", user.id)
