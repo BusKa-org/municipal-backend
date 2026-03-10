@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 def send_email(to: str, subject: str, body_plain: str, body_html: str | None = None) -> None:
     """Send an email. Uses MAIL_SERVER, MAIL_USERNAME, MAIL_PASSWORD from config."""
     if not settings.MAIL_SERVER or not settings.MAIL_USERNAME or not settings.MAIL_PASSWORD:
-        logger.warning("Mail not configured (MAIL_SERVER/MAIL_USERNAME/MAIL_PASSWORD). Skipping send.")
+        logger.warning(
+            "Mail not configured (MAIL_SERVER/MAIL_USERNAME/MAIL_PASSWORD). Skipping send."
+        )
         return
 
     msg = MIMEMultipart("alternative")

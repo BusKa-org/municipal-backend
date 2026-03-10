@@ -1,6 +1,6 @@
 """Password reset token for "forgot password" flow."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -20,4 +20,4 @@ class PasswordResetToken(db.Model):
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
 
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc) >= self.expires_at
+        return datetime.now(UTC) >= self.expires_at

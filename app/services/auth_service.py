@@ -2,7 +2,7 @@
 
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from flask_jwt_extended import create_access_token
@@ -260,7 +260,7 @@ def request_password_reset(email_raw: str, base_url: str) -> None:
         return
 
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    expires_at = datetime.now(UTC) + timedelta(hours=1)
     reset_record = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
     db.session.add(reset_record)
     db.session.commit()

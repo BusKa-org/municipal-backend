@@ -59,7 +59,9 @@ class AuthForgotPassword(Resource):
             raise ValidationError("E-mail é obrigatório")
         base_url = request.url_root.rstrip("/")
         auth_service.request_password_reset(email, base_url)
-        return {"message": "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha."}, 200
+        return {
+            "message": "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha."
+        }, 200
 
 
 def _reset_password_form_html(token: str, action_url: str) -> str:
