@@ -1,7 +1,7 @@
 """Student (Aluno) service - registration, profile management."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from werkzeug.security import generate_password_hash
 
@@ -129,10 +129,11 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
             end_data = data["endereco_casa"]
 
             if aluno.ponto_casa:
-                aluno.ponto_casa.latitude = end_data.get("latitude")
-                aluno.ponto_casa.longitude = end_data.get("longitude")
+                ponto_casa = cast(Ponto, aluno.ponto_casa)
+                ponto_casa.latitude = end_data.get("latitude")
+                ponto_casa.longitude = end_data.get("longitude")
                 if "nome" in data:
-                    aluno.ponto_casa.apelido = f"Casa: {data['nome']}"
+                    ponto_casa.apelido = f"Casa: {data['nome']}"
 
                 endereco_bd = Endereco.query.filter_by(ponto_id=aluno.ponto_casa_id).first()
 
@@ -152,6 +153,27 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
                         cep=end_data.get("cep"),
                     )
                     db.session.add(novo_end)
+            else:
+                novo_ponto = Ponto(
+                    prefeitura_id=aluno.prefeitura_id,
+                    latitude=end_data.get("latitude"),
+                    longitude=end_data.get("longitude"),
+                    apelido=f"Casa: {data.get('nome', aluno.nome)}",
+                )
+                db.session.add(novo_ponto)
+                db.session.flush()
+
+                novo_end = Endereco(
+                    ponto_id=novo_ponto.id,
+                    logradouro=end_data.get("logradouro"),
+                    numero=end_data.get("numero"),
+                    bairro=end_data.get("bairro"),
+                    cidade=end_data.get("cidade"),
+                    cep=end_data.get("cep"),
+                )
+                db.session.add(novo_end)
+
+                aluno.ponto_casa_id = novo_ponto.id
 
         if aluno.status == UserStatus.PENDING_SIGNUP:
             missing = []

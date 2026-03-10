@@ -1,8 +1,7 @@
 """Trips (Viagem) service - trip management, student confirmations."""
 
 import logging
-import math
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app.core.exceptions import (
@@ -12,14 +11,17 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.extensions import scheduler
 from app.models.base import db
 from app.models.enum import SentidoViagem, StatusViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import Aluno, User
-from app.models.viagem import AlunosConfirmados, Viagem, ViagemPonto
+from app.models.viagem import AlunosConfirmados, TelemetriaViagem, Viagem, ViagemPonto
 from app.services.notificacao_service import NotificacaoService
+from app.tasks.viagem_tasks import realizar_auto_checkin
 from app.utils import audit_logger
+from app.utils.geo_utils import calcular_distancia_metros
 
 logger = logging.getLogger(__name__)
 
@@ -443,6 +445,28 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
                 raise ValidationError("A viagem precisa estar em andamento para ser finalizada")
             viagem.status = StatusViagem.FINALIZADA
             viagem.fim_real = datetime.now(UTC)
+
+            rastros = (
+                TelemetriaViagem.query.filter_by(viagem_id=viagem.id)
+                .order_by(TelemetriaViagem.timestamp.asc())
+                .all()
+            )
+
+            km_total = 0.0
+            if len(rastros) > 1:
+                distancia_metros = 0.0
+                for i in range(len(rastros) - 1):
+                    p1 = rastros[i]
+                    p2 = rastros[i + 1]
+                    distancia_metros += calcular_distancia_metros(
+                        float(p1.latitude),
+                        float(p1.longitude),
+                        float(p2.latitude),
+                        float(p2.longitude),
+                    )
+                km_total = round(distancia_metros / 1000.0, 2)
+
+            viagem.km_real = km_total
         else:
             raise ValidationError("Ação inválida. Use INICIAR ou FINALIZAR")
 
@@ -528,22 +552,8 @@ def cancelar_viagem(user_id: str, viagem_id: str) -> dict[str, Any]:
         raise AppError(f"Erro ao cancelar viagem: {str(e)}", 500)
 
 
-def _calcular_distancia_metros(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calcula a distância em metros entre duas coordenadas geográficas usando Haversine."""
-    R = 6371000
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-
-    a = (
-        math.sin(delta_phi / 2.0) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
-    )
-    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
-
-
 def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
-    """Recebe o GPS do motorista, calcula a distância e avisa os alunos do próximo ponto."""
+    """Atualiza o GPS do motorista, salva telemetria e engatilha o Auto-Checkin."""
     user = db.session.get(User, user_id)
     if not user or user.role != UserRole.MOTORISTA:
         raise ForbiddenError("Apenas motoristas podem enviar localização em tempo real")
@@ -554,6 +564,18 @@ def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
 
     if viagem.status != StatusViagem.EM_ANDAMENTO:
         raise ValidationError(f"A viagem não está em andamento (Status: {viagem.status.name})")
+
+    agora = datetime.now(UTC)
+
+    viagem.motorista_lat = data["latitude"]
+    viagem.motorista_lon = data["longitude"]
+    viagem.motorista_gps_hora = agora
+
+    rastro = TelemetriaViagem(
+        viagem_id=viagem.id, latitude=data["latitude"], longitude=data["longitude"], timestamp=agora
+    )
+    db.session.add(rastro)
+    db.session.commit()
 
     proximos_pontos = (
         ViagemPonto.query.filter_by(viagem_id=viagem.id, visitado=False)
@@ -567,7 +589,7 @@ def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
     proximo_ponto = proximos_pontos[0]
     ponto_geo = proximo_ponto.ponto
 
-    distancia_metros = _calcular_distancia_metros(
+    distancia_metros = calcular_distancia_metros(
         float(data["latitude"]),
         float(data["longitude"]),
         float(ponto_geo.latitude),
@@ -577,25 +599,116 @@ def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
     DISTANCIA_GATILHO = 1000
 
     if distancia_metros <= DISTANCIA_GATILHO and not proximo_ponto.aviso_aproximacao_enviado:
-        alunos_embarque = AlunosConfirmados.query.filter_by(
-            viagem_id=viagem.id, confirmacao=True, ponto_embarque_id=ponto_geo.id
+        alunos_neste_ponto = AlunosConfirmados.query.filter_by(
+            viagem_id=viagem.id, confirmacao=True, ponto_embarque_id=ponto_geo.id, embarcou=False
         ).all()
 
-        for conf in alunos_embarque:
+        data_execucao = agora + timedelta(minutes=5)
+
+        for conf in alunos_neste_ponto:
             NotificacaoService._criar_notificacao_interna(
                 usuario_id=conf.aluno_id,
                 titulo="🚌 O Ônibus está chegando!",
-                mensagem=f"O motorista está a aproximadamente {int(distancia_metros)} metros do seu ponto de embarque ({ponto_geo.apelido}). Prepare-se!",
+                mensagem=f"O motorista está a aproximadamente {int(distancia_metros)}m do seu ponto de embarque ({ponto_geo.apelido}). Prepare-se!",
             )
+
+            job_id = f"checkin_{viagem.id}_{conf.aluno_id}"
+
+            if not scheduler.get_job(job_id):
+
+                scheduler.add_job(
+                    id=job_id,
+                    func=realizar_auto_checkin,
+                    args=[str(viagem.id), str(conf.aluno_id), 1],
+                    trigger="date",
+                    run_date=data_execucao,
+                )
 
         proximo_ponto.aviso_aproximacao_enviado = True
         db.session.commit()
         return {
-            "message": "Localização atualizada e alunos do próximo ponto notificados!",
+            "message": "Localização salva. Ponto próximo alcançado, notificações e auto-checkin engatilhados!",
             "distancia_metros": int(distancia_metros),
         }
 
     return {
-        "message": "Localização atualizada silenciosamente.",
+        "message": "Localização atualizada silenciosamente com telemetria.",
         "distancia_metros": int(distancia_metros),
     }
+
+
+def atualizar_localizacao_aluno(user_id: str, viagem_id: str, data: dict) -> dict:
+    """Updates the student's current GPS coordinates for auto-checkin."""
+    user = db.session.get(User, user_id)
+    if not user or user.role != UserRole.ALUNO:
+        raise ForbiddenError("Apenas alunos podem enviar a localização de embarque.")
+
+    viagem = db.session.get(Viagem, viagem_id)
+    if not viagem:
+        raise NotFoundError("Viagem não encontrada.")
+
+    if viagem.status != StatusViagem.EM_ANDAMENTO:
+        raise ValidationError("A viagem precisa de estar em andamento para rastrear o embarque.")
+
+    conf = AlunosConfirmados.query.filter_by(viagem_id=viagem.id, aluno_id=user_id).first()
+    if not conf or not conf.confirmacao:
+        raise ForbiddenError("O utilizador não está confirmado nesta viagem.")
+
+    if conf.embarcou:
+        return {
+            "message": "Embarque já realizado. O rastreio em tempo real pode ser desligado.",
+            "embarcou": True,
+        }
+
+    agora = datetime.now(UTC)
+
+    conf.aluno_lat = data["latitude"]
+    conf.aluno_lon = data["longitude"]
+    conf.aluno_gps_hora = agora
+
+    db.session.commit()
+
+    return {
+        "message": "Localização do aluno atualizada com sucesso para validação de check-in.",
+        "embarcou": False,
+    }
+
+
+def obter_progresso_viagem(gestor_id: str, viagem_id: str):
+    """Retorna os pontos pelos quais o motorista já passou, em ordem cronológica."""
+    user = db.session.get(User, gestor_id)
+    if not user or user.role != UserRole.GESTOR:
+        raise ForbiddenError("Apenas gestores podem auditar o trajeto")
+
+    pontos_visitados = (
+        ViagemPonto.query.filter(
+            ViagemPonto.viagem_id == viagem_id, ViagemPonto.chegada_real.isnot(None)
+        )
+        .order_by(ViagemPonto.chegada_real.asc())
+        .all()
+    )
+
+    return [
+        {
+            "ponto_id": str(vp.ponto_id),
+            "apelido": vp.ponto.apelido,
+            "horario_passagem": str(vp.chegada_real),
+        }
+        for vp in pontos_visitados
+    ]
+
+
+def gerar_viagens_periodo(gestor_id: str, dias_futuros: int = 14):
+    """
+    Função centralizada para gerar viagens em lote para os próximos N dias.
+    Pode ser chamada tanto por Jobs em background quanto por ações de usuário.
+    """
+    hoje = date.today()
+    try:
+        for i in range(dias_futuros):
+            data_alvo = (hoje + timedelta(days=i)).strftime("%Y-%m-%d")
+            gerar_viagens_em_lote(user_id=gestor_id, data_str=data_alvo)
+
+        logger.info(f"Gerado lote de {dias_futuros} dias para o gestor {gestor_id}")
+    except Exception as e:
+        logger.error(f"Erro ao gerar período de viagens para gestor {gestor_id}: {e}")

@@ -7,16 +7,17 @@ import firebase_admin
 from dotenv import load_dotenv
 from firebase_admin import credentials
 from flask import Flask, Response, jsonify
-from flask_apscheduler import APScheduler
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
 from app.core.error_handlers import register_error_handlers, register_jwt_handlers
-from app.tasks.notificacao_tasks import verificar_viagens_10min, verificar_viagens_24h
+from app.extensions import scheduler
+from app.utils.scheduler_setup import init_scheduler
 
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
+from .api.controllers.dashboard_controller import api as dashboard_ns
 from .api.controllers.instituicao_controller import api as inst_ns
 from .api.controllers.notificacao_controller import api as notificacoes_ns
 from .api.controllers.onibus_controller import api as onibus_ns
@@ -35,7 +36,6 @@ from .utils import (
 
 jwt = JWTManager()
 logger = logging.getLogger(__name__)
-scheduler = APScheduler()
 
 
 def create_app() -> Flask:
@@ -47,20 +47,12 @@ def create_app() -> Flask:
         if settings.FIREBASE_CREDENTIALS:
             cert_dict = json.loads(settings.FIREBASE_CREDENTIALS)
             cred = credentials.Certificate(cert_dict)
-            firebase_admin.initialize_app(cred)
             logger.info("Firebase initialized via GitHub Secrets (Environment Variable).")
         else:
-            try:
-                cred = credentials.Certificate("firebase-credentials.json")
-                firebase_admin.initialize_app(cred)
-                logger.info("Firebase initialized via local file.")
-            except FileNotFoundError:
-                if settings.DEBUG:
-                    logger.warning(
-                        "Firebase credentials not found. Running in development mode without Firebase."
-                    )
-                else:
-                    raise
+            cred = credentials.Certificate("firebase-credentials.json")
+            logger.info("Firebase initialized via local file.")
+
+        firebase_admin.initialize_app(cred)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -96,16 +88,13 @@ def create_app() -> Flask:
 
     db.init_app(app)
     jwt.init_app(app)
+
+    # ==========================================
+    # Scheduler Configuration
+    # ==========================================
     scheduler.init_app(app)
-    scheduler.start()
 
-    scheduler.add_job(
-        id="job_24h", func=verificar_viagens_24h, args=[app], trigger="interval", minutes=60
-    )
-
-    scheduler.add_job(
-        id="job_10min", func=verificar_viagens_10min, args=[app], trigger="interval", minutes=2
-    )
+    init_scheduler(app, scheduler)
 
     # ==========================================
     # Security Headers
@@ -167,6 +156,7 @@ Inclua o header: `Authorization: Bearer <seu_token>`
     api.add_namespace(viagem_ns, path="/v1/viagens")
     api.add_namespace(inst_ns, path="/v1/instituicoes")
     api.add_namespace(alunos_ns, path="/v1/alunos")
+    api.add_namespace(dashboard_ns, path="/v1/dashboard")
 
     # ==========================================
     # Error Handlers

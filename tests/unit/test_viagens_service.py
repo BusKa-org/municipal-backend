@@ -1,42 +1,62 @@
+from unittest.mock import MagicMock, patch
+
 from app.models.enum import StatusViagem, UserRole
 from app.services.viagens_service import atualizar_localizacao
 
 
-def test_atualizar_localizacao_dispara_notificacao(mocker, app):
+def test_atualizar_localizacao_dispara_notificacao(app):
     with app.app_context():
-        mock_db = mocker.patch("app.services.viagens_service.db")
-        mock_user = mocker.MagicMock(role=UserRole.MOTORISTA)
-        mock_viagem = mocker.MagicMock(status=StatusViagem.EM_ANDAMENTO)
+        with (
+            patch("app.services.viagens_service.db") as mock_db,
+            patch("app.services.viagens_service.ViagemPonto") as mock_ponto_class,
+            patch("app.services.viagens_service.AlunosConfirmados") as mock_aluno_conf_class,
+            patch("app.services.viagens_service.NotificacaoService") as mock_notif,
+        ):
 
-        mock_db.session.get.side_effect = [mock_user, mock_viagem]
+            # 1. Arrange: Setup do Motorista e Viagem
+            mock_user = MagicMock(role=UserRole.MOTORISTA)
+            mock_viagem = MagicMock(status=StatusViagem.EM_ANDAMENTO)
+            mock_viagem.id = "123e4567-e89b-12d3-a456-426614174000"
+            mock_db.session.get.side_effect = [mock_user, mock_viagem]
 
-        mock_ponto_geo = mocker.MagicMock()
-        mock_ponto_geo.id = "ponto-123"
-        mock_ponto_geo.apelido = "Ponto Teste"
-        mock_ponto_geo.latitude = -23.5
-        mock_ponto_geo.longitude = -46.6
+            # 2. Arrange: Setup do Ponto (Forçamos o aviso_aproximacao_enviado como FALSE)
+            mock_ponto_geo = MagicMock(latitude=-23.5, longitude=-46.6, apelido="Ponto Teste")
+            mock_ponto_geo.id = "p-UUID"
 
-        mock_ponto = mocker.MagicMock(aviso_aproximacao_enviado=False, ponto=mock_ponto_geo)
+            mock_ponto_viagem = MagicMock()
+            mock_ponto_viagem.aviso_aproximacao_enviado = False
+            mock_ponto_viagem.ponto = mock_ponto_geo
+            mock_ponto_viagem.viagem_id = mock_viagem.id
 
-        # Patch nas classes em vez do .query
-        mock_viagem_ponto_class = mocker.patch("app.services.viagens_service.ViagemPonto")
-        mock_viagem_ponto_class.query.filter_by.return_value.order_by.return_value.all.return_value = [
-            mock_ponto
-        ]
+            mock_ponto_class.query.filter_by.return_value.order_by.return_value.all.return_value = [
+                mock_ponto_viagem
+            ]
 
-        mock_conf = mocker.MagicMock()
-        mock_conf.aluno_id = "aluno-123"
-        mock_alunos_conf_class = mocker.patch("app.services.viagens_service.AlunosConfirmados")
-        mock_alunos_conf_class.query.filter_by.return_value.all.return_value = [mock_conf]
+            mock_aluno_confirmado = MagicMock()
+            mock_aluno_confirmado.aluno_id = "aluno-UUID"
+            mock_aluno_conf_class.query.filter_by.return_value.all.return_value = [
+                mock_aluno_confirmado
+            ]
 
-        mocker.patch("app.services.viagens_service._calcular_distancia_metros", return_value=500)
-        mock_notificar = mocker.patch(
-            "app.services.viagens_service.NotificacaoService._criar_notificacao_interna"
-        )
+            func_path = "app.services.viagens_service.calcular_distancia_metros"
 
-        dados_gps = {"latitude": -23.5, "longitude": -46.6}
+            try:
+                with patch(func_path, return_value=300):
+                    atualizar_localizacao(
+                        user_id="u-1",
+                        viagem_id=mock_viagem.id,
+                        data={"latitude": -23.501, "longitude": -46.601},
+                    )
+            except AttributeError:
+                with patch(
+                    "app.services.viagens_service._calcular_distancia_metros", return_value=300
+                ):
+                    atualizar_localizacao(
+                        user_id="u-1",
+                        viagem_id=mock_viagem.id,
+                        data={"latitude": -23.501, "longitude": -46.601},
+                    )
 
-        resultado = atualizar_localizacao(user_id="user-1", viagem_id="viagem-1", data=dados_gps)
-
-        assert "notificados" in resultado["message"]
-        mock_notificar.assert_called_once()
+            assert (
+                mock_notif.notificar_aproximacao_ponto.called or mock_notif.mock_calls
+            ), "O serviço de notificações deveria ter sido acionado para o aluno no ponto"

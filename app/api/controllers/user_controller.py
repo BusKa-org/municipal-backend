@@ -4,10 +4,10 @@ from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
-from app.models.base import db
-from app.models.user import User
 from app.api.contracts import aluno_contract, user_contract
 from app.core.exceptions import NotFoundError, ValidationError
+from app.models.base import db
+from app.models.user import User
 from app.schemas.aluno_schema import AlunoAccountCreateSchema
 from app.schemas.user_schema import ChangePasswordSchema, MotoristaCreateSchema, UserResponseSchema
 from app.services import user_service
