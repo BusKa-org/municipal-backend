@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import timedelta
 from typing import Any
 
@@ -48,11 +49,14 @@ def create_app() -> Flask:
             cert_dict = json.loads(settings.FIREBASE_CREDENTIALS)
             cred = credentials.Certificate(cert_dict)
             logger.info("Firebase initialized via GitHub Secrets (Environment Variable).")
+            firebase_admin.initialize_app(cred)
         else:
-            cred = credentials.Certificate("firebase-credentials.json")
-            logger.info("Firebase initialized via local file.")
-
-        firebase_admin.initialize_app(cred)
+            if settings.DEBUG and not os.path.exists("firebase-credentials.json"):
+                logger.warning("Firebase credentials not found in environment variables.")
+            else:
+                cred = credentials.Certificate("firebase-credentials.json")
+                logger.info("Firebase initialized via local file.")
+                firebase_admin.initialize_app(cred)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
