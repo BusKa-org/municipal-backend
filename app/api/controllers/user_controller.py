@@ -5,7 +5,9 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract, user_contract
-from app.core.exceptions import ValidationError
+from app.core.exceptions import NotFoundError, ValidationError
+from app.models.base import db
+from app.models.user import User
 from app.schemas.aluno_schema import AlunoAccountCreateSchema
 from app.schemas.user_schema import ChangePasswordSchema, MotoristaCreateSchema, UserResponseSchema
 from app.services import user_service
@@ -148,3 +150,28 @@ class UserChangePassword(Resource):
 
         user_service.change_password(current_user_id, data)
         return {"message": "Senha alterada com sucesso"}, 200
+
+
+@api.route("/fcm-token")
+class UserFcmToken(Resource):
+    @api.doc("update_fcm_token", responses={200: "Token atualizado", 400: "Token não enviado"})
+    @api.expect(models["fcm_token_request"])
+    @jwt_required()
+    def patch(self) -> tuple[dict[str, str], int]:
+        """Atualiza o Token do Firebase (Push Notifications) do aparelho do usuário"""
+        current_user_id = get_jwt_identity()
+        data = request.get_json() or {}
+
+        fcm_token = data.get("fcm_token")
+        if not fcm_token:
+            raise ValidationError("O campo 'fcm_token' é obrigatório")
+
+        usuario = db.session.get(User, current_user_id)
+        if not usuario:
+            raise NotFoundError("Usuário não encontrado")
+
+        # Atualiza o token no banco
+        usuario.fcm_token = fcm_token
+        db.session.commit()
+
+        return {"message": "Token de notificação atualizado com sucesso"}, 200

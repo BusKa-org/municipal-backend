@@ -52,3 +52,7 @@ dist/
 # =========================
 *.sqlite
 *.db
+
+
+# Firebase credentials
+firebase-credentials.json

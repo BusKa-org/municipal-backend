@@ -135,3 +135,11 @@ class ViagemResponseSchema(Schema):
                 if ultimo_ponto.ponto:
                     return ultimo_ponto.ponto.apelido
         return None
+
+    alunos_embarcados_count = fields.Method("get_alunos_embarcados_count")
+
+    def get_alunos_embarcados_count(self, obj):
+        """Conta apenas os alunos que a catraca/geofencing registrou (embarcou=True)"""
+        if obj.alunos_confirmados:
+            return sum(1 for a in obj.alunos_confirmados if a.embarcou)
+        return 0

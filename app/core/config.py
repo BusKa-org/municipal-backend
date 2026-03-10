@@ -27,6 +27,7 @@ class Settings:
         # Environment
         self.ENV = os.getenv("FLASK_ENV", "development")
         self.DEBUG = self.ENV == "development"
+        self.FIREBASE_CREDENTIALS: str | None = os.getenv("FIREBASE_CREDENTIALS")
 
         # Database settings
         self.DB_USER = self._get_required("DB_USER", default="buska_user")
