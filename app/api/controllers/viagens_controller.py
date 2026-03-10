@@ -159,3 +159,51 @@ class ViagemAcaoResource(Resource):
 
         viagem = viagens_service.controlar_viagem(user_id, id, data)
         return response_schema.dump(viagem), 200
+
+
+@api.route("/<string:id>/cancelar")
+class ViagemCancelarResource(Resource):
+    @api.doc("cancelar_viagem")
+    @jwt_required()
+    def put(self, id):
+        """Cancela uma viagem agendada e notifica alunos (Gestor)"""
+        user_id = get_jwt_identity()
+        result = viagens_service.cancelar_viagem(user_id, id)
+        return result, 200
+
+
+@api.route("/<string:id>/localizacao")
+class ViagemLocalizacaoResource(Resource):
+    @api.doc("atualizar_localizacao_onibus")
+    @api.expect(models["localizacao_request"])
+    @jwt_required()
+    def post(self, id):
+        """(Motorista) Envia coordenada GPS atual do ônibus em tempo real"""
+        user_id = get_jwt_identity()
+        data = request.get_json()
+
+        result = viagens_service.atualizar_localizacao(user_id, id, data)
+        return result, 200
+
+
+@api.route("/<uuid:viagem_id>/localizacao-aluno")
+class ViagemLocalizacaoAluno(Resource):
+    """Endpoint for students to broadcast their real-time location during an active trip."""
+
+    @api.doc("atualizar_localizacao_aluno", security="Bearer Auth")
+    @api.expect(models["localizacao_request"])
+    @jwt_required()
+    def post(self, viagem_id: str):
+        """Recebe o GPS em tempo real do Aluno para o Auto-Checkin (Geofencing)."""
+        current_user_id = get_jwt_identity()
+
+        data = request.get_json() or {}
+
+        if "latitude" not in data or "longitude" not in data:
+            raise ValidationError("Latitude e longitude são obrigatórias na requisição.")
+
+        resultado = viagens_service.atualizar_localizacao_aluno(
+            user_id=current_user_id, viagem_id=str(viagem_id), data=data
+        )
+
+        return resultado, 200

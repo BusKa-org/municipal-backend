@@ -52,7 +52,7 @@ def app():
     app.config.update(
         TESTING=True,
         DEBUG=True,
-        JWT_SECRET_KEY="test-secret",
+        JWT_SECRET_KEY="change_this_secret_key_use_long_random_string",
         SQLALCHEMY_DATABASE_URI="sqlite://",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SQLALCHEMY_ENGINE_OPTIONS={

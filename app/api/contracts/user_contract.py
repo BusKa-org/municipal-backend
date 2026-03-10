@@ -47,8 +47,18 @@ def register_models(api):
         },
     )
 
+    fcm_token_request = api.model(
+        "FcmTokenRequest",
+        {
+            "fcm_token": fields.String(
+                required=True, description="Token do dispositivo gerado pelo Firebase no Frontend"
+            )
+        },
+    )
+
     return {
         "response": response,
         "motorista_create": motorista_create,
         "change_password": change_password,
+        "fcm_token_request": fcm_token_request,
     }

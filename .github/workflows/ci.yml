@@ -22,6 +22,10 @@ on:
         required: false
         default: false
 
+concurrency:
+  group: buska-backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   pull-requests: write
   contents: read
@@ -37,6 +41,7 @@ jobs:
   meta:
     name: Resolve git ref
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       resolved_ref: ${{ steps.ref.outputs.resolved_ref }}
       should_run_tests: ${{ steps.flags.outputs.should_run_tests }}
@@ -60,7 +65,6 @@ jobs:
         id: flags
         shell: bash
         run: |
-          # default values for non-manual runs
           SHOULD_RUN="true"
           SHOULD_LATEST="false"
 
@@ -75,6 +79,7 @@ jobs:
   lint:
     name: Code Quality & Security
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: meta
     env:
       RESOLVED_REF: ${{ needs.meta.outputs.resolved_ref }}
@@ -83,6 +88,18 @@ jobs:
         with:
           ref: ${{ env.RESOLVED_REF }}
           fetch-depth: 0
+
+      - name: Show disk space before linting
+        shell: bash
+        run: |
+          echo "== df -h =="
+          df -h
+          echo
+          echo "== docker system df =="
+          docker system df || true
+          echo
+          echo "== largest dirs =="
+          du -h -d1 . 2>/dev/null | sort -hr | head -20 || true
 
       - name: "Install uv"
         uses: astral-sh/setup-uv@v5
@@ -144,6 +161,19 @@ jobs:
             bandit-report.json
             pip-audit-report.json
           retention-days: 30
+
+      - name: Show disk space after checking dependencies
+        if: always()
+        shell: bash
+        run: |
+          echo "== df -h =="
+          df -h
+          echo
+          echo "== uv cache dir =="
+          uv cache dir || true
+          echo "== largest dirs =="
+          du -h -d1 . 2>/dev/null | sort -hr | head -20 || true
+
     outputs:
       bandit_outcome: ${{ steps.bandit.outcome }}
       deps_outcome: ${{ steps.deps.outcome }}
@@ -153,6 +183,7 @@ jobs:
   test:
     name: "Tests"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [meta, lint]
     if: needs.meta.outputs.should_run_tests == 'true'
     env:
@@ -177,6 +208,18 @@ jobs:
         with:
           ref: ${{ env.RESOLVED_REF }}
           fetch-depth: 0
+
+      - name: Show disk space before tests
+        shell: bash
+        run: |
+          echo "== df -h =="
+          df -h
+          echo
+          echo "== docker system df =="
+          docker system df || true
+          echo
+          echo "== largest dirs =="
+          du -h -d1 . 2>/dev/null | sort -hr | head -20 || true
 
       - name: "Install uv"
         uses: astral-sh/setup-uv@v5
@@ -326,6 +369,14 @@ jobs:
           -d '{"content": "❌ **CI Failed!** Error in DB tests.\n**Branch:** `${{ github.ref_name }}`\n**Commit:** `${{ github.sha }}`"}' \
           ${{ secrets.DISCORD_WEBHOOK }}
 
+      - name: Light cleanup after tests
+        if: always()
+        shell: bash
+        run: |
+          rm -rf htmlcov .coverage coverage.xml || true
+          docker system df || true
+          df -h
+
     outputs:
       coverage: ${{ steps.coverage.outputs.COVERAGE_PERCENT }}
       branch_coverage: ${{ steps.coverage.outputs.BRANCH_COVERAGE_PERCENT }}
@@ -350,6 +401,18 @@ jobs:
           ref: ${{ env.RESOLVED_REF }}
           fetch-depth: 0
 
+      - name: Show disk space before build
+        shell: bash
+        run: |
+          echo "== df -h =="
+          df -h
+          echo
+          echo "== docker system df =="
+          docker system df || true
+          echo
+          echo "== largest dirs =="
+          du -h -d1 . 2>/dev/null | sort -hr | head -20 || true
+
       - name: "Compute docker tags"
         id: tags
         shell: bash
@@ -358,15 +421,18 @@ jobs:
           REF="${{ env.RESOLVED_REF }}"
           SAFE_REF=$(echo "$REF" | tr '/:@' '---' | tr -cd '[:alnum:]._-' | cut -c1-80)
 
-          TAGS="buska-backend:${{ github.sha }}
-          buska-backend:${SAFE_REF}-${{ github.run_number }}"
+          PRIMARY_TAG="buska-backend:${{ github.sha }}"
+          SECONDARY_TAG="buska-backend:${SAFE_REF}-${{ github.run_number }}"
 
-          # Tag latest only if main OR manual input enabled
+          TAGS="${PRIMARY_TAG}
+          ${SECONDARY_TAG}"
+
           if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ env.SHOULD_TAG_LATEST }}" = "true" ]; then
-            TAGS="$TAGS
+            TAGS="${TAGS}
           buska-backend:latest"
           fi
 
+          echo "primary_image_tag=${PRIMARY_TAG}" >> "$GITHUB_OUTPUT"
           echo "tags<<EOF" >> "$GITHUB_OUTPUT"
           echo "$TAGS" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -392,42 +458,87 @@ jobs:
         run: |
           echo "Building tags:"
           echo "${{ steps.tags.outputs.tags }}"
+
+          BUILD_TAG_ARGS=""
           while IFS= read -r tag; do
             [ -n "$tag" ] && BUILD_TAG_ARGS="$BUILD_TAG_ARGS -t $tag"
           done <<< "${{ steps.tags.outputs.tags }}"
 
           docker build $BUILD_TAG_ARGS .
 
-      - name: "Save Docker Image (main only)"
-        if: github.ref == 'refs/heads/main'
+      - name: Save Docker Image
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
-          docker save buska-backend:${{ github.sha }} | gzip > buska-backend.tar.gz
+          docker save "${{ steps.tags.outputs.primary_image_tag }}" | gzip > buska-backend.tar.gz
+          printf '%s\n' "${{ steps.tags.outputs.primary_image_tag }}" > image-tag.txt
 
       - name: "Upload Docker Image Artifact (main only)"
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: docker-image
-          path: buska-backend.tar.gz
+          path: |
+            buska-backend.tar.gz
+            image-tag.txt
           retention-days: 7
 
+      - name: Show disk space after saving Docker image
+        if: always()
+        shell: bash
+        run: |
+          docker images || true
+          docker system df || true
+          df -h
+
+      - name: Light cleanup after build
+        if: always()
+        shell: bash
+        run: |
+          rm -f .env buska-backend.tar.gz image-tag.txt || true
+          docker system df || true
+          df -h
+
   deploy:
-    name: "Deploy to Production"
+    name: Deploy to Production
     runs-on: self-hosted
-    needs: [test, build]
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 40
+    needs: [build, test]
+    if: |
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') &&
+      needs.build.result == 'success' &&
+      (
+        needs.test.result == 'success' ||
+        needs.test.result == 'skipped'
+      )
     environment:
       name: production
     steps:
       - uses: actions/checkout@v4
+
+      - name: Show disk space before deploy
+        shell: bash
+        run: |
+          echo "== df -h =="
+          df -h
+          echo
+          echo "== docker system df =="
+          docker system df || true
+          echo
+          echo "== docker ps -a =="
+          docker ps -a || true
 
       - name: "Download Docker Image"
         uses: actions/download-artifact@v4
         with:
           name: docker-image
 
-      - name: "Load Docker Image"
-        run: docker load < buska-backend.tar.gz
+      - name: Load Docker Image
+        shell: bash
+        run: |
+          docker load < buska-backend.tar.gz
+          echo "Loaded image:"
+          cat image-tag.txt
+          docker images | head -20
 
       - name: "Create .env.prod"
         env:
@@ -440,12 +551,14 @@ jobs:
             "$DB_USER" "$DB_PASSWORD" "$DB_NAME" "$JWT_SECRET" > .env.prod
           chmod 600 .env.prod
 
-      - name: "Deploy containers"
+      - name: Start database first
         run: |
+          echo "Stopping existing containers..."
           docker-compose -f docker-compose.prod.yml down || true
-          docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+          echo "Starting database..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d db
 
-      - name: "Wait for database"
+      - name: Wait for database
         env:
           DB_USER: ${{ secrets.DB_USER }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -453,11 +566,13 @@ jobs:
           for i in {1..60}; do
             if docker exec buska_db_prod pg_isready -U "$DB_USER" -d "$DB_NAME" 2>/dev/null; then
               echo "Database is ready"
-              break
+              exit 0
             fi
             echo "Waiting for database... ($i/60)"
             sleep 2
           done
+          echo "Database did not become ready in time"
+          exit 1
 
       - name: "Ensure DB extensions (idempotent)"
         env:
@@ -494,6 +609,11 @@ jobs:
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET }}
         run: uv run python seed.py
 
+      - name: Deploy application containers
+        run: |
+          echo "Deploying application containers..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d api
+
       - name: "Health Check"
         run: |
           for i in {1..30}; do
@@ -511,6 +631,32 @@ jobs:
           docker logs buska_api || true
           exit 1
 
+      - name: Smoke test - OpenAPI
+        run: |
+          curl -sf http://localhost:5000/swagger.json > /dev/null
+
+      - name: Smoke test - login route reachable
+        run: |
+          status=$(curl -s -o /tmp/login_response.txt -w "%{http_code}" \
+            -X POST http://localhost:5000/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"invalid@example.com","password":"invalid-password"}')
+
+          echo "HTTP status: $status"
+          test "$status" = "400" -o "$status" = "401"
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          echo "==== docker ps ===="
+          docker ps || true
+          echo "==== docker compose ps ===="
+          docker compose -f docker-compose.prod.yml --env-file .env.prod ps || true
+          echo "==== docker logs buska_api ===="
+          docker logs buska_api || true
+          echo "==== docker logs buska_db_prod ===="
+          docker logs buska_db_prod || true
+
       - name: "Notify Discord Success"
         if: success()
         run: |
@@ -524,3 +670,14 @@ jobs:
           MSG="❌ **Deployment Failed!**\n**Branch:** \`${{ github.ref_name }}\`\n**Run:** \`${{ github.run_number }}\`"
           PAYLOAD='{"embeds": [{"title": "Deployment Error", "description": "'"$MSG"'", "color": 15158332}]}'
           curl -X POST -H "Content-Type: application/json" -d "$PAYLOAD" ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: Cleanup self-hosted runner
+        if: always()
+        shell: bash
+        run: |
+          rm -f .env.prod buska-backend.tar.gz image-tag.txt /tmp/login_response.txt || true
+          docker image prune -af || true
+          docker builder prune -af || true
+          docker container prune -f || true
+          docker system df || true
+          df -h
