@@ -14,6 +14,7 @@ from app.models.enum import DiaDaSemana, SentidoViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import User
+from app.services.viagens_service import gerar_viagens_periodo
 from app.utils import audit_logger, validate_uuid
 
 logger = logging.getLogger(__name__)
@@ -214,6 +215,9 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
                         db.session.add(novo_dia)
 
         db.session.commit()
+
+        gerar_viagens_periodo(gestor_id=gestor_id, dias_futuros=14)
+
         return rota
 
     except Exception as e:
@@ -503,8 +507,7 @@ def delete_rota(user_id: str, rota_id: str) -> None:
             },
         )
         logger.error(
-            f"Critical: Cross-tenant route deletion attempt by user {user_id} "
-            f"on route {rota_id}"
+            f"Critical: Cross-tenant route deletion attempt by user {user_id} on route {rota_id}"
         )
         raise ForbiddenError("Acesso negado")
 

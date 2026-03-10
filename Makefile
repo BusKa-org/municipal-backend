@@ -1,3 +1,6 @@
+include .env
+export
+
 DOCKER := $(shell \
 	if command -v docker-compose >/dev/null 2>&1; then \
 		echo docker-compose; \
@@ -58,8 +61,11 @@ db-reset:
 	$(DOCKER) -f infra/database.yml down --volumes
 	$(DOCKER) -f infra/database.yml rm -f
 	$(DOCKER) -f infra/database.yml up -d db
-	@echo "Waiting for database to start..."
-	sleep 15
+	@echo "Waiting for database to be ready..."
+	@until docker exec buska_db psql -U buska_user -d buska_db -c "SELECT 1" > /dev/null 2>&1; do \
+		echo "  still waiting..."; sleep 2; \
+	done
+	@echo "Database is ready."
 	uv run alembic upgrade head
 	@echo "Database reset complete. Run 'make seed' to populate data."
 
@@ -70,13 +76,13 @@ db-create:
 	uv run alembic upgrade head
 
 db-shell:
-	PGPASSWORD=buska_pass psql -h localhost -p 5432 -U buska_user -d buska_db
+	PGPASSWORD=$${DB_PASSWORD:-buska_pass} psql -h $${DB_HOST:-localhost} -p $${DB_PORT:-5432} -U $${DB_USER:-buska_user} -d $${DB_NAME:-buska_db}
 
 seed:
 	uv run python seed.py
 
 seed-sql:
-	PGPASSWORD=buska_pass psql -h localhost -p 5432 -U buska_user -d buska_db -f database/populate.sql
+	PGPASSWORD=$${DB_PASSWORD:-buska_pass} psql -h $${DB_HOST:-localhost} -p $${DB_PORT:-5432} -U $${DB_USER:-buska_user} -d $${DB_NAME:-buska_db} -f database/populate.sql
 
 # Alembic migrations
 migrate:
@@ -212,8 +218,17 @@ help:
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean           Remove cache files"
+	@echo ""
+	@echo "Docker (production):"
+	@echo "  docker-up       Start stack (banco preservado)"
+	@echo "  docker-down     Stop stack (não apaga volume)"
+	@echo "  docker-init-db  Extensão + migrações + seed (idempotente)"
+	@echo "  docker-clean    Stop + apagar volumes e imagens (reset total)"
 
 # Docker production targets
+# docker-down NÃO usa --volumes: banco é preservado entre deploys.
+# Use docker-clean apenas para reset total (apaga dados).
+
 docker-build:
 	docker build -t buska-backend:latest .
 
@@ -222,6 +237,11 @@ docker-up:
 
 docker-down:
 	docker compose -f docker-compose.prod.yml down
+
+docker-init-db:
+	@echo "Inicializa o banco prod (extensão + migrações + seed). Idempotente."
+	@test -f .env.prod || (echo "Crie .env.prod com DB_USER, DB_PASSWORD, DB_NAME" && exit 1)
+	export $$(grep -v '^#' .env.prod | xargs) && export DB_HOST=localhost && export DB_PORT=5432 && bash scripts/init-db.sh
 
 docker-logs:
 	docker compose -f docker-compose.prod.yml logs -f

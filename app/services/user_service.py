@@ -1,7 +1,7 @@
 """User service - CRUD operations, driver creation, password management."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -14,7 +14,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.models.base import db
-from app.models.enum import UserRole
+from app.models.enum import UserRole, UserStatus
 from app.models.user import Aluno, Gestor, Motorista, User
 from app.utils import audit_logger, validate_cpf, validate_email, validate_password, validate_uuid
 
@@ -22,23 +22,33 @@ logger = logging.getLogger(__name__)
 
 
 # Helper functions
+def _require_active(user: User) -> None:
+    if user.status != UserStatus.ACTIVE:
+        raise ForbiddenError("Cadastro precisa ser finalizado antes de usar o app")
+
+
 def _get_user_or_404(user_id: str) -> User:
     """Get user by ID or raise NotFoundError."""
     validate_uuid(user_id, "User ID")
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         raise NotFoundError("Usuário não encontrado")
     return user
 
 
+def _get_gestor_or_403(
+    user_id: str, message: str = "Apenas gestores podem executar esta ação"
+) -> Gestor:
+    user = _get_user_or_404(user_id)
+    if user.role != UserRole.GESTOR:
+        raise ForbiddenError(message)
+    return cast(Gestor, user)
+
+
 def get_all_users(current_user_id: str) -> list[User]:
     """List all users in the same prefeitura (gestor only)."""
-    user = _get_user_or_404(current_user_id)
-
-    if user.role != UserRole.GESTOR:
-        raise ForbiddenError("Apenas gestores podem listar usuários")
-
-    return User.query.filter_by(prefeitura_id=user.prefeitura_id).all()
+    gestor = _get_gestor_or_403(current_user_id, "Apenas gestores podem listar usuários")
+    return db.session.query(User).filter_by(prefeitura_id=gestor.prefeitura_id).all()
 
 
 def get_user_by_id(user_id: str, current_user_id: str | None = None) -> User:
@@ -54,10 +64,11 @@ def get_user_by_id(user_id: str, current_user_id: str | None = None) -> User:
 
     current_user = _get_user_or_404(current_user_id)
 
-    # Allow self-access or gestor access within same prefeitura
+    # Allow self-access
     if str(user_id) == str(current_user_id):
         return user
 
+    # Allow gestor access within same prefeitura
     if current_user.role == UserRole.GESTOR and user.prefeitura_id == current_user.prefeitura_id:
         return user
 
@@ -71,71 +82,6 @@ def get_user_by_id(user_id: str, current_user_id: str | None = None) -> User:
     raise ForbiddenError("Sem permissão para visualizar este usuário")
 
 
-def create_user(data: dict[str, Any]) -> User:
-    """
-    Create a new user.
-
-    Raises: ValidationError, ConflictError, AppError
-    """
-    email = data.get("email", "").lower().strip()
-    password = data.get("password", "").strip()
-    nome = data.get("nome", "").strip()
-    cpf = data.get("cpf", "").strip()
-    telefone = data.get("telefone", "").strip()
-
-    role_str = data.get("role", "ALUNO").upper().strip()
-    try:
-        role_enum = UserRole(role_str)
-    except ValueError:
-        raise ValidationError("Perfil inválido. Use: ALUNO, MOTORISTA, GESTOR")
-
-    if not all([email, password, nome, cpf]):
-        raise ValidationError("Dados incompletos (Email, Senha, Nome, CPF)")
-
-    if User.query.filter((User.email == email) | (User.cpf == cpf)).first():
-        raise ConflictError("Usuário já existe (Email ou CPF duplicado)")
-
-    try:
-        hashed_pw = generate_password_hash(password)
-
-        if role_enum == UserRole.GESTOR:
-            new_user = Gestor(
-                nome=nome,
-                email=email,
-                senha_hash=hashed_pw,
-                cpf=cpf,
-                telefone=telefone,
-                role=role_enum,
-            )
-        elif role_enum == UserRole.ALUNO:
-            new_user = Aluno(
-                nome=nome,
-                email=email,
-                senha_hash=hashed_pw,
-                cpf=cpf,
-                telefone=telefone,
-                role=role_enum,
-            )
-        else:
-            new_user = User(
-                nome=nome,
-                email=email,
-                senha_hash=hashed_pw,
-                cpf=cpf,
-                telefone=telefone,
-                role=role_enum,
-            )
-
-        db.session.add(new_user)
-        db.session.commit()
-        return new_user
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating user: {e}")
-        raise AppError(f"Erro ao criar usuário: {str(e)}", 500)
-
-
 def update_user(user_id: str, data: dict[str, Any]) -> User:
     """Update user data (nome, email, password, telefone)."""
     user = _get_user_or_404(user_id)
@@ -145,7 +91,7 @@ def update_user(user_id: str, data: dict[str, Any]) -> User:
 
     if email := data.get("email"):
         email_validated = validate_email(email)
-        if existing := User.query.filter_by(email=email_validated).first():
+        if existing := db.session.query(User).filter_by(email=email_validated).first():
             if existing.id != user.id:
                 raise ConflictError("Email já está em uso")
         user.email = email_validated
@@ -168,30 +114,60 @@ def update_user(user_id: str, data: dict[str, Any]) -> User:
         raise AppError(f"Erro ao atualizar usuário: {str(e)}", 500)
 
 
-def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
-    """Create a new driver (gestor only)."""
-    gestor = _get_user_or_404(gestor_id)
+def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
+    """Create a new aluno account (gestor only)."""
+    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem cadastrar alunos")
 
-    if gestor.role != UserRole.GESTOR:
-        raise ForbiddenError("Apenas gestores podem cadastrar motoristas")
-
-    # Validate inputs
     email = validate_email(data.get("email", ""))
     cpf_clean = validate_cpf(data.get("cpf", ""))
 
-    if User.query.filter((User.email == email) | (User.cpf == cpf_clean)).first():
+    if db.session.query(User).filter((User.email == email) | (User.cpf == cpf_clean)).first():
+        raise ConflictError("Email ou CPF já cadastrado")
+
+    password = validate_password(data.get("password", ""))
+    try:
+        new_aluno = Aluno(
+            prefeitura_id=gestor.prefeitura_id,
+            nome=data["nome"],
+            email=email,
+            senha_hash=generate_password_hash(password),
+            cpf=cpf_clean,
+            telefone=data.get("telefone", "").strip(),
+            role=UserRole.ALUNO,
+            status=UserStatus.PENDING_SIGNUP,
+        )
+
+        db.session.add(new_aluno)
+        db.session.commit()
+        return new_aluno
+    except (ValidationError, ConflictError, ForbiddenError):
+        raise
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating aluno account: {e}", exc_info=True)
+        raise AppError(f"Erro ao criar conta de aluno: {str(e)}", 500)
+
+
+def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
+    """Create a new driver (gestor only)."""
+    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem cadastrar motoristas")
+
+    email = validate_email(data.get("email", ""))
+    cpf_clean = validate_cpf(data.get("cpf", ""))
+
+    if db.session.query(User).filter((User.email == email) | (User.cpf == cpf_clean)).first():
         raise ConflictError("Email ou CPF já cadastrado")
 
     if not (cnh := data.get("cnh", "").strip()):
         raise ValidationError("CNH é obrigatória para motoristas")
 
-    if Motorista.query.filter_by(cnh=cnh).first():
+    if db.session.query(Motorista).filter_by(cnh=cnh).first():
         raise ConflictError("CNH já cadastrada")
 
     password = validate_password(data.get("password", ""))
 
     try:
-        novo_motorista = Motorista(
+        new_motorista = Motorista(
             prefeitura_id=gestor.prefeitura_id,
             nome=data["nome"],
             email=email,
@@ -202,9 +178,9 @@ def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
             cnh=cnh,
         )
 
-        db.session.add(novo_motorista)
+        db.session.add(new_motorista)
         db.session.commit()
-        return novo_motorista
+        return new_motorista
 
     except (ValidationError, ConflictError, ForbiddenError):
         raise
@@ -255,3 +231,15 @@ def change_password(user_id: str, data: dict[str, Any]) -> None:
         db.session.rollback()
         logger.error(f"Error changing password: {e}", exc_info=True)
         raise AppError(f"Erro ao atualizar senha: {str(e)}", 500)
+
+
+def get_motoristas_by_municipio(gestor_id: str):
+    from app.models.user import User
+
+    gestor = _get_user_or_404(gestor_id)
+
+    motoristas = User.query.filter(
+        User.prefeitura_id == gestor.prefeitura_id, User.role == UserRole.MOTORISTA
+    ).all()
+
+    return motoristas

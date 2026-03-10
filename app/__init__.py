@@ -1,24 +1,32 @@
 import json
 import logging
+import os
 from datetime import timedelta
 from typing import Any
 
+import firebase_admin
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from firebase_admin import credentials
+from flask import Flask, Response, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
+from app.core.error_handlers import register_error_handlers, register_jwt_handlers
+from app.extensions import scheduler
+from app.utils.scheduler_setup import init_scheduler
+
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
+from .api.controllers.dashboard_controller import api as dashboard_ns
 from .api.controllers.instituicao_controller import api as inst_ns
+from .api.controllers.notificacao_controller import api as notificacoes_ns
 from .api.controllers.onibus_controller import api as onibus_ns
 from .api.controllers.pontos_controller import api as pontos_ns
 from .api.controllers.rotas_controller import api as rotas_ns
 from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
-from .core.config import settings
-from .core.exceptions import AppError, ValidationError
+from .core.config import Settings
 from .models.base import db
 from .utils import (
     check_production_security,
@@ -32,15 +40,35 @@ logger = logging.getLogger(__name__)
 
 
 def create_app() -> Flask:
+    load_dotenv()
+    settings = Settings()
     app = Flask(__name__)
 
-    load_dotenv()
+    if not firebase_admin._apps:
+        if settings.FIREBASE_CREDENTIALS:
+            cert_dict = json.loads(settings.FIREBASE_CREDENTIALS)
+            cred = credentials.Certificate(cert_dict)
+            logger.info("Firebase initialized via GitHub Secrets (Environment Variable).")
+            firebase_admin.initialize_app(cred)
+        else:
+            if settings.DEBUG and not os.path.exists("firebase-credentials.json"):
+                logger.warning("Firebase credentials not found in environment variables.")
+            else:
+                cred = credentials.Certificate("firebase-credentials.json")
+                logger.info("Firebase initialized via local file.")
+                firebase_admin.initialize_app(cred)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JWT_SECRET_KEY"] = settings.JWT_SECRET_KEY
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=settings.JWT_EXPIRES_HOURS)
     app.config["DEBUG"] = settings.DEBUG
+
+    app.config["MAIL_SERVER"] = settings.MAIL_SERVER
+    app.config["MAIL_USERNAME"] = settings.MAIL_USERNAME
+    app.config["MAIL_PASSWORD"] = settings.MAIL_PASSWORD
+    app.config["MAIL_PORT"] = 587
+    app.config["MAIL_USE_TLS"] = True
 
     # ==========================================
     # Logging Configuration
@@ -70,6 +98,13 @@ def create_app() -> Flask:
 
     db.init_app(app)
     jwt.init_app(app)
+
+    # ==========================================
+    # Scheduler Configuration
+    # ==========================================
+    scheduler.init_app(app)
+
+    init_scheduler(app, scheduler)
 
     # ==========================================
     # Security Headers
@@ -124,42 +159,21 @@ Inclua o header: `Authorization: Bearer <seu_token>`
     # API v1 routes
     api.add_namespace(auth_ns, path="/v1/auth")
     api.add_namespace(user_ns, path="/v1/users")
+    api.add_namespace(notificacoes_ns, path="/v1/notificacoes")
     api.add_namespace(onibus_ns, path="/v1/onibus")
     api.add_namespace(rotas_ns, path="/v1/rotas")
     api.add_namespace(pontos_ns, path="/v1/pontos")
     api.add_namespace(viagem_ns, path="/v1/viagens")
     api.add_namespace(inst_ns, path="/v1/instituicoes")
     api.add_namespace(alunos_ns, path="/v1/alunos")
+    api.add_namespace(dashboard_ns, path="/v1/dashboard")
 
     # ==========================================
     # Error Handlers
     # ==========================================
 
-    @app.errorhandler(AppError)
-    def handle_app_error(error: AppError) -> tuple[Any, int]:
-        """Handle all custom application errors."""
-        logger.warning(
-            f"Application error: {error.message}",
-            extra={
-                "error_type": error.__class__.__name__,
-                "status_code": error.status_code,
-            },
-        )
-
-        response: dict[str, Any] = {"error": error.message}
-        if isinstance(error, ValidationError) and error.details:
-            response["details"] = error.details
-        return jsonify(response), error.status_code
-
-    @app.errorhandler(404)
-    def handle_not_found(error: Any) -> tuple[Any, int]:
-        logger.warning(f"Resource not found: {error}")
-        return jsonify({"error": "Recurso não encontrado"}), 404
-
-    @app.errorhandler(500)
-    def handle_internal_error(error: Any) -> tuple[Any, int]:
-        logger.error(f"Internal server error: {error}", exc_info=True)
-        return jsonify({"error": "Erro interno do servidor"}), 500
+    register_jwt_handlers(jwt)
+    register_error_handlers(app)
 
     # ==========================================
     # OpenAPI Export Endpoint
@@ -183,5 +197,34 @@ Inclua o header: `Authorization: Bearer <seu_token>`
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(spec, f, indent=2, ensure_ascii=False)
             print(f"[*] OpenAPI spec exported to {output_path}")
+
+    # ==========================================
+    # Health / Readiness Endpoints
+    # ==========================================
+
+    @app.get("/health")
+    def health() -> tuple[Response, int]:
+        """Liveness probe — server is running."""
+        return (
+            jsonify(
+                status="ok",
+                service="buska-backend",
+                environment=settings.ENV,
+            ),
+            200,
+        )
+
+    @app.get("/ready")
+    def ready() -> tuple[Response, int]:
+        """Readiness probe — server can handle requests (DB reachable)."""
+        try:
+            # Minimal DB check (safe + fast)
+            from sqlalchemy import text
+
+            db.session.execute(text("SELECT 1"))
+            return jsonify(status="ok", ready=True), 200
+        except Exception:
+            logger.error("Readiness check failed", exc_info=True)
+            return jsonify(status="error", ready=False), 503
 
     return app

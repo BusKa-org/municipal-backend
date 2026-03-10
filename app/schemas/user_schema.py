@@ -54,7 +54,8 @@ class UserResponseSchema(Schema):
     cpf = fields.String()
 
     role = fields.Method("get_role")
-
+    status = fields.String(attribute="status.value")
+    signup_completed_at = fields.DateTime(attribute="signup_completed_at")
     # Municipality info
     municipio_nome = fields.Method("get_municipio_nome")
     municipio_uf = fields.Method("get_municipio_uf")

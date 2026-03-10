@@ -1,16 +1,22 @@
 """Student (Aluno) service - registration, profile management."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from werkzeug.security import generate_password_hash
 
-from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
+from app.core.exceptions import (
+    AppError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
 from app.models.base import db
-from app.models.enum import UserRole
+from app.models.enum import UserRole, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.user import Aluno, User
-from app.utils import validate_password
+from app.services.user_service import _get_gestor_or_403
+from app.utils import audit_logger, validate_cpf, validate_email, validate_password
 
 logger = logging.getLogger(__name__)
 
@@ -24,19 +30,26 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
     Raises: NotFoundError, ValidationError, AppError
     """
     inst_id = data.get("instituicao_id")
-    instituicao = Instituicao.query.get(inst_id)
+    instituicao = db.session.get(Instituicao, inst_id)
     if not instituicao:
-        raise NotFoundError("Instituição inválida")
+        raise NotFoundError("Instituição não encontrada")
 
     prefeitura_id = instituicao.ponto.prefeitura_id
+    if not prefeitura_id:
+        raise NotFoundError("Prefeitura não encontrada")
 
-    if User.query.filter((User.email == data.get("email")) | (User.cpf == data.get("cpf"))).first():
-        raise ValidationError("Email ou CPF já cadastrado")
+    email = validate_email(data.get("email", ""))
+    cpf_clean = validate_cpf(data.get("cpf", ""))
+
+    if db.session.query(User).filter((User.email == email) | (User.cpf == cpf_clean)).first():
+        raise ConflictError("Email ou CPF já cadastrado")
 
     try:
         end_data = data.get("endereco_casa")
         if not end_data:
-            raise ValidationError("Endereço de casa é obrigatório")
+            raise ValidationError(
+                "Endereço de casa é obrigatório", details={"field": "endereco_casa"}
+            )
 
         password = validate_password(data.get("password", ""))
 
@@ -94,7 +107,7 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
     Returns: Aluno object
     Raises: NotFoundError, AppError
     """
-    aluno = Aluno.query.get(user_id)
+    aluno = db.session.get(Aluno, user_id)
     if not aluno:
         raise NotFoundError("Aluno não encontrado")
 
@@ -116,10 +129,11 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
             end_data = data["endereco_casa"]
 
             if aluno.ponto_casa:
-                aluno.ponto_casa.latitude = end_data.get("latitude")
-                aluno.ponto_casa.longitude = end_data.get("longitude")
+                ponto_casa = cast(Ponto, aluno.ponto_casa)
+                ponto_casa.latitude = end_data.get("latitude")
+                ponto_casa.longitude = end_data.get("longitude")
                 if "nome" in data:
-                    aluno.ponto_casa.apelido = f"Casa: {data['nome']}"
+                    ponto_casa.apelido = f"Casa: {data['nome']}"
 
                 endereco_bd = Endereco.query.filter_by(ponto_id=aluno.ponto_casa_id).first()
 
@@ -139,6 +153,56 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
                         cep=end_data.get("cep"),
                     )
                     db.session.add(novo_end)
+            else:
+                novo_ponto = Ponto(
+                    prefeitura_id=aluno.prefeitura_id,
+                    latitude=end_data.get("latitude"),
+                    longitude=end_data.get("longitude"),
+                    apelido=f"Casa: {data.get('nome', aluno.nome)}",
+                )
+                db.session.add(novo_ponto)
+                db.session.flush()
+
+                novo_end = Endereco(
+                    ponto_id=novo_ponto.id,
+                    logradouro=end_data.get("logradouro"),
+                    numero=end_data.get("numero"),
+                    bairro=end_data.get("bairro"),
+                    cidade=end_data.get("cidade"),
+                    cep=end_data.get("cep"),
+                )
+                db.session.add(novo_end)
+
+                aluno.ponto_casa_id = novo_ponto.id
+
+        if aluno.status == UserStatus.PENDING_SIGNUP:
+            missing = []
+            if not aluno.matricula and not data.get("matricula"):
+                missing.append("matricula")
+            if not aluno.instituicao_id and not data.get("instituicao_id"):
+                missing.append("instituicao_id")
+            end_data = data.get("endereco_casa")
+            if (
+                not end_data
+                or end_data.get("latitude") is None
+                or end_data.get("longitude") is None
+            ):
+                missing.append("endereco_casa.latitude/longitude")
+
+            if missing:
+                raise ValidationError(
+                    "Cadastro precisa ser finalizado antes de usar o app",
+                    details={"missing": missing},
+                )
+
+            aluno.status = UserStatus.ACTIVE
+            aluno.signup_completed_at = db.func.now()
+            audit_logger.log_user_action(
+                action="complete_signup",
+                user_id=user_id,
+                resource_type="aluno",
+                resource_id=user_id,
+            )
 
         db.session.commit()
         return aluno
@@ -155,7 +219,7 @@ def delete_me(user_id: str) -> None:
 
     Raises: NotFoundError, AppError
     """
-    aluno = Aluno.query.get(user_id)
+    aluno = db.session.get(Aluno, user_id)
     if not aluno:
         raise NotFoundError("Aluno não encontrado")
 
@@ -179,8 +243,5 @@ def list_alunos_gestor(gestor_id: str) -> list[Aluno]:
     Returns: List of Aluno objects
     Raises: ForbiddenError
     """
-    gestor = User.query.get(gestor_id)
-    if not gestor or gestor.role != UserRole.GESTOR:
-        raise ForbiddenError("Apenas gestores podem listar alunos")
-
-    return Aluno.query.filter_by(prefeitura_id=gestor.prefeitura_id).all()
+    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem listar alunos")
+    return db.session.query(Aluno).filter_by(prefeitura_id=gestor.prefeitura_id).all()

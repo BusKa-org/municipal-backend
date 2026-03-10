@@ -19,6 +19,17 @@ def register_models(api):
         },
     )
 
+    create_aluno_account_request = api.model(
+        "AlunoAccountCreateRequest",
+        {
+            "nome": fields.String(required=True, description="Nome completo"),
+            "email": fields.String(required=True, description="Email"),
+            "password": fields.String(required=True, description="Senha"),
+            "cpf": fields.String(required=True, description="CPF"),
+            "telefone": fields.String(description="Telefone"),
+        },
+    )
+
     create_request = api.model(
         "AlunoCreateRequest",
         {
@@ -65,6 +76,7 @@ def register_models(api):
 
     return {
         "create_request": create_request,
+        "create_aluno_account_request": create_aluno_account_request,
         "update_request": update_request,
         "response": response,
     }
