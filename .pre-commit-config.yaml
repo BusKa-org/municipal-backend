@@ -16,7 +16,6 @@ repos:
     rev: 26.1.0
     hooks:
       - id: black
-        language_version: python3.12
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.1
@@ -37,7 +36,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest (unit + integration)
-        entry: bash -c "pytest -m 'not e2e' -q"
+        entry: bash -c "uv run pytest -m 'not e2e' -q"
         language: system
         pass_filenames: false
         always_run: true

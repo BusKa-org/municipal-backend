@@ -12,6 +12,7 @@ from app.schemas.user_schema import (
     MotoristaCreateRequestSchema,
     UserListResponseSchema,
     UserResponseSchema,
+    FcmTokenRequestSchema,
 )
 from app.services import user_service
 
@@ -29,7 +30,7 @@ change_password_schema = ChangePasswordRequestSchema()
 aluno_provision_account_request_schema = AlunoProvisionAccountRequestSchema()
 user_response_schema = UserResponseSchema()
 change_password_response_schema = ChangePasswordResponseSchema()
-
+fcm_token_request_schema = FcmTokenRequestSchema()
 
 @api.route("")
 class UserList(Resource):
@@ -101,6 +102,24 @@ class AlunoProvisionAccountResource(Resource):
 
 @api.route("/motoristas")
 class MotoristaCreateResource(Resource):
+    @api.doc("list_motoristas", responses={200: "Success", 403: "Forbidden - not a gestor"})
+    @api.marshal_list_with(models["user_list_response"], code=200)
+    @jwt_required()
+    def get(self) -> tuple[list[dict[str, Any]], int]:
+        """Lista motoristas do mesmo município do Gestor"""
+        current_user_id = get_jwt_identity()
+        motoristas = user_service.get_motoristas_by_municipio(current_user_id)
+        return (
+            user_list_response_schema.dump(
+                {
+                    "items": motoristas,
+                    "total": len(motoristas),
+                }
+            ),
+            200,
+        )
+
+
     @api.doc(
         "create_motorista",
         responses={
@@ -143,3 +162,19 @@ class UserChangePassword(Resource):
 
         user_service.change_password(current_user_id, payload)
         return change_password_response_schema.dump({"message": "Senha alterada com sucesso"}), 200
+
+
+@api.route("/fcm-token")
+class UserFcmToken(Resource):
+    @api.doc("update_fcm_token", responses={200: "Token atualizado", 400: "Token não enviado"})
+    @api.expect(models["fcm_token_request"])
+    @jwt_required()
+    def patch(self) -> tuple[dict[str, str], int]:
+        """Atualiza o Token do Firebase (Push Notifications) do aparelho do usuário"""
+        current_user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        payload = fcm_token_request_schema.load(data)
+
+        user_service.update_fcm_token(current_user_id, payload)
+
+        return {"message": "Token de notificação atualizado com sucesso"}, 200

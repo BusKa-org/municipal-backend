@@ -50,6 +50,14 @@ def register_models(api):
         },
     )
 
+    localizacao_request = api.model(
+        "LocalizacaoRequest",
+        {
+            "latitude": fields.Float(required=True, description="Latitude atual do ônibus"),
+            "longitude": fields.Float(required=True, description="Longitude atual do ônibus"),
+        },
+    )
+
     viagem_aluno_confirmacao_response = api.model(
         "ViagemAlunoConfirmacaoResponse",
         {
@@ -111,4 +119,5 @@ def register_models(api):
         "viagem_lote_response": viagem_lote_response,
         "viagem_agenda_aluno_list_response": viagem_agenda_aluno_list_response,
         "viagem_agenda_aluno_response": viagem_agenda_aluno_response,
+        "localizacao_request": localizacao_request,
     }

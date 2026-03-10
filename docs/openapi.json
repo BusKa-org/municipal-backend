@@ -20,18 +20,6 @@
       }
     },
     "/v1/alunos/me": {
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Aluno exclui sua conta",
-        "operationId": "aluno_delete",
-        "tags": [
-          "alunos"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -53,6 +41,18 @@
             }
           }
         ],
+        "tags": [
+          "alunos"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Aluno exclui sua conta",
+        "operationId": "aluno_delete",
         "tags": [
           "alunos"
         ]
@@ -83,6 +83,34 @@
         "security": [],
         "tags": [
           "alunos"
+        ]
+      }
+    },
+    "/v1/auth/forgot-password": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "If request accepted (email sent if user exists)"
+          },
+          "400": {
+            "description": "Invalid email format"
+          }
+        },
+        "summary": "Request password recovery",
+        "description": "Sends email with reset link if the user exists.",
+        "operationId": "auth_forgot_password",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/ForgotPasswordRequest"
+            }
+          }
+        ],
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -120,6 +148,120 @@
         ],
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/dashboard/relatorios/periodo": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/RelatorioEstatisticas"
+            }
+          }
+        },
+        "summary": "Gera o relatório operacional de um período",
+        "operationId": "relatorio_periodo",
+        "parameters": [
+          {
+            "name": "data_inicio",
+            "in": "query",
+            "type": "string",
+            "required": true,
+            "description": "Data de início do relatório (YYYY-MM-DD)"
+          },
+          {
+            "name": "data_fim",
+            "in": "query",
+            "type": "string",
+            "required": true,
+            "description": "Data de fim do relatório (YYYY-MM-DD)"
+          },
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/v1/dashboard/viagens/{viagem_id}/progresso": {
+      "parameters": [
+        {
+          "name": "viagem_id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PontoProgresso"
+              }
+            }
+          }
+        },
+        "summary": "Obtém o progresso de uma viagem (os pontos fixos visitados)",
+        "operationId": "progresso_viagem",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/v1/dashboard/viagens/{viagem_id}/trajeto-real": {
+      "parameters": [
+        {
+          "name": "viagem_id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/PontoTelemetria"
+              }
+            }
+          }
+        },
+        "summary": "Obtém o rastro GPS completo (trajeto real) de uma viagem",
+        "operationId": "trajeto_real_viagem",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "dashboard"
         ]
       }
     },
@@ -212,6 +354,64 @@
         "operationId": "get_instituicao",
         "tags": [
           "instituicoes"
+        ]
+      }
+    },
+    "/v1/notificacoes/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Lista as notificações do usuário logado",
+        "operationId": "listar_minhas_notificacoes",
+        "tags": [
+          "notificacoes"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "(Gestor) Envia um aviso para Rota ou Viagem",
+        "operationId": "gestor_enviar_notificacao",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/NotificacaoInput"
+            }
+          }
+        ],
+        "tags": [
+          "notificacoes"
+        ]
+      }
+    },
+    "/v1/notificacoes/{id}/lida": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Marca uma notificação como lida",
+        "operationId": "marcar_notificacao_lida",
+        "tags": [
+          "notificacoes"
         ]
       }
     },
@@ -343,17 +543,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "delete_ponto",
-        "tags": [
-          "pontos"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -374,6 +563,17 @@
             }
           }
         ],
+        "tags": [
+          "pontos"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "delete_ponto",
         "tags": [
           "pontos"
         ]
@@ -458,17 +658,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "delete_rota",
-        "tags": [
-          "rotas"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -486,6 +675,17 @@
             }
           }
         ],
+        "tags": [
+          "rotas"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "delete_rota",
         "tags": [
           "rotas"
         ]
@@ -719,6 +919,33 @@
         ]
       }
     },
+    "/v1/users/fcm-token": {
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "Token atualizado"
+          },
+          "400": {
+            "description": "Token não enviado"
+          }
+        },
+        "summary": "Atualiza o Token do Firebase (Push Notifications) do aparelho do usuário",
+        "operationId": "update_fcm_token",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/FcmTokenRequest"
+            }
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/v1/users/me": {
       "get": {
         "responses": {
@@ -740,6 +967,36 @@
       }
     },
     "/v1/users/motoristas": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/UserListResponse"
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a gestor"
+          }
+        },
+        "summary": "Lista motoristas do mesmo município do Gestor",
+        "operationId": "list_motoristas",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      },
       "post": {
         "responses": {
           "201": {
@@ -939,6 +1196,28 @@
         ]
       }
     },
+    "/v1/viagens/{id}/cancelar": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Cancela uma viagem agendada e notifica alunos (Gestor)",
+        "operationId": "cancelar_viagem",
+        "tags": [
+          "viagens"
+        ]
+      }
+    },
     "/v1/viagens/{id}/confirmacao": {
       "parameters": [
         {
@@ -973,6 +1252,38 @@
         ]
       }
     },
+    "/v1/viagens/{id}/localizacao": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "(Motorista) Envia coordenada GPS atual do ônibus em tempo real",
+        "operationId": "atualizar_localizacao_onibus",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/LocalizacaoRequest"
+            }
+          }
+        ],
+        "tags": [
+          "viagens"
+        ]
+      }
+    },
     "/v1/viagens/{id}/pontos-embarque": {
       "parameters": [
         {
@@ -993,6 +1304,43 @@
         },
         "summary": "Lista todos os pontos de embarque disponíveis para esta viagem",
         "operationId": "list_pontos_embarque_viagem",
+        "tags": [
+          "viagens"
+        ]
+      }
+    },
+    "/v1/viagens/{viagem_id}/localizacao-aluno": {
+      "parameters": [
+        {
+          "name": "viagem_id",
+          "in": "path",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Recebe o GPS em tempo real do Aluno para o Auto-Checkin (Geofencing)",
+        "operationId": "atualizar_localizacao_aluno",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/LocalizacaoRequest"
+            }
+          }
+        ],
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ],
         "tags": [
           "viagens"
         ]
@@ -1033,6 +1381,10 @@
       "description": "Gerenciamento de Usuários e Perfil"
     },
     {
+      "name": "notificacoes",
+      "description": "Avisos e comunicados"
+    },
+    {
       "name": "onibus",
       "description": "Gerenciamento da Frota"
     },
@@ -1055,6 +1407,10 @@
     {
       "name": "alunos",
       "description": "Área do Aluno (App)"
+    },
+    {
+      "name": "dashboard",
+      "description": "Métricas e Relatórios para o Gestor"
     }
   ],
   "definitions": {
@@ -1113,6 +1469,18 @@
         "role": {
           "type": "string",
           "description": "Perfil do usuário"
+        }
+      },
+      "type": "object"
+    },
+    "ForgotPasswordRequest": {
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Email para recuperação de senha"
         }
       },
       "type": "object"
@@ -1283,6 +1651,47 @@
         "message": {
           "type": "string",
           "description": "Mensagem de sucesso"
+        }
+      },
+      "type": "object"
+    },
+    "FcmTokenRequest": {
+      "required": [
+        "fcm_token"
+      ],
+      "properties": {
+        "fcm_token": {
+          "type": "string",
+          "description": "Token do dispositivo gerado pelo Firebase no Frontend"
+        }
+      },
+      "type": "object"
+    },
+    "NotificacaoInput": {
+      "required": [
+        "mensagem",
+        "titulo"
+      ],
+      "properties": {
+        "titulo": {
+          "type": "string",
+          "description": "Título do aviso",
+          "example": "Aviso Importante"
+        },
+        "mensagem": {
+          "type": "string",
+          "description": "Corpo da mensagem",
+          "example": "O ônibus vai atrasar 10 minutos hoje."
+        },
+        "rota_id": {
+          "type": "string",
+          "description": "ID da rota (opcional se enviar viagem_id)",
+          "example": "COLE_O_UUID_DA_ROTA_AQUI"
+        },
+        "viagem_id": {
+          "type": "string",
+          "description": "ID da viagem (opcional)",
+          "example": ""
         }
       },
       "type": "object"
@@ -1950,6 +2359,23 @@
       },
       "type": "object"
     },
+    "LocalizacaoRequest": {
+      "required": [
+        "latitude",
+        "longitude"
+      ],
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "description": "Latitude atual do ônibus"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude atual do ônibus"
+        }
+      },
+      "type": "object"
+    },
     "InstituicaoListResponse": {
       "properties": {
         "items": {
@@ -2219,6 +2645,69 @@
         "total": {
           "type": "integer",
           "description": "Total de alunos"
+        }
+      },
+      "type": "object"
+    },
+    "PontoProgresso": {
+      "properties": {
+        "ponto_id": {
+          "type": "string",
+          "description": "ID do ponto"
+        },
+        "apelido": {
+          "type": "string",
+          "description": "Nome/Apelido do ponto"
+        },
+        "horario_passagem": {
+          "type": "string",
+          "description": "Horário real da passagem (ISO)"
+        }
+      },
+      "type": "object"
+    },
+    "RelatorioEstatisticas": {
+      "properties": {
+        "periodo": {
+          "type": "string",
+          "description": "Período analisado"
+        },
+        "viagens_realizadas": {
+          "type": "integer",
+          "description": "Total de viagens finalizadas"
+        },
+        "alunos_transportados": {
+          "type": "integer",
+          "description": "Total de embarques reais"
+        },
+        "vagas_desperdicadas": {
+          "type": "integer",
+          "description": "Alunos que confirmaram mas não embarcaram"
+        },
+        "km_total_rodado": {
+          "type": "number",
+          "description": "Quilometragem total gasta"
+        },
+        "media_alunos_por_km": {
+          "type": "number",
+          "description": "Eficiência da operação"
+        }
+      },
+      "type": "object"
+    },
+    "PontoTelemetria": {
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "description": "Latitude"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Horário exato do registro (ISO)"
         }
       },
       "type": "object"

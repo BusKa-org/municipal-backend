@@ -73,3 +73,8 @@ class UserListResponseSchema(BaseSchema):
 
     items = fields.List(fields.Nested(UserResponseSchema()), required=True)
     total = fields.Integer(required=True)
+
+class FcmTokenRequestSchema(BaseSchema):
+    """Schema for updating the FCM token."""
+
+    fcm_token = fields.String(required=True)

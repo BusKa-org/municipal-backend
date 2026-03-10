@@ -4,14 +4,21 @@ services:
     container_name: buska_db
     restart: always
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
 
     volumes:
       - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
       - buska_data:/var/lib/postgresql/data
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: buska_mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   buska_data:

@@ -132,7 +132,7 @@ def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
             email=email,
             senha_hash=generate_password_hash(password),
             cpf=cpf_clean,
-            telefone=(data.get("telefone") or "").strip() or None,
+            telefone=data.get("telefone", "").strip(),
             role=UserRole.ALUNO,
             status=UserStatus.PENDING_SIGNUP,
         )
@@ -231,3 +231,21 @@ def change_password(user_id: str, data: dict[str, Any]) -> None:
         db.session.rollback()
         logger.error(f"Error changing password: {e}", exc_info=True)
         raise AppError(f"Erro ao atualizar senha: {str(e)}", 500)
+
+
+def get_motoristas_by_municipio(gestor_id: str):
+    from app.models.user import User
+
+    gestor = _get_user_or_404(gestor_id)
+
+    motoristas = User.query.filter(
+        User.prefeitura_id == gestor.prefeitura_id, User.role == UserRole.MOTORISTA
+    ).all()
+
+    return motoristas
+
+def update_fcm_token(user_id: str, data: dict[str, Any]) -> None:
+    """Update the FCM token for a user."""
+    user = _get_user_or_404(user_id)
+    user.fcm_token = data.get("fcm_token")
+    db.session.commit()
