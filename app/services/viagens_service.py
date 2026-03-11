@@ -102,7 +102,7 @@ def get_proximas_viagens_aluno(user_id: str) -> list[Viagem]:
         )
         .filter(
             RotaAluno.aluno_id == aluno.id,
-            Viagem.status == StatusViagem.AGENDADA,
+            Viagem.status.in_([StatusViagem.AGENDADA, StatusViagem.EM_ANDAMENTO]),
             Viagem.data >= hoje,
         )
         .order_by(Viagem.data.asc(), HorarioRota.horario_saida.asc())
@@ -568,6 +568,47 @@ def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:
     return {
         "message": "Localização atualizada silenciosamente com telemetria.",
         "distancia_metros": int(distancia_metros),
+    }
+
+
+def obter_localizacao_onibus(user_id: str, viagem_id: str) -> dict:
+    """
+    Retorna a localização atual do ônibus (GPS do motorista) para uma viagem em andamento.
+    Aluno (confirmado na viagem) ou motorista da viagem podem consultar.
+    """
+    user = db.session.get(User, user_id)
+    if not user:
+        raise ForbiddenError("Acesso negado")
+
+    viagem = db.session.get(Viagem, viagem_id)
+    if not viagem:
+        raise NotFoundError("Viagem não encontrada")
+
+    if viagem.status != StatusViagem.EM_ANDAMENTO:
+        raise ValidationError(
+            "A localização do ônibus só está disponível enquanto a viagem está em andamento."
+        )
+
+    if user.role == UserRole.MOTORISTA:
+        if viagem.motorista_id != user.id:
+            raise ForbiddenError("Apenas o motorista desta viagem pode consultar a localização.")
+    elif user.role == UserRole.ALUNO:
+        conf = AlunosConfirmados.query.filter_by(viagem_id=viagem.id, aluno_id=user_id).first()
+        if not conf or not conf.confirmacao:
+            raise ForbiddenError(
+                "Você precisa estar confirmado nesta viagem para ver a localização do ônibus."
+            )
+    else:
+        raise ForbiddenError(
+            "Apenas alunos confirmados ou o motorista podem consultar a localização do ônibus."
+        )
+
+    return {
+        "latitude": float(viagem.motorista_lat) if viagem.motorista_lat is not None else None,
+        "longitude": float(viagem.motorista_lon) if viagem.motorista_lon is not None else None,
+        "atualizado_em": (
+            viagem.motorista_gps_hora.isoformat() if viagem.motorista_gps_hora else None
+        ),
     }
 
 

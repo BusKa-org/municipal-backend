@@ -208,6 +208,14 @@ class ViagemLocalizacaoResource(Resource):
         result = viagens_service.atualizar_localizacao(user_id, id, data)
         return result, 200
 
+    @api.doc("obter_localizacao_onibus")
+    @jwt_required()
+    def get(self, id):
+        """(Aluno/Motorista) Obtém a localização atual do ônibus (viagem em andamento)."""
+        user_id = get_jwt_identity()
+        result = viagens_service.obter_localizacao_onibus(user_id, id)
+        return result, 200
+
 
 @api.route("/<uuid:viagem_id>/localizacao-aluno")
 class ViagemLocalizacaoAluno(Resource):

@@ -18,6 +18,8 @@ def register_models(api):
             "role": fields.String(description="Perfil (ALUNO, MOTORISTA, GESTOR)"),
             "status": fields.String(description="Status (PENDING_SIGNUP, ACTIVE, DISABLED)"),
             "signup_completed_at": fields.DateTime(description="Data de conclusão do cadastro"),
+            "municipio_nome": fields.String(description="Nome do município (prefeitura)"),
+            "municipio_uf": fields.String(description="UF do município"),
             "matricula": fields.String(description="Matrícula (aluno)"),
             "nome_pai": fields.String(description="Nome do pai (aluno)"),
             "nome_mae": fields.String(description="Nome da mãe (aluno)"),
