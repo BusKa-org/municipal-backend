@@ -67,7 +67,7 @@ db-reset:
 	done
 	@echo "Database is ready."
 	uv run alembic upgrade head
-	@echo "Database reset complete. Run 'make seed' to populate data."
+	@echo "Database reset complete. Run 'make seed' or 'make super-seed' to populate data."
 
 db-create:
 	$(DOCKER) -f infra/database.yml up -d db
@@ -80,6 +80,9 @@ db-shell:
 
 seed:
 	uv run python seed.py
+
+super-seed:
+	uv run python super_seed.py
 
 seed-sql:
 	PGPASSWORD=$${DB_PASSWORD:-buska_pass} psql -h $${DB_HOST:-localhost} -p $${DB_PORT:-5432} -U $${DB_USER:-buska_user} -d $${DB_NAME:-buska_db} -f database/populate.sql
