@@ -1,6 +1,7 @@
 """Notification service - management notifications for users."""
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from firebase_admin import messaging
@@ -21,7 +22,12 @@ class NotificacaoService:
 
     @staticmethod
     def _criar_notificacao_interna(usuario_id: str, titulo: str, mensagem: str) -> Notificacao:
-        nova = Notificacao(usuario_id=usuario_id, titulo=titulo, mensagem=mensagem)
+        nova = Notificacao(
+            usuario_id=usuario_id,
+            titulo=titulo,
+            mensagem=mensagem,
+            data_envio=datetime.now(UTC),
+        )
         db.session.add(nova)
 
         usuario = db.session.get(User, usuario_id)
@@ -100,7 +106,7 @@ class NotificacaoService:
         """Lista avisos do usuário logado"""
         return (
             Notificacao.query.filter_by(usuario_id=user_id)
-            .order_by(Notificacao.data_envio.desc())
+            .order_by(Notificacao.created_at.desc())
             .all()
         )
 
@@ -132,7 +138,10 @@ class NotificacaoService:
                     titulo="🚌 Viagem Iniciada!",
                     mensagem="O motorista acabou de iniciar a rota. Acompanhe o trajeto no aplicativo!",
                 )
+
+            db.session.commit()
         except Exception as e:
+            db.session.rollback()
             logger.error(
                 f"Falha ao orquestrar notificações de início da viagem {viagem_id}: {str(e)}"
             )
