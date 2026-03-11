@@ -94,6 +94,9 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
 
         return novo_aluno
 
+    except AppError:
+        db.session.rollback()
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error creating student: {e}")

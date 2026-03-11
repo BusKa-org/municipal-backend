@@ -24,6 +24,16 @@ ID_PREFEITURA = uuid.UUID("00000000-0000-0000-0000-000000000001")
 ID_GESTOR = uuid.UUID("00000000-0000-0000-0000-000000000002")
 ID_PONTO_INST = uuid.UUID("00000000-0000-0000-0000-000000000003")
 ID_INSTITUICAO = uuid.UUID("00000000-0000-0000-0000-000000000004")
+
+# Extra institutions (4 more, covering different TipoInstituicao)
+ID_PONTO_INST2 = uuid.UUID("00000000-0000-0000-0000-000000000020")
+ID_INSTITUICAO2 = uuid.UUID("00000000-0000-0000-0000-000000000021")
+ID_PONTO_INST3 = uuid.UUID("00000000-0000-0000-0000-000000000022")
+ID_INSTITUICAO3 = uuid.UUID("00000000-0000-0000-0000-000000000023")
+ID_PONTO_INST4 = uuid.UUID("00000000-0000-0000-0000-000000000024")
+ID_INSTITUICAO4 = uuid.UUID("00000000-0000-0000-0000-000000000025")
+ID_PONTO_INST5 = uuid.UUID("00000000-0000-0000-0000-000000000026")
+ID_INSTITUICAO5 = uuid.UUID("00000000-0000-0000-0000-000000000027")
 ID_MOTORISTA = uuid.UUID("00000000-0000-0000-0000-000000000005")
 ID_ALUNO = uuid.UUID("00000000-0000-0000-0000-000000000006")
 ID_ONIBUS = uuid.UUID("00000000-0000-0000-0000-000000000007")
@@ -35,7 +45,7 @@ ID_VIAGEM = uuid.UUID("00000000-0000-0000-0000-000000000012")
 ID_HORARIO_ROTA = uuid.UUID("00000000-0000-0000-0000-000000000013")
 
 app = create_app()
-TEST_PASSWORD = "123456"
+TEST_PASSWORD = "buska123"  # min 8 chars required by backend validation
 
 
 def seed_database():
@@ -106,6 +116,105 @@ def seed_database():
             ponto_id=ID_PONTO_INST,
         )
         db.session.add(endereco_inst)
+
+        # 3b. Extra Institutions (so the signup picker has real options to choose from)
+        print("3b. Creating extra institutions...")
+
+        ponto_inst2 = Ponto(
+            id=ID_PONTO_INST2,
+            prefeitura_id=ID_PREFEITURA,
+            latitude=-23.5478,
+            longitude=-46.6358,
+            apelido="UFCG - Campus Campina Grande",
+        )
+        instituicao2 = Instituicao(
+            id=ID_INSTITUICAO2,
+            nome="UFCG - Campus Campina Grande",
+            cnpj="10670193000105",
+            tipo=TipoInstituicao.UNIVERSIDADE_PUBLICA,
+            ponto_id=ID_PONTO_INST2,
+        )
+        endereco_inst2 = Endereco(
+            logradouro="Rua Aprigio Veloso",
+            numero="882",
+            bairro="Universitario",
+            cidade="Campina Grande",
+            cep="58429900",
+            ponto_id=ID_PONTO_INST2,
+        )
+        db.session.add_all([ponto_inst2, instituicao2, endereco_inst2])
+
+        ponto_inst3 = Ponto(
+            id=ID_PONTO_INST3,
+            prefeitura_id=ID_PREFEITURA,
+            latitude=-23.5631,
+            longitude=-46.6544,
+            apelido="IFSP - Campus São Paulo",
+        )
+        instituicao3 = Instituicao(
+            id=ID_INSTITUICAO3,
+            nome="IFSP - Campus São Paulo",
+            cnpj="10882594000165",
+            tipo=TipoInstituicao.INSTITUTO_FEDERAL,
+            ponto_id=ID_PONTO_INST3,
+        )
+        endereco_inst3 = Endereco(
+            logradouro="Rua Pedro Vicente",
+            numero="625",
+            bairro="Canindé",
+            cidade="São Paulo",
+            cep="01109010",
+            ponto_id=ID_PONTO_INST3,
+        )
+        db.session.add_all([ponto_inst3, instituicao3, endereco_inst3])
+
+        ponto_inst4 = Ponto(
+            id=ID_PONTO_INST4,
+            prefeitura_id=ID_PREFEITURA,
+            latitude=-23.5312,
+            longitude=-46.6195,
+            apelido="Escola Estadual João Pessoa",
+        )
+        instituicao4 = Instituicao(
+            id=ID_INSTITUICAO4,
+            nome="Escola Estadual João Pessoa",
+            cnpj="44777183000105",
+            tipo=TipoInstituicao.ESCOLA_PUBLICA,
+            ponto_id=ID_PONTO_INST4,
+        )
+        endereco_inst4 = Endereco(
+            logradouro="Av. João Pessoa",
+            numero="1234",
+            bairro="Santa Cecília",
+            cidade="São Paulo",
+            cep="01218000",
+            ponto_id=ID_PONTO_INST4,
+        )
+        db.session.add_all([ponto_inst4, instituicao4, endereco_inst4])
+
+        ponto_inst5 = Ponto(
+            id=ID_PONTO_INST5,
+            prefeitura_id=ID_PREFEITURA,
+            latitude=-23.5743,
+            longitude=-46.6254,
+            apelido="Colégio Comunitário Esperança",
+        )
+        instituicao5 = Instituicao(
+            id=ID_INSTITUICAO5,
+            nome="Colégio Comunitário Esperança",
+            cnpj="55123456000199",
+            tipo=TipoInstituicao.ESCOLA_COMUNITARIA,
+            ponto_id=ID_PONTO_INST5,
+        )
+        endereco_inst5 = Endereco(
+            logradouro="Rua da Esperança",
+            numero="88",
+            bairro="Vila Mariana",
+            cidade="São Paulo",
+            cep="04020000",
+            ponto_id=ID_PONTO_INST5,
+        )
+        db.session.add_all([ponto_inst5, instituicao5, endereco_inst5])
 
         # 4. Onibus
         print("4. Creating Bus...")
@@ -237,10 +346,16 @@ def seed_database():
             print("\n" + "=" * 50)
             print("SUCCESS! Database populated.")
             print("=" * 50)
-            print("\nTest Users (password: 123456):")
+            print(f"\nTest Users (password: {TEST_PASSWORD}):")
             print("  Gestor:    admin@buska.app")
             print("  Motorista: motorista@buska.app")
-            print("  Aluno:     aluno@buska.app\n")
+            print("  Aluno:     aluno@buska.app")
+            print("\nInstitutions seeded:")
+            print("  Escola Municipal Centro (ESCOLA_PUBLICA)")
+            print("  UFCG - Campus Campina Grande (UNIVERSIDADE_PUBLICA)")
+            print("  IFSP - Campus São Paulo (INSTITUTO_FEDERAL)")
+            print("  Escola Estadual João Pessoa (ESCOLA_PUBLICA)")
+            print("  Colégio Comunitário Esperança (ESCOLA_COMUNITARIA)\n")
         except Exception as e:
             db.session.rollback()
             print(f"Error: {e}")
