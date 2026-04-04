@@ -101,6 +101,12 @@ def get_proximas_viagens_aluno(user_id: str) -> list[Viagem]:
             AlunosConfirmados,
             (AlunosConfirmados.viagem_id == Viagem.id) & (AlunosConfirmados.aluno_id == aluno.id),
         )
+        # NOTE: ViagemAgendaAlunoResponseSchema._find_confirmacao takes records[0]
+        # from alunos_confirmados. This only works correctly because each aluno
+        # has at most one confirmation per viagem (composite PK). If this query
+        # ever needs to return all students' confirmations, add
+        # .options(contains_eager(Viagem.alunos_confirmados)) to pre-filter the
+        # relationship to this aluno via the outerjoin above.
         .filter(
             RotaAluno.aluno_id == aluno.id,
             Viagem.status.in_([StatusViagem.AGENDADA, StatusViagem.EM_ANDAMENTO]),

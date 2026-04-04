@@ -257,9 +257,10 @@ class ViagemResponseSchema(BaseSchema):
 
 class ViagemAgendaAlunoResponseSchema(BaseSchema):
     """
-    Keeps the old agenda payload shape your frontend expects.
+    Agenda payload for a student's upcoming trips.
 
-    Requires schema context: context={"aluno_id": <uuid>}
+    Expects Viagem.alunos_confirmados to be pre-loaded via contains_eager
+    filtered to the requesting aluno (see get_proximas_viagens_aluno).
     """
 
     viagem_id = fields.Method("get_viagem_id")
@@ -272,24 +273,16 @@ class ViagemAgendaAlunoResponseSchema(BaseSchema):
     status_confirmacao = fields.Method("get_status_confirmacao")
     ponto_embarque_id = fields.Method("get_ponto_embarque_id")
 
-    def _aluno_id(self) -> str | None:
-        ctx = getattr(self, "context", None)
-        if isinstance(ctx, dict) and ctx.get("aluno_id"):
-            return ctx["aluno_id"]
-
-        parent = getattr(self, "parent", None)
-        pctx = getattr(parent, "context", None) if parent else None
-        if isinstance(pctx, dict):
-            return pctx.get("aluno_id")
-
-        return None
+    def _find_confirmacao(self, obj):
+        # alunos_confirmados is pre-filtered to the requesting aluno by the
+        # service query (contains_eager + outerjoin condition on aluno_id).
+        records = obj.alunos_confirmados or []
+        return records[0] if records else None
 
     def get_viagem_id(self, obj):
         return str(obj.id)
 
     def get_dia_semana(self, obj):
-        # enum name like "SEG"
-        # DiaDaSemana is your enum already; easiest is to reuse weekday mapping
         dias_map = {0: "SEG", 1: "TER", 2: "QUA", 3: "QUI", 4: "SEX", 5: "SAB", 6: "DOM"}
         return dias_map.get(obj.data.weekday()) if obj.data else None
 
@@ -306,15 +299,6 @@ class ViagemAgendaAlunoResponseSchema(BaseSchema):
     def get_rota_nome(self, obj):
         rota = obj.horario_rota.rota if obj.horario_rota else None
         return rota.nome if rota else None
-
-    def _find_confirmacao(self, obj):
-        aluno_id = self._aluno_id()
-        if not aluno_id:
-            return None
-        for c in obj.alunos_confirmados or []:
-            if str(c.aluno_id) == str(aluno_id):
-                return c
-        return None
 
     def get_status_confirmacao(self, obj):
         c = self._find_confirmacao(obj)
