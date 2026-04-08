@@ -11,12 +11,13 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.core.exceptions import (
     AppError,
     ConflictError,
+    ForbiddenError,
     NotFoundError,
     UnauthorizedError,
     ValidationError,
 )
 from app.models.base import db
-from app.models.enum import UserRole
+from app.models.enum import UserRole, UserStatus
 from app.models.password_reset import PasswordResetToken
 from app.models.prefeitura import Prefeitura
 from app.models.user import Aluno, Gestor, Motorista, User
@@ -84,6 +85,35 @@ def login_user(data: dict[str, Any]) -> dict[str, Any]:
         )
         logger.warning(f"Failed login attempt for user {user.id}: invalid password")
         raise UnauthorizedError("Credenciais inválidas")
+
+    # Block disabled accounts
+    if hasattr(user, "status") and user.status == UserStatus.DISABLED:
+        audit_logger.log_auth(
+            action="login_attempt",
+            user_id=str(user.id),
+            email=email,
+            success=False,
+            details={"reason": "account_disabled"},
+        )
+        raise ForbiddenError(
+            "Sua conta está desativada. Entre em contato com o gestor municipal."
+        )
+
+    # Block minors whose guardian has not yet consented
+    if user.role == UserRole.ALUNO and hasattr(user, "status") and user.status == UserStatus.PENDING_SIGNUP:
+        aluno = Aluno.query.get(str(user.id))
+        if aluno and aluno.email_responsavel and not aluno.guardian_consented_at:
+            audit_logger.log_auth(
+                action="login_attempt",
+                user_id=str(user.id),
+                email=email,
+                success=False,
+                details={"reason": "pending_guardian_consent"},
+            )
+            raise ForbiddenError(
+                f"Seu cadastro aguarda a confirmação do responsável legal. "
+                f"Um e-mail foi enviado para {aluno.email_responsavel}."
+            )
 
     access_token = create_access_token(
         identity=str(user.id), additional_claims={"role": str(user.role)}

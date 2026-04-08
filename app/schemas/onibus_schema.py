@@ -9,6 +9,12 @@ class OnibusCreateRequestSchema(BaseSchema):
     capacidade = fields.Integer(required=True)
 
 
+class OnibusUpdateRequestSchema(BaseSchema):
+    placa = fields.String(required=False)
+    modelo = fields.String(required=False)
+    capacidade = fields.Integer(required=False)
+
+
 class OnibusResponseSchema(BaseSchema):
     id = fields.UUID()
     placa = fields.String()

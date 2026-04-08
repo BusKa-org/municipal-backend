@@ -32,10 +32,13 @@ class AlunoSelfSignupRequestSchema(BaseSchema):
     matricula = fields.String(required=True, validate=validate.Length(min=1))
     instituicao_id = fields.UUID(required=True)
 
-    nome_pai = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    cpf_pai = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
-    nome_mae = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    cpf_mae = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
+    # Date of birth — determines whether guardian consent is required
+    data_nascimento = fields.Date(required=True, format="%Y-%m-%d")
+
+    # Guardian (required when minor, optional for adults)
+    nome_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
+    cpf_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
+    email_responsavel = fields.Email(load_default=None, allow_none=True)
 
     endereco_casa = fields.Nested(EnderecoInputSchema, required=True)
 
@@ -47,22 +50,41 @@ class AlunoMeUpdateRequestSchema(BaseSchema):
     telefone = fields.String(load_default=None, allow_none=True, validate=validate_optional_phone)
 
     matricula = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    nome_pai = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    cpf_pai = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
-    nome_mae = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    cpf_mae = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
+    nome_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
+    cpf_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
 
     endereco_casa = fields.Nested(EnderecoInputSchema, load_default=None, allow_none=True)
+
+
+class AlunoGuardianConsentPublicSchema(BaseSchema):
+    """Public info returned to the guardian consent screen."""
+
+    nome = fields.String()
+    data_nascimento = fields.Date(dump_default=None)
+    is_minor = fields.Boolean()
+    guardian_consented_at = fields.DateTime(dump_default=None)
 
 
 class AlunoResponseSchema(BaseSchema):
     id = fields.UUID()
     nome = fields.String()
+    email = fields.Email(dump_default=None)
+    telefone = fields.String(dump_default=None)
+    cpf = fields.String(dump_default=None)
     matricula = fields.String()
     escola = fields.String(attribute="instituicao.nome", dump_default=None)
+    instituicao_id = fields.UUID(dump_default=None)
 
     status = fields.String(attribute="status.value", dump_default=None)
     signup_completed_at = fields.DateTime(dump_default=None)
+
+    # Minor / guardian
+    data_nascimento = fields.Date(dump_default=None)
+    is_minor = fields.Boolean(dump_default=False)
+    email_responsavel = fields.Email(dump_default=None)
+    nome_responsavel = fields.String(dump_default=None)
+    cpf_responsavel = fields.String(dump_default=None)
+    guardian_consented_at = fields.DateTime(dump_default=None)
 
 
 class AlunoListResponseSchema(BaseSchema):

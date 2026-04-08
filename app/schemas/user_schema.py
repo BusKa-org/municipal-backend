@@ -17,6 +17,15 @@ class FcmTokenResponseSchema(BaseSchema):
 
     message = fields.String(required=True)
 
+
+class UpdateProfileRequestSchema(BaseSchema):
+    """Schema for updating user profile (PATCH /users/me)."""
+
+    nome = fields.String(required=False)
+    telefone = fields.String(required=False)
+    receber_notificacoes = fields.Boolean(required=False)
+    cnh = fields.String(required=False)
+
 class MotoristaCreateRequestSchema(BaseSchema):
     """Schema for creating a new driver."""
 

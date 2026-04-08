@@ -40,10 +40,10 @@ def register_models(api):
             "telefone": fields.String(required=False, description="Telefone"),
             "matricula": fields.String(required=True, description="Matrícula escolar"),
             "instituicao_id": fields.String(required=True, description="UUID da instituição"),
-            "nome_pai": fields.String(required=False, description="Nome do pai"),
-            "cpf_pai": fields.String(required=False, description="CPF do pai"),
-            "nome_mae": fields.String(required=False, description="Nome da mãe"),
-            "cpf_mae": fields.String(required=False, description="CPF da mãe"),
+            "data_nascimento": fields.String(required=True, description="Data de nascimento (YYYY-MM-DD)"),
+            "nome_responsavel": fields.String(required=False, description="Nome do responsável"),
+            "cpf_responsavel": fields.String(required=False, description="CPF do responsável"),
+            "email_responsavel": fields.String(required=False, description="E-mail do responsável (obrigatório para menores)"),
             "endereco_casa": fields.Nested(endereco_input, required=True),
         },
     )
@@ -54,10 +54,8 @@ def register_models(api):
             "nome": fields.String(required=False, description="Nome completo"),
             "telefone": fields.String(required=False, description="Telefone"),
             "matricula": fields.String(required=False, description="Matrícula escolar"),
-            "nome_pai": fields.String(required=False, description="Nome do pai"),
-            "cpf_pai": fields.String(required=False, description="CPF do pai"),
-            "nome_mae": fields.String(required=False, description="Nome da mãe"),
-            "cpf_mae": fields.String(required=False, description="CPF da mãe"),
+            "nome_responsavel": fields.String(required=False, description="Nome do responsável"),
+            "cpf_responsavel": fields.String(required=False, description="CPF do responsável"),
             "endereco_casa": fields.Nested(endereco_input, required=False),
         },
     )
@@ -67,10 +65,20 @@ def register_models(api):
         {
             "id": fields.String(description="UUID do aluno"),
             "nome": fields.String(description="Nome completo"),
+            "email": fields.String(description="E-mail"),
+            "telefone": fields.String(description="Telefone"),
+            "cpf": fields.String(description="CPF"),
             "matricula": fields.String(description="Matrícula"),
             "escola": fields.String(description="Nome da escola"),
-            "status": fields.String(description="Status (PENDING_SIGNUP, ACTIVE, DISABLED)"),
+            "instituicao_id": fields.String(description="UUID da instituição"),
+            "status": fields.String(description="Status (PENDING_SIGNUP, PENDING_APPROVAL, ACTIVE, DISABLED)"),
             "signup_completed_at": fields.DateTime(description="Data de conclusão do cadastro"),
+            "data_nascimento": fields.String(description="Data de nascimento"),
+            "is_minor": fields.Boolean(description="Menor de idade"),
+            "email_responsavel": fields.String(description="E-mail do responsável"),
+            "nome_responsavel": fields.String(description="Nome do responsável"),
+            "cpf_responsavel": fields.String(description="CPF do responsável"),
+            "guardian_consented_at": fields.DateTime(description="Data/hora do consentimento do responsável"),
         },
     )
 
@@ -82,10 +90,21 @@ def register_models(api):
         },
     )
 
+    guardian_consent_response = api.model(
+        "GuardianConsentResponse",
+        {
+            "nome": fields.String(description="Nome do menor"),
+            "data_nascimento": fields.String(description="Data de nascimento"),
+            "is_minor": fields.Boolean(description="Menor de idade"),
+            "guardian_consented_at": fields.DateTime(description="Consentimento já registrado"),
+        },
+    )
+
     return {
         "aluno_provision_account_request": aluno_provision_account_request,
         "self_signup_request": self_signup_request,
         "me_update_request": me_update_request,
         "aluno_response": aluno_response,
         "aluno_list_response": aluno_list_response,
+        "guardian_consent_response": guardian_consent_response,
     }

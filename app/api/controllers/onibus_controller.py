@@ -9,6 +9,7 @@ from app.schemas.onibus_schema import (
     OnibusCreateRequestSchema,
     OnibusListResponseSchema,
     OnibusResponseSchema,
+    OnibusUpdateRequestSchema,
 )
 from app.services import onibus_service
 
@@ -19,6 +20,7 @@ models = onibus_contract.register_models(api)
 
 # Validation schemas (Marshmallow)
 onibus_create_request_schema = OnibusCreateRequestSchema()
+onibus_update_request_schema = OnibusUpdateRequestSchema()
 onibus_response_schema = OnibusResponseSchema()
 onibus_list_response_schema = OnibusListResponseSchema()
 
@@ -64,6 +66,18 @@ class OnibusResource(Resource):
         """Detalhes de um ônibus"""
         current_user_id = get_jwt_identity()
         onibus = onibus_service.get_by_id(current_user_id, id)
+        return onibus_response_schema.dump(onibus), 200
+
+    @api.doc("update_onibus")
+    @api.expect(models["onibus_update_request"])
+    @api.response(200, "Updated", models["onibus_response"])
+    @jwt_required()
+    def patch(self, id: str) -> tuple[dict[str, Any], int]:
+        """Atualiza dados de um ônibus"""
+        current_user_id = get_jwt_identity()
+        data = request.get_json(silent=True) or {}
+        payload = onibus_update_request_schema.load(data)
+        onibus = onibus_service.update_onibus(current_user_id, id, payload)
         return onibus_response_schema.dump(onibus), 200
 
     @api.doc("delete_onibus")

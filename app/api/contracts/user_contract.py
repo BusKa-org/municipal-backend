@@ -79,6 +79,16 @@ def register_models(api):
         },
     )
 
+    update_profile_request = api.model(
+        "UpdateProfileRequest",
+        {
+            "nome": fields.String(description="Nome completo"),
+            "telefone": fields.String(description="Telefone"),
+            "receber_notificacoes": fields.Boolean(description="Aceitar notificações"),
+            "cnh": fields.String(description="CNH (apenas motoristas)"),
+        },
+    )
+
     return {
         "fcm_token_request": fcm_token_request,
         "user_response": user_response,
@@ -86,6 +96,6 @@ def register_models(api):
         "motorista_create_request": motorista_create_request,
         "change_password_request": change_password_request,
         "change_password_response": change_password_response,
-        "fcm_token_request": fcm_token_request,
         "fcm_token_response": fcm_token_response,
+        "update_profile_request": update_profile_request,
     }

@@ -85,6 +85,48 @@ def create_onibus(user_id: str, data: dict[str, Any]) -> Onibus:
         raise AppError(f"Erro ao salvar ônibus: {str(e)}", 500)
 
 
+def update_onibus(user_id: str, onibus_id: str, data: dict[str, Any]) -> Onibus:
+    """
+    Update bus details (gestor only).
+
+    Raises: ForbiddenError, NotFoundError, ConflictError, AppError
+    """
+    user = User.query.get(user_id)
+
+    if not user or user.role != UserRole.GESTOR:
+        raise ForbiddenError("Apenas gestores podem gerenciar a frota")
+
+    onibus = Onibus.query.get(onibus_id)
+    if not onibus:
+        raise NotFoundError("Ônibus não encontrado")
+
+    if onibus.prefeitura_id != user.prefeitura_id:
+        raise ForbiddenError("Proibido alterar dados de outra prefeitura")
+
+    if placa := data.get("placa"):
+        placa = placa.upper().strip()
+        existing = Onibus.query.filter_by(placa=placa).first()
+        if existing and str(existing.id) != str(onibus_id):
+            raise ConflictError(f"Já existe um ônibus com a placa {placa}", field="placa")
+        onibus.placa = placa
+
+    if modelo := data.get("modelo"):
+        onibus.modelo = modelo.strip()
+
+    if (capacidade := data.get("capacidade")) is not None:
+        if not isinstance(capacidade, int) or capacidade < 1:
+            raise ValidationError("Capacidade deve ser um número inteiro positivo")
+        onibus.capacidade = capacidade
+
+    try:
+        db.session.commit()
+        return onibus
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating bus: {e}")
+        raise AppError(f"Erro ao atualizar ônibus: {str(e)}", 500)
+
+
 def delete_onibus(user_id: str, onibus_id: str) -> None:
     """
     Delete a bus (gestor only).

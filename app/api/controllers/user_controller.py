@@ -12,6 +12,7 @@ from app.schemas.user_schema import (
     FcmTokenRequestSchema,
     FcmTokenResponseSchema,
     MotoristaCreateRequestSchema,
+    UpdateProfileRequestSchema,
     UserListResponseSchema,
     UserResponseSchema,
 )
@@ -32,6 +33,7 @@ user_response_schema = UserResponseSchema()
 change_password_response_schema = ChangePasswordResponseSchema()
 fcm_token_request_schema = FcmTokenRequestSchema()
 fcm_token_response_schema = FcmTokenResponseSchema()
+update_profile_schema = UpdateProfileRequestSchema()
 
 @api.route("")
 class UserList(Resource):
@@ -62,6 +64,20 @@ class UserProfile(Resource):
         """Perfil do usuário logado"""
         current_user_id = get_jwt_identity()
         user = user_service.get_user_by_id(current_user_id)
+        return user_response_schema.dump(user), 200
+
+    @api.doc(
+        "update_my_profile",
+        responses={200: "Updated", 400: "Validation error", 409: "Conflict"},
+    )
+    @api.expect(models["update_profile_request"])
+    @api.response(200, "Success", models["user_response"])
+    @jwt_required()
+    def patch(self) -> tuple[dict[str, Any], int]:
+        """Atualiza perfil do usuário logado (nome, telefone, receber_notificacoes, cnh)"""
+        current_user_id = get_jwt_identity()
+        payload = update_profile_schema.load(request.get_json(silent=True) or {})
+        user = user_service.update_profile(current_user_id, payload)
         return user_response_schema.dump(user), 200
 
 
@@ -99,6 +115,20 @@ class AlunoProvisionAccountResource(Resource):
 
         aluno = user_service.create_aluno_account(current_user_id, payload)
         return {"message": "Aluno account created with success", "id": str(aluno.id)}, 201
+
+
+@api.route("/motoristas/<string:motorista_id>")
+class MotoristaResource(Resource):
+    @api.doc(
+        "delete_motorista",
+        responses={200: "Deleted", 403: "Forbidden", 404: "Not found", 400: "Has linked trips"},
+    )
+    @jwt_required()
+    def delete(self, motorista_id: str) -> tuple[dict[str, Any], int]:
+        """Gestor remove um motorista"""
+        current_user_id = get_jwt_identity()
+        user_service.delete_motorista(current_user_id, motorista_id)
+        return {"message": "Motorista removido com sucesso"}, 200
 
 
 @api.route("/motoristas")

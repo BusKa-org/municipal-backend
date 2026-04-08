@@ -7,40 +7,39 @@ Also supports importing Prefeituras and Instituicoes from CSV files.
 
 import os
 import uuid
-from datetime import date, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.models.base import db
-from app.models.enum import SentidoViagem, StatusViagem, TipoInstituicao, UserRole
+from app.models.enum import (
+    SentidoViagem,
+    StatusOcorrencia,
+    StatusViagem,
+    TipoInstituicao,
+    TipoOcorrencia,
+    UserRole,
+    UserStatus,
+)
 from app.models.geo import Endereco, Instituicao, Ponto
+from app.models.notificacao import Notificacao
+from app.models.ocorrencia import Ocorrencia
 from app.models.onibus import Onibus
 from app.models.prefeitura import Prefeitura
-from app.models.rota import HorarioRota, Rota, RotaPonto
+from app.models.rota import HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import Aluno, Gestor, Motorista
-from app.models.viagem import Viagem
+from app.models.viagem import AlunosConfirmados, Viagem
 from scripts.seeds.prefeituras_importer import import_prefeituras_csv
 from scripts.seeds.instituicoes_importer import import_ies_csv, import_escolas_csv
 
-# Fixed UUIDs for predictable test data (as UUID objects)
-ID_PREFEITURA = uuid.UUID("00000000-0000-0000-0000-000000000001")
-ID_GESTOR = uuid.UUID("00000000-0000-0000-0000-000000000002")
-ID_PONTO_INST = uuid.UUID("00000000-0000-0000-0000-000000000003")
-ID_INSTITUICAO = uuid.UUID("00000000-0000-0000-0000-000000000004")
-ID_MOTORISTA = uuid.UUID("00000000-0000-0000-0000-000000000005")
-ID_ALUNO = uuid.UUID("00000000-0000-0000-0000-000000000006")
-ID_ONIBUS = uuid.UUID("00000000-0000-0000-0000-000000000007")
-ID_ROTA = uuid.UUID("00000000-0000-0000-0000-000000000008")
-ID_PONTO_PARTIDA = uuid.UUID("00000000-0000-0000-0000-000000000009")
-ID_PONTO_PARADA1 = uuid.UUID("00000000-0000-0000-0000-000000000010")
-ID_PONTO_ALUNO = uuid.UUID("00000000-0000-0000-0000-000000000011")
-ID_VIAGEM = uuid.UUID("00000000-0000-0000-0000-000000000012")
-ID_HORARIO_ROTA = uuid.UUID("00000000-0000-0000-0000-000000000013")
-
 app = create_app()
-TEST_PASSWORD = "buska123"  # min 8 chars required by backend validation
+TEST_PASSWORD = "buska123"
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CSV catalog helpers
+# ─────────────────────────────────────────────────────────────────────────────
 
 def should_import_prefeituras() -> bool:
     return (
@@ -61,14 +60,6 @@ def should_import_instituicoes() -> bool:
 
 
 def seed_catalog_from_csv() -> None:
-    """
-    Import prefeituras and instituicoes from CSV files, if needed and if paths are provided.
-
-    Environment variables:
-      - MUNICIPIOS_CSV_PATH
-      - IES_CSV_PATH
-      - ESCOLAS_CSV_PATH
-    """
     municipios_csv_path = os.getenv("MUNICIPIOS_CSV_PATH")
     ies_csv_path = os.getenv("IES_CSV_PATH")
     escolas_csv_path = os.getenv("ESCOLAS_CSV_PATH")
@@ -80,287 +71,574 @@ def seed_catalog_from_csv() -> None:
     if should_import_prefeituras():
         if municipios_csv_path:
             print(f"Importing prefeituras from: {municipios_csv_path}")
-            total_prefeituras = import_prefeituras_csv(municipios_csv_path)
-            print(f"Prefeituras imported/updated: {total_prefeituras}")
+            total = import_prefeituras_csv(municipios_csv_path)
+            print(f"Prefeituras imported/updated: {total}")
         else:
-            print("MUNICIPIOS_CSV_PATH not provided. Skipping prefeitura import.")
+            print("MUNICIPIOS_CSV_PATH not provided. Skipping.")
     else:
-        print("Prefeituras already imported. Skipping prefeitura CSV import.")
+        print("Prefeituras already imported. Skipping.")
 
     if should_import_instituicoes():
         if ies_csv_path:
             print(f"Importing IES from: {ies_csv_path}")
-            total_ies = import_ies_csv(ies_csv_path)
-            print(f"IES imported/updated: {total_ies}")
+            total = import_ies_csv(ies_csv_path)
+            print(f"IES imported/updated: {total}")
         else:
-            print("IES_CSV_PATH not provided. Skipping IES import.")
+            print("IES_CSV_PATH not provided. Skipping.")
 
         if escolas_csv_path:
             print(f"Importing schools from: {escolas_csv_path}")
-            total_escolas = import_escolas_csv(escolas_csv_path)
-            print(f"Schools imported/updated: {total_escolas}")
+            total = import_escolas_csv(escolas_csv_path)
+            print(f"Schools imported/updated: {total}")
         else:
-            print("ESCOLAS_CSV_PATH not provided. Skipping school import.")
+            print("ESCOLAS_CSV_PATH not provided. Skipping.")
     else:
-        print("Instituicoes already imported. Skipping institution CSV import.")
+        print("Instituicoes already imported. Skipping.")
 
     print("Catalog import finished.\n")
 
 
-def get_or_create_demo_instituicao() -> Instituicao:
-    """
-    Reuse an imported institution from the demo prefeitura when available.
-    Create a single manual fallback institution only if necessary.
-    """
-    instituicao = (
-        db.session.query(Instituicao)
-        .filter(
-            Instituicao.prefeitura_id == ID_PREFEITURA,
-            Instituicao.tipo.in_([
-                TipoInstituicao.UNIVERSIDADE_PUBLICA,
-                TipoInstituicao.UNIVERSIDADE_PRIVADA,
-            ])
-        )
-        .first()
+# ─────────────────────────────────────────────────────────────────────────────
+# Demo seed helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _ponto(prefeitura_id, lat, lon, apelido):
+    p = Ponto(prefeitura_id=prefeitura_id, latitude=lat, longitude=lon, apelido=apelido)
+    db.session.add(p)
+    return p
+
+
+def _motorista(prefeitura_id, nome, email, cpf, telefone, cnh, pw_hash):
+    m = Motorista(
+        prefeitura_id=prefeitura_id,
+        nome=nome,
+        email=email,
+        senha_hash=pw_hash,
+        cpf=cpf,
+        telefone=telefone,
+        role=UserRole.MOTORISTA,
+        status=UserStatus.ACTIVE,
+        cnh=cnh,
     )
-    if not instituicao:
-        instituicao = (
-            db.session.query(Instituicao)
-            .filter(Instituicao.prefeitura_id == ID_PREFEITURA)
-            .order_by(Instituicao.nome.asc())
-            .first()
-        )
+    db.session.add(m)
+    return m
 
-    if instituicao:
-        print(f"Using existing institution for demo: {instituicao.nome}")
-        return instituicao
 
-    print("No institution found for demo prefeitura. Creating fallback institution...")
-
-    ponto_inst = Ponto(
-        id=ID_PONTO_INST,
-        prefeitura_id=ID_PREFEITURA,
-        latitude=-7.2167,
-        longitude=-35.9097,
-        apelido="Instituicao (Fallback)",
+def _aluno(prefeitura_id, nome, email, cpf, telefone, pw_hash, matricula,
+           instituicao_id, ponto_casa_id, status=UserStatus.ACTIVE,
+           nome_responsavel=None, cpf_responsavel=None,
+           email_responsavel=None, guardian_consented_at=None,
+           data_nascimento=None):
+    a = Aluno(
+        prefeitura_id=prefeitura_id,
+        nome=nome,
+        email=email,
+        senha_hash=pw_hash,
+        cpf=cpf,
+        telefone=telefone,
+        role=UserRole.ALUNO,
+        status=status,
+        matricula=matricula,
+        instituicao_id=instituicao_id,
+        ponto_casa_id=ponto_casa_id,
+        nome_responsavel=nome_responsavel,
+        cpf_responsavel=cpf_responsavel,
+        email_responsavel=email_responsavel,
+        guardian_consented_at=guardian_consented_at,
+        data_nascimento=data_nascimento,
     )
-    db.session.add(ponto_inst)
+    db.session.add(a)
+    return a
 
-    instituicao = Instituicao(
-        id=ID_INSTITUICAO,
-        nome="Escola Municipal Centro",
-        cnpj="11111111000111",
-        tipo=TipoInstituicao.ESCOLA_PUBLICA,
-        ponto_id=ID_PONTO_INST,
-        fonte="MANUAL",
-        codigo_externo=str(999012983901839028),
-        uf="SP",
-        prefeitura_id=ID_PREFEITURA,
-        situacao="ATIVA",
-        categoria_administrativa="Pública",
+
+def _onibus(prefeitura_id, placa, modelo, capacidade):
+    o = Onibus(prefeitura_id=prefeitura_id, placa=placa, modelo=modelo, capacidade=capacidade)
+    db.session.add(o)
+    return o
+
+
+def _rota(prefeitura_id, nome, motorista, onibus):
+    r = Rota(
+        prefeitura_id=prefeitura_id,
+        nome=nome,
+        motorista_padrao_id=motorista.id,
+        veiculo_padrao_id=onibus.id,
     )
-    db.session.add(instituicao)
+    db.session.add(r)
+    return r
 
-    endereco_inst = Endereco(
-        logradouro="Rua da Educacao",
-        numero="100",
-        bairro="Centro",
-        cidade="Sao Paulo",
-        cep="01000000",
-        ponto_id=ID_PONTO_INST,
+
+def _horario(rota, horario_saida, sentido):
+    h = HorarioRota(rota_id=rota.id, horario_saida=horario_saida, sentido=sentido)
+    db.session.add(h)
+    return h
+
+
+def _viagem(horario, motorista, onibus, data, status, inicio_real=None, fim_real=None):
+    v = Viagem(
+        data=data,
+        horario_rota_id=horario.id,
+        motorista_id=motorista.id,
+        veiculo_id=onibus.id,
+        status=status,
+        inicio_real=inicio_real,
+        fim_real=fim_real,
     )
-    db.session.add(endereco_inst)
+    db.session.add(v)
+    return v
 
-    db.session.flush()
-    return instituicao
 
+def _confirmar(viagem, aluno, ponto_embarque, confirmado=True):
+    ac = AlunosConfirmados(
+        viagem_id=viagem.id,
+        aluno_id=aluno.id,
+        confirmacao=confirmado,
+        ponto_embarque_id=ponto_embarque.id,
+    )
+    db.session.add(ac)
+    return ac
+
+
+def _notificacao(usuario_id, titulo, mensagem, lida=True, dias_atras=0):
+    dt = datetime.now(UTC) - timedelta(days=dias_atras)
+    n = Notificacao(
+        usuario_id=usuario_id,
+        titulo=titulo,
+        mensagem=mensagem,
+        enviada=lida,
+        data_envio=dt,
+    )
+    db.session.add(n)
+    return n
+
+
+def _ocorrencia(autor_id, viagem_id, tipo, descricao, status=StatusOcorrencia.ABERTA):
+    o = Ocorrencia(
+        autor_id=autor_id,
+        viagem_id=viagem_id,
+        tipo=tipo,
+        descricao=descricao,
+        status=status,
+    )
+    db.session.add(o)
+    return o
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main demo data
+# ─────────────────────────────────────────────────────────────────────────────
 
 def seed_demo_data() -> None:
-    """
-    Create deterministic demo/test data used by development and testing.
-    """
-    global ID_PREFEITURA
     print("\n" + "=" * 50)
-    print("BusKa Demo Seed")
+    print("BusKa Demo Seed — Campina Grande, PB")
     print("=" * 50 + "\n")
 
-    if db.session.get(Prefeitura, ID_PREFEITURA):
-        print("Demo data already exists. Skipping demo seed.\n")
+    # Idempotency: skip if gestor already seeded
+    if db.session.query(Gestor).filter_by(email="admin@buska.app").first():
+        print("Demo data already exists. Skipping.\n")
         return
 
-    secure_password = generate_password_hash(TEST_PASSWORD)
+    pw = generate_password_hash(TEST_PASSWORD)
+    today = date.today()
 
-    # 1. Prefeitura
-    print("1. Creating City Hall...")
+    # ── 1. Prefeitura ─────────────────────────────────────────────────────────
     pref = (
         db.session.query(Prefeitura)
         .filter(Prefeitura.codigo_ibge == "2504009")
         .first()
     )
-
     if not pref:
-        raise Exception("Campina Grande prefeitura not found in CSV import")
+        raise Exception(
+            "Campina Grande (IBGE 2504009) not found. "
+            "Run with MUNICIPIOS_CSV_PATH to import prefeituras first, "
+            "or ensure the CSV import ran."
+        )
+    print(f"Using prefeitura: {pref.nome}")
 
-    ID_PREFEITURA = pref.id
-
-    # 2. Gestor
-    print("2. Creating Manager (admin@buska.app)...")
-    admin_gestor = Gestor(
-        id=ID_GESTOR,
-        prefeitura_id=ID_PREFEITURA,
-        nome="Maria Silva",
+    # ── 2. Gestor ─────────────────────────────────────────────────────────────
+    gestor = Gestor(
+        prefeitura_id=pref.id,
+        nome="Maria das Graças Silva",
         email="admin@buska.app",
-        senha_hash=secure_password,
-        cpf="11111111111",
-        telefone="11999990001",
+        senha_hash=pw,
+        cpf="12345678901",
+        telefone="83999990001",
         role=UserRole.GESTOR,
+        status=UserStatus.ACTIVE,
     )
-    db.session.add(admin_gestor)
+    db.session.add(gestor)
 
-    # 3. Institution
-    print("3. Resolving demo institution...")
-    instituicao = get_or_create_demo_instituicao()
+    # ── 3. Pontos de referência (CG reais) ────────────────────────────────────
+    print("Creating geographic points...")
 
-    # 4. Onibus
-    print("4. Creating Bus...")
-    onibus = Onibus(
-        id=ID_ONIBUS,
-        prefeitura_id=ID_PREFEITURA,
-        placa="ABC1234",
-        modelo="Mercedes Sprinter",
-        capacidade=20,
-    )
-    db.session.add(onibus)
+    # Instituições
+    p_ufcg       = _ponto(pref.id, -7.21676, -35.90820, "UFCG — Campus I (Rua Aprígio Veloso)")
+    p_uepb       = _ponto(pref.id, -7.23260, -35.89430, "UEPB — Campus I (Baraúnas)")
+    p_cesg       = _ponto(pref.id, -7.22140, -35.88790, "CESG — Escola Estadual Assis Chateaubriand")
 
-    # 5. Motorista
-    print("5. Creating Driver (motorista@buska.app)...")
-    motorista = Motorista(
-        id=ID_MOTORISTA,
-        prefeitura_id=ID_PREFEITURA,
-        nome="Joao Santos",
-        email="motorista@buska.app",
-        senha_hash=secure_password,
-        cpf="22222222222",
-        telefone="11999990002",
-        role=UserRole.MOTORISTA,
-        cnh="12345678901",
-    )
-    db.session.add(motorista)
+    # Terminais / pontos centrais
+    p_terminal   = _ponto(pref.id, -7.23050, -35.88090, "Terminal de Integração CG")
+    p_catole      = _ponto(pref.id, -7.24510, -35.92010, "Praça do Açude — Bairro Catole")
+    p_bodocongo  = _ponto(pref.id, -7.21960, -35.93760, "Av. Manoel Tavares — Bodocongó")
+    p_liberdade  = _ponto(pref.id, -7.21170, -35.90310, "Av. Floriano Peixoto — Liberdade")
+    p_jose_pin   = _ponto(pref.id, -7.22660, -35.87450, "Rua Cônego Rolim — José Pinheiro")
+    p_mirande    = _ponto(pref.id, -7.28950, -35.95200, "Praça Central — Galante (distrito)")
+    p_queimadas  = _ponto(pref.id, -7.61860, -35.90050, "Terminal Rodoviário — Queimadas")
+    p_cruz_armas = _ponto(pref.id, -7.23800, -35.88300, "Cruz das Armas — CG")
+    p_pedregal   = _ponto(pref.id, -7.20680, -35.89490, "Av. Dinamarca — Pedregal")
+    p_prata      = _ponto(pref.id, -7.23770, -35.87980, "Bairro Prata — CG")
 
-    # 6. Route Stops
-    print("6. Creating Route Stops...")
-    ponto_partida = Ponto(
-        id=ID_PONTO_PARTIDA,
-        prefeitura_id=ID_PREFEITURA,
-        latitude=-7.2306,
-        longitude=-35.8811,
-        apelido="Terminal Central CG",
-    )
-    db.session.add(ponto_partida)
+    # Casas dos alunos (pontos de embarque individuais)
+    casas = [
+        _ponto(pref.id, -7.24200, -35.91800, "Res. Ana Carla — Catole"),
+        _ponto(pref.id, -7.22100, -35.93500, "Res. Bruno — Bodocongó"),
+        _ponto(pref.id, -7.21500, -35.90000, "Res. Camila — Liberdade"),
+        _ponto(pref.id, -7.22900, -35.87600, "Res. Daniel — José Pinheiro"),
+        _ponto(pref.id, -7.29100, -35.95400, "Res. Elaine — Galante"),
+        _ponto(pref.id, -7.61700, -35.89900, "Res. Felipe — Queimadas"),
+        _ponto(pref.id, -7.23600, -35.88100, "Res. Gabriela — Cruz das Armas"),
+        _ponto(pref.id, -7.20800, -35.89600, "Res. Hugo — Pedregal"),
+        _ponto(pref.id, -7.23900, -35.88000, "Res. Isabela — Prata"),
+        _ponto(pref.id, -7.24600, -35.92100, "Res. João — Catole"),
+        _ponto(pref.id, -7.21800, -35.93800, "Res. Karen — Bodocongó"),
+        _ponto(pref.id, -7.21100, -35.90200, "Res. Lucas — Liberdade"),
+        _ponto(pref.id, -7.22700, -35.87500, "Res. Mariana — José Pinheiro"),
+        _ponto(pref.id, -7.29200, -35.95100, "Res. Nathan — Galante"),
+        _ponto(pref.id, -7.62000, -35.90100, "Res. Olivia — Queimadas"),
+        _ponto(pref.id, -7.23900, -35.88200, "Res. Pedro — Cruz das Armas"),
+        _ponto(pref.id, -7.20700, -35.89700, "Res. Quinn — Pedregal"),
+        _ponto(pref.id, -7.23800, -35.87900, "Res. Renata — Prata"),
+        _ponto(pref.id, -7.24400, -35.91900, "Res. Samuel — Catole"),
+        _ponto(pref.id, -7.22000, -35.93600, "Res. Tânia — Bodocongó"),
+    ]
 
-    ponto_parada1 = Ponto(
-        id=ID_PONTO_PARADA1,
-        prefeitura_id=ID_PREFEITURA,
-        latitude=-7.2280,
-        longitude=-35.8670,
-        apelido="Bairro Catolé",
-    )
-    db.session.add(ponto_parada1)
-
-    ponto_aluno = Ponto(
-        id=ID_PONTO_ALUNO,
-        prefeitura_id=ID_PREFEITURA,
-        latitude=-23.5520,
-        longitude=-46.6350,
-        apelido="Casa Aleatória",
-    )
-    db.session.add(ponto_aluno)
-
-    # 7. Aluno
-    print("7. Creating Student (aluno@buska.app)...")
-    endereco_aluno = Endereco(
-        logradouro="Rua das Flores",
-        numero="42",
-        bairro="Jardim Primavera",
-        cidade="Sao Paulo",
-        cep="01234000",
-        ponto_id=ID_PONTO_ALUNO,
-    )
-    db.session.add(endereco_aluno)
-
-    aluno = Aluno(
-        id=ID_ALUNO,
-        prefeitura_id=ID_PREFEITURA,
-        nome="Pedro Oliveira",
-        email="aluno@buska.app",
-        senha_hash=secure_password,
-        cpf="33333333333",
-        telefone="11999990003",
-        role=UserRole.ALUNO,
-        matricula="ALU-2024-001",
-        instituicao_id=instituicao.id,
-        ponto_casa_id=ID_PONTO_ALUNO,
-    )
-    db.session.add(aluno)
-
-    # 8. Route
-    print("8. Creating Route...")
-    rota = Rota(
-        id=ID_ROTA,
-        prefeitura_id=ID_PREFEITURA,
-        nome="Rota Centro - Manha",
-        motorista_padrao_id=ID_MOTORISTA,
-        veiculo_padrao_id=ID_ONIBUS,
-    )
-    db.session.add(rota)
     db.session.flush()
 
-    # Add stops to route
-    rota_ponto1 = RotaPonto(rota_id=ID_ROTA, ponto_id=ID_PONTO_PARTIDA, ordem=1)
-    rota_ponto2 = RotaPonto(rota_id=ID_ROTA, ponto_id=ID_PONTO_PARADA1, ordem=2)
-    rota_ponto3 = RotaPonto(rota_id=ID_ROTA, ponto_id=ID_PONTO_ALUNO, ordem=3)
+    # ── 4. Instituições ───────────────────────────────────────────────────────
+    print("Creating institutions...")
 
-    if instituicao.ponto_id:
-        rota_ponto4 = RotaPonto(rota_id=ID_ROTA, ponto_id=instituicao.ponto_id, ordem=4)
-        db.session.add(rota_ponto4)
+    def _inst(nome, tipo, lat, lon, apelido_ponto):
+        p = _ponto(pref.id, lat, lon, apelido_ponto)
+        db.session.flush()
+        i = Instituicao(
+            nome=nome,
+            tipo=tipo,
+            fonte="MANUAL_DEMO",
+            codigo_externo=str(abs(hash(nome)) % 10_000_000),
+            uf="PB",
+            prefeitura_id=pref.id,
+            ponto_id=p.id,
+            situacao="ATIVA",
+            categoria_administrativa="Pública",
+        )
+        db.session.add(i)
+        db.session.flush()
+        return i
 
-    db.session.add_all([rota_ponto1, rota_ponto2, rota_ponto3])
-
-    # 9. HorarioRota
-    print("9. Creating Schedule...")
-    horario_rota = HorarioRota(
-        id=ID_HORARIO_ROTA,
-        rota_id=ID_ROTA,
-        horario_saida=time(6, 30),
-        sentido=SentidoViagem.IDA,
+    ufcg = _inst(
+        "Universidade Federal de Campina Grande (UFCG)",
+        TipoInstituicao.UNIVERSIDADE_PUBLICA,
+        -7.21676, -35.90820,
+        "UFCG Campus I",
     )
-    db.session.add(horario_rota)
+    uepb = _inst(
+        "Universidade Estadual da Paraíba (UEPB)",
+        TipoInstituicao.UNIVERSIDADE_PUBLICA,
+        -7.23260, -35.89430,
+        "UEPB Campus I",
+    )
+
+    # ── 5. Ônibus ─────────────────────────────────────────────────────────────
+    print("Creating fleet...")
+
+    bus1 = _onibus(pref.id, "PBX1A34", "Mercedes-Benz Sprinter 515", 30)
+    bus2 = _onibus(pref.id, "PBX5B78", "Volare W9 Escolar", 44)
+    bus3 = _onibus(pref.id, "PBX9C12", "Volkswagen 15.190 EOD", 35)
+    bus4 = _onibus(pref.id, "PBX3D56", "Marcopolo Viale",        40)
+
+    # ── 6. Motoristas ─────────────────────────────────────────────────────────
+    print("Creating drivers...")
+
+    mot1 = _motorista(pref.id, "Carlos Eduardo Amorim",    "carlos@buska.app",    "45678912301", "83999880001", "01234567890", pw)
+    mot2 = _motorista(pref.id, "Silvio Dantas de Oliveira", "silvio@buska.app",   "56789012302", "83999880002", "09876543211", pw)
+    mot3 = _motorista(pref.id, "Rosângela Feitosa Lima",   "rosangela@buska.app", "67890123403", "83999880003", "11223344551", pw)
+
     db.session.flush()
 
-    # 10. Viagem
-    print("10. Creating Trip for tomorrow...")
-    tomorrow = date.today() + timedelta(days=1)
-    viagem = Viagem(
-        id=ID_VIAGEM,
-        data=tomorrow,
-        horario_rota_id=ID_HORARIO_ROTA,
-        motorista_id=ID_MOTORISTA,
-        veiculo_id=ID_ONIBUS,
-        status=StatusViagem.AGENDADA,
+    # ── 7. Rotas com pontos ───────────────────────────────────────────────────
+    print("Creating routes...")
+
+    # Rota A: Galante → UFCG (IDA)
+    rota_a = _rota(pref.id, "Galante → UFCG (Manhã)", mot1, bus1)
+    db.session.flush()
+    for ordem, ponto in enumerate([p_mirande, p_catole, p_terminal, p_ufcg], 1):
+        db.session.add(RotaPonto(rota_id=rota_a.id, ponto_id=ponto.id, ordem=ordem))
+    hor_a_ida = _horario(rota_a, time(5, 30), SentidoViagem.IDA)
+
+    # Rota B: Bodocongó → UEPB (IDA)
+    rota_b = _rota(pref.id, "Bodocongó → UEPB (Manhã)", mot2, bus2)
+    db.session.flush()
+    for ordem, ponto in enumerate([p_bodocongo, p_liberdade, p_uepb], 1):
+        db.session.add(RotaPonto(rota_id=rota_b.id, ponto_id=ponto.id, ordem=ordem))
+    hor_b_ida = _horario(rota_b, time(6, 0), SentidoViagem.IDA)
+
+    # Rota C: Queimadas → UFCG (IDA)
+    rota_c = _rota(pref.id, "Queimadas → UFCG (Manhã)", mot3, bus3)
+    db.session.flush()
+    for ordem, ponto in enumerate([p_queimadas, p_cruz_armas, p_terminal, p_ufcg], 1):
+        db.session.add(RotaPonto(rota_id=rota_c.id, ponto_id=ponto.id, ordem=ordem))
+    hor_c_ida = _horario(rota_c, time(5, 0), SentidoViagem.IDA)
+
+    # Rota D: José Pinheiro → UFCG + UEPB (CIRCULAR, tarde)
+    rota_d = _rota(pref.id, "José Pinheiro → UFCG/UEPB (Tarde)", mot1, bus4)
+    db.session.flush()
+    for ordem, ponto in enumerate([p_jose_pin, p_prata, p_ufcg, p_uepb], 1):
+        db.session.add(RotaPonto(rota_id=rota_d.id, ponto_id=ponto.id, ordem=ordem))
+    hor_d_tarde = _horario(rota_d, time(12, 30), SentidoViagem.IDA)
+
+    db.session.flush()
+
+    # ── 8. Alunos (20) ───────────────────────────────────────────────────────
+    print("Creating 20 students...")
+
+    nomes = [
+        ("Ana Carla Bezerra",    "aluno01@buska.app", "11111111101", "83988010001", "2024001", ufcg.id),
+        ("Bruno Sousa Melo",     "aluno02@buska.app", "22222222202", "83988010002", "2024002", ufcg.id),
+        ("Camila Torres Lima",   "aluno03@buska.app", "33333333303", "83988010003", "2024003", uepb.id),
+        ("Daniel Rocha Neto",    "aluno04@buska.app", "44444444404", "83988010004", "2024004", ufcg.id),
+        ("Elaine Vasconcelos",   "aluno05@buska.app", "55555555505", "83988010005", "2024005", ufcg.id),
+        ("Felipe Araújo Costa",  "aluno06@buska.app", "66666666606", "83988010006", "2024006", ufcg.id),
+        ("Gabriela Cunha Dias",  "aluno07@buska.app", "77777777707", "83988010007", "2024007", uepb.id),
+        ("Hugo Ferreira Braga",  "aluno08@buska.app", "88888888808", "83988010008", "2024008", uepb.id),
+        ("Isabela Martins Paz",  "aluno09@buska.app", "99999999909", "83988010009", "2024009", ufcg.id),
+        ("João Victor Leal",     "aluno10@buska.app", "10101010110", "83988010010", "2024010", ufcg.id),
+        ("Karen Alves Freitas",  "aluno11@buska.app", "11011011111", "83988010011", "2024011", uepb.id),
+        ("Lucas Barbosa Lima",   "aluno12@buska.app", "12012012212", "83988010012", "2024012", uepb.id),
+        ("Mariana Vieira Santos","aluno13@buska.app", "13013013313", "83988010013", "2024013", ufcg.id),
+        ("Nathan Queiroz Brito", "aluno14@buska.app", "14014014414", "83988010014", "2024014", ufcg.id),
+        ("Olivia Pessoa Alencar","aluno15@buska.app", "15015015515", "83988010015", "2024015", ufcg.id),
+        ("Pedro Cavalcanti Luz", "aluno16@buska.app", "16016016616", "83988010016", "2024016", uepb.id),
+        ("Quinn Ribeiro Maia",   "aluno17@buska.app", "17017017717", "83988010017", "2024017", uepb.id),
+        ("Renata Castro Farias", "aluno18@buska.app", "18018018818", "83988010018", "2024018", ufcg.id),
+        ("Samuel Lopes Correia", "aluno19@buska.app", "19019019919", "83988010019", "2024019", ufcg.id),
+        ("Tânia Moura Henrique", "aluno20@buska.app", "20020020020", "83988010020", "2024020", uepb.id),
+    ]
+
+    # Realistic adult birth years: 1998–2005 (ages 20–27 in 2026)
+    adult_dobs = [
+        date(2001, 3, 12), date(2000, 7, 25), date(2002, 11, 4),  date(1999, 1, 18),
+        date(2003, 6, 30), date(2001, 9, 14), date(2000, 4, 22),  date(2002, 8, 9),
+        date(2003, 2, 17), date(1998, 12, 3), date(2004, 5, 28),  date(2001, 10, 7),
+        date(2000, 3, 19), date(2002, 7, 11), date(1999, 8, 24),  date(2003, 1, 5),
+        date(2001, 6, 16), date(2000, 11, 29),
+    ]
+    # Last 2 are minors (born 2009–2010, ages 15–16 in 2026)
+    minor_dobs = [date(2009, 5, 15), date(2010, 2, 8)]
+    all_dobs = adult_dobs + minor_dobs
+
+    alunos = []
+    for i, (nome, email, cpf, tel, mat, inst_id) in enumerate(nomes):
+        # Last 2 alunos are minors waiting for gestor approval (guardian already consented)
+        is_minor_demo = i >= 18
+        status = UserStatus.PENDING_APPROVAL if is_minor_demo else UserStatus.ACTIVE
+        nome_responsavel = f"José {nome.split()[0]}" if is_minor_demo else None
+        cpf_responsavel  = f"9{cpf[1:]}" if is_minor_demo else None
+        email_responsavel = f"resp{i+1}@buska.app" if is_minor_demo else None
+        guardian_consented_at = datetime.now(UTC) if is_minor_demo else None
+
+        a = _aluno(
+            pref.id, nome, email, cpf, tel, pw, mat, inst_id, casas[i].id,
+            status=status,
+            nome_responsavel=nome_responsavel,
+            cpf_responsavel=cpf_responsavel,
+            email_responsavel=email_responsavel,
+            guardian_consented_at=guardian_consented_at,
+            data_nascimento=all_dobs[i],
+        )
+        alunos.append(a)
+
+    db.session.flush()
+
+    # ── 9. Inscrições nas rotas ───────────────────────────────────────────────
+    # Rota A (Galante): alunos 0-4 (5 alunos)
+    # Rota B (Bodocongó): alunos 5-9
+    # Rota C (Queimadas): alunos 10-14
+    # Rota D (José Pinheiro): alunos 15-17 (18-19 pending, no enrollments)
+    inscricoes = [
+        (rota_a, alunos[:5]),
+        (rota_b, alunos[5:10]),
+        (rota_c, alunos[10:15]),
+        (rota_d, alunos[15:18]),
+    ]
+    for rota, grupo in inscricoes:
+        for aluno in grupo:
+            ra = RotaAluno(rota_id=rota.id, aluno_id=aluno.id)
+            db.session.add(ra)
+
+    db.session.flush()
+
+    # ── 10. Viagens ───────────────────────────────────────────────────────────
+    print("Creating trips...")
+
+    # Helper: datetime at HH:MM on a given date
+    def _dt(d, h, m):
+        return datetime(d.year, d.month, d.day, h, m, tzinfo=UTC)
+
+    # FINALIZADAS (últimos 7 dias)
+    viagens_fin = []
+    for delta in range(1, 5):
+        d = today - timedelta(days=delta)
+        h_inicio = _dt(d, 5, 30)
+        h_fim    = _dt(d, 7, 45)
+        v = _viagem(hor_a_ida, mot1, bus1, d, StatusViagem.FINALIZADA, h_inicio, h_fim)
+        viagens_fin.append(v)
+
+    db.session.flush()
+
+    # Confirmar alunos em viagens finalizadas
+    pontos_embarque_a = [p_mirande, p_catole, p_terminal, p_mirande, p_catole]
+    for v in viagens_fin[:2]:
+        for aluno, ponto in zip(alunos[:5], pontos_embarque_a):
+            _confirmar(v, aluno, ponto, confirmado=True)
+
+    # Viagem finalizada de rota B (3 dias atrás)
+    d3 = today - timedelta(days=3)
+    vb_fin = _viagem(hor_b_ida, mot2, bus2, d3, StatusViagem.FINALIZADA,
+                     _dt(d3, 6, 0), _dt(d3, 7, 30))
+    db.session.flush()
+    for aluno, ponto in zip(alunos[5:10], [p_bodocongo, p_liberdade] * 3):
+        _confirmar(vb_fin, aluno, ponto)
+
+    # CANCELADAS
+    vc1 = _viagem(hor_c_ida, mot3, bus3, today - timedelta(days=2), StatusViagem.CANCELADA)
+    vc2 = _viagem(hor_d_tarde, mot1, bus4, today - timedelta(days=1), StatusViagem.CANCELADA)
+
+    # EM_ANDAMENTO (hoje)
+    v_em1 = _viagem(hor_a_ida, mot1, bus1, today, StatusViagem.EM_ANDAMENTO,
+                    _dt(today, 5, 30), None)
+    v_em2 = _viagem(hor_b_ida, mot2, bus2, today, StatusViagem.EM_ANDAMENTO,
+                    _dt(today, 6, 0), None)
+
+    db.session.flush()
+
+    # Confirmações em andamento
+    for aluno, ponto in zip(alunos[:5], pontos_embarque_a):
+        _confirmar(v_em1, aluno, ponto)
+    for aluno, ponto in zip(alunos[5:10], [p_bodocongo, p_liberdade] * 3):
+        _confirmar(v_em2, aluno, ponto)
+
+    # AGENDADAS (próximos 3 dias)
+    viagens_ag = []
+    for delta in range(1, 4):
+        d = today + timedelta(days=delta)
+        va = _viagem(hor_a_ida, mot1, bus1, d, StatusViagem.AGENDADA)
+        vb = _viagem(hor_b_ida, mot2, bus2, d, StatusViagem.AGENDADA)
+        viagens_ag.extend([va, vb])
+
+    db.session.flush()
+
+    # Confirmar alguns alunos em viagens agendadas
+    for v in viagens_ag[:2]:
+        for aluno, ponto in zip(alunos[:3], pontos_embarque_a[:3]):
+            _confirmar(v, aluno, ponto)
+
+    # ── 11. Ocorrências ───────────────────────────────────────────────────────
+    print("Creating occurrences...")
+
+    _ocorrencia(
+        alunos[0].id, v_em1.id,
+        TipoOcorrencia.SUPERLOTACAO,
+        "O ônibus chegou lotado em Galante hoje — não consegui embarcar.",
+        StatusOcorrencia.ABERTA,
     )
-    db.session.add(viagem)
+    _ocorrencia(
+        alunos[5].id, vb_fin.id,
+        TipoOcorrencia.ATRASO,
+        "Ônibus chegou 25 minutos atrasado na parada de Bodocongó.",
+        StatusOcorrencia.RESOLVIDA,
+    )
+    _ocorrencia(
+        mot3.id, vc1.id,
+        TipoOcorrencia.OUTRO,
+        "Problema mecânico no motor — solicitei guincho. Viagem cancelada.",
+        StatusOcorrencia.RESOLVIDA,
+    )
+    _ocorrencia(
+        alunos[10].id, None,
+        TipoOcorrencia.COMPORTAMENTO,
+        "Motorista ignorou parada combinada em Cruz das Armas (semana passada).",
+        StatusOcorrencia.ABERTA,
+    )
+
+    # ── 12. Notificações ──────────────────────────────────────────────────────
+    print("Creating notifications...")
+
+    for aluno in alunos[:5]:
+        _notificacao(
+            aluno.id,
+            "🚌 Viagem Iniciada!",
+            "Carlos iniciou a rota Galante → UFCG. Acompanhe no mapa!",
+            lida=True, dias_atras=1,
+        )
+
+    for aluno in alunos[5:10]:
+        _notificacao(
+            aluno.id,
+            "⏰ Lembrete de Viagem",
+            "Sua viagem pela rota Bodocongó → UEPB começa amanhã às 06:00.",
+            lida=False, dias_atras=0,
+        )
+
+    for aluno in alunos[:3]:
+        _notificacao(
+            aluno.id,
+            "⚠️ Aviso do Motorista",
+            "Pequeno atraso previsto hoje — trânsito na Av. Manoel Tavares.",
+            lida=False, dias_atras=0,
+        )
+
+    _notificacao(
+        gestor.id,
+        "📋 Nova Ocorrência Registrada",
+        "O aluno Ana Carla reportou superlotação na rota Galante → UFCG.",
+        lida=False, dias_atras=0,
+    )
+    _notificacao(
+        gestor.id,
+        "✅ Ocorrência Resolvida",
+        "A ocorrência de atraso na rota Bodocongó → UEPB foi marcada como resolvida.",
+        lida=True, dias_atras=3,
+    )
 
     db.session.commit()
 
     print("\n" + "=" * 50)
     print("SUCCESS! Demo database populated.")
     print("=" * 50)
-    print(f"\nTest Users (password: {TEST_PASSWORD}):")
+    print(f"\nTest credentials (senha: {TEST_PASSWORD}):")
     print("  Gestor:    admin@buska.app")
-    print("  Motorista: motorista@buska.app")
-    print("  Aluno:     aluno@buska.app")
-    print(f"\nDemo institution used: {instituicao.nome}\n")
+    print("  Motorista: carlos@buska.app  (Galante → UFCG)")
+    print("  Motorista: silvio@buska.app  (Bodocongó → UEPB)")
+    print("  Motorista: rosangela@buska.app (Queimadas → UFCG)")
+    print("  Aluno:     aluno01@buska.app … aluno20@buska.app")
+    print("\nRoutes:")
+    print("  A – Galante → UFCG       (05:30, 5 alunos, Carlos + Sprinter)")
+    print("  B – Bodocongó → UEPB     (06:00, 5 alunos, Silvio + Volare)")
+    print("  C – Queimadas → UFCG     (05:00, 5 alunos, Rosângela + VW)")
+    print("  D – José Pinheiro → UFCG/UEPB (12:30, 3 alunos, Carlos + Marcopolo)")
+    print("\nTrip statuses today:")
+    print("  EM_ANDAMENTO: rota A, rota B")
+    print("  AGENDADA: rotas A + B nos próximos 3 dias")
+    print("  FINALIZADA: rota A (×4), rota B (×1) nos últimos dias")
+    print("  CANCELADA: rota C, rota D (ontem/anteontem)")
+    print("\nMinors (PENDING_APPROVAL):")
+    print("  aluno19@buska.app — Samuel Lopes Correia")
+    print("  aluno20@buska.app — Tânia Moura Henrique\n")
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Entry point
+# ─────────────────────────────────────────────────────────────────────────────
 
 def seed_database() -> None:
     with app.app_context():
@@ -373,7 +651,7 @@ def seed_database() -> None:
             seed_demo_data()
         except Exception as e:
             db.session.rollback()
-            print(f"Error: {e}")
+            print(f"\nError: {e}")
             raise
 
 

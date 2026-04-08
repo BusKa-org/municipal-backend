@@ -35,8 +35,18 @@ def register_models(api):
         },
     )
 
+    onibus_update_request = api.model(
+        "OnibusUpdateRequest",
+        {
+            "placa": fields.String(description="Nova placa do veículo"),
+            "modelo": fields.String(description="Novo modelo"),
+            "capacidade": fields.Integer(description="Nova capacidade de passageiros"),
+        },
+    )
+
     return {
         "onibus_create_request": onibus_create_request,
+        "onibus_update_request": onibus_update_request,
         "onibus_response": onibus_response,
         "onibus_list_response": onibus_list_response,
     }

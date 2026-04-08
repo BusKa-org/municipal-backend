@@ -42,10 +42,15 @@ class Settings:
             "JWT_EXPIRES_HOURS", default=2, min_val=1, max_val=720
         )
 
-        # Mail settings (optional - used for forgot password)
+        # Mail settings (optional - used for forgot password and guardian consent)
         self.MAIL_SERVER = os.getenv("MAIL_SERVER", "")
+        self.MAIL_PORT = self._get_int("MAIL_PORT", default=587, min_val=1, max_val=65535)
         self.MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
         self.MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+        self.MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
+
+        # Frontend URL (used for guardian consent email links)
+        self.FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8081")
 
         # CORS settings
         self.CORS_ORIGINS = self._parse_cors_origins()

@@ -180,23 +180,30 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
 
         if "pontos" in data:
             for p_data in data["pontos"]:
-                if "latitude" not in p_data or "longitude" not in p_data:
-                    continue
-                novo_ponto = Ponto(
-                    prefeitura_id=user.prefeitura_id,
-                    latitude=p_data["latitude"],
-                    longitude=p_data["longitude"],
-                    apelido=p_data.get("apelido", f"Ponto {p_data.get('ordem')}"),
-                )
-                db.session.add(novo_ponto)
-                db.session.flush()
+                ponto_id = p_data.get("ponto_id")
+                ordem = p_data.get("ordem", 0)
 
-                rota_ponto = RotaPonto(
-                    rota_id=rota.id,
-                    ponto_id=novo_ponto.id,
-                    ordem=p_data.get("ordem", 0),
-                )
-                db.session.add(rota_ponto)
+                if ponto_id:
+                    # Link an existing ponto by ID
+                    existing_ponto = Ponto.query.get(ponto_id)
+                    if not existing_ponto:
+                        logger.warning(f"Ponto {ponto_id} not found, skipping")
+                        continue
+                    rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=ordem)
+                    db.session.add(rota_ponto)
+                elif "latitude" in p_data and "longitude" in p_data:
+                    # Create a brand-new ponto from coordinates
+                    novo_ponto = Ponto(
+                        prefeitura_id=user.prefeitura_id,
+                        latitude=p_data["latitude"],
+                        longitude=p_data["longitude"],
+                        apelido=p_data.get("apelido", f"Ponto {ordem}"),
+                    )
+                    db.session.add(novo_ponto)
+                    db.session.flush()
+
+                    rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=novo_ponto.id, ordem=ordem)
+                    db.session.add(rota_ponto)
 
         if "horarios" in data:
             for h_data in data["horarios"]:
@@ -442,13 +449,13 @@ def update_rota(user_id: str, rota_id: str, data: dict[str, Any]) -> Rota:
             rota.nome = data.get("nome")
             updated_fields.append("nome")
 
-        if "motorista_id" in data:
-            rota.motorista_padrao_id = data.get("motorista_id")
-            updated_fields.append("motorista_id")
+        if "motorista_padrao_id" in data:
+            rota.motorista_padrao_id = data.get("motorista_padrao_id")
+            updated_fields.append("motorista_padrao_id")
 
-        if "veiculo_id" in data:
-            rota.veiculo_padrao_id = data.get("veiculo_id")
-            updated_fields.append("veiculo_id")
+        if "veiculo_padrao_id" in data:
+            rota.veiculo_padrao_id = data.get("veiculo_padrao_id")
+            updated_fields.append("veiculo_padrao_id")
 
         db.session.commit()
 

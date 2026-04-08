@@ -244,6 +244,78 @@ def get_motoristas_by_municipio(gestor_id: str):
 
     return motoristas
 
+def update_profile(user_id: str, data: dict[str, Any]) -> User:
+    """
+    Update own profile fields (nome, telefone, receber_notificacoes).
+    Motoristas may also update cnh.
+
+    Raises: NotFoundError, ConflictError, ValidationError, AppError
+    """
+    user = _get_user_or_404(user_id)
+
+    if nome := data.get("nome"):
+        user.nome = nome.strip()
+
+    if telefone := data.get("telefone"):
+        user.telefone = telefone.strip()
+
+    if "receber_notificacoes" in data:
+        user.receber_notificacoes = bool(data["receber_notificacoes"])
+
+    if user.role == UserRole.MOTORISTA and (cnh := data.get("cnh")):
+        cnh = cnh.strip()
+        existing = db.session.query(Motorista).filter_by(cnh=cnh).first()
+        if existing and str(existing.id) != str(user_id):
+            raise ConflictError("CNH já cadastrada para outro motorista", field="cnh")
+        cast(Motorista, user).cnh = cnh
+
+    try:
+        db.session.commit()
+        audit_logger.log_user_action(
+            action="update_profile",
+            user_id=user_id,
+            resource_type="user",
+            resource_id=user_id,
+        )
+        return user
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating profile: {e}", exc_info=True)
+        raise AppError(f"Erro ao atualizar perfil: {str(e)}", 500)
+
+
+def delete_motorista(gestor_id: str, motorista_id: str) -> None:
+    """
+    Remove a motorista account (gestor only, same prefeitura).
+
+    Raises: ForbiddenError, NotFoundError, AppError
+    """
+    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem remover motoristas")
+
+    motorista = db.session.get(User, motorista_id)
+    if not motorista or motorista.role != UserRole.MOTORISTA:
+        raise NotFoundError("Motorista não encontrado")
+
+    if motorista.prefeitura_id != gestor.prefeitura_id:
+        raise ForbiddenError("Proibido remover motoristas de outra prefeitura")
+
+    try:
+        db.session.delete(motorista)
+        db.session.commit()
+        audit_logger.log_user_action(
+            action="delete_motorista",
+            user_id=gestor_id,
+            resource_type="motorista",
+            resource_id=motorista_id,
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting motorista: {e}", exc_info=True)
+        raise AppError(
+            "Não é possível remover este motorista pois ele possui viagens vinculadas", 400
+        )
+
+
 def update_fcm_token(user_id: str, data: dict[str, Any]) -> None:
     """Update the FCM token for a user."""
     user = _get_user_or_404(user_id)

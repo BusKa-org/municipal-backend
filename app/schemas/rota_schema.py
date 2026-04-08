@@ -41,11 +41,15 @@ class RotaCreateRequestSchema(BaseSchema):
 
 
 class RotaUpdateRequestSchema(BaseSchema):
-    """Schema for updating a route."""
+    """Schema for updating a route.
+
+    All fields are optional. Only fields present in the request body are updated.
+    Pass null explicitly to clear an assignment (e.g. motorista_padrao_id=null).
+    """
 
     nome = fields.String()
-    motorista_padrao_id = fields.String(load_default=None)
-    veiculo_padrao_id = fields.String(load_default=None)
+    motorista_padrao_id = fields.String(allow_none=True)
+    veiculo_padrao_id = fields.String(allow_none=True)
 
 
 class RotaInscricaoRequestSchema(BaseSchema):
