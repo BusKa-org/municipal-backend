@@ -6,6 +6,7 @@ from app.schemas.common import BaseSchema
 # Input Schemas (Validation)
 # ==========================================
 
+
 class FcmTokenRequestSchema(BaseSchema):
     """Schema for updating the FCM token."""
 
@@ -25,6 +26,7 @@ class UpdateProfileRequestSchema(BaseSchema):
     telefone = fields.String(required=False)
     receber_notificacoes = fields.Boolean(required=False)
     cnh = fields.String(required=False)
+
 
 class MotoristaCreateRequestSchema(BaseSchema):
     """Schema for creating a new driver."""
@@ -92,8 +94,3 @@ class UserListResponseSchema(BaseSchema):
 
     items = fields.List(fields.Nested(UserResponseSchema()), required=True)
     total = fields.Integer(required=True)
-
-class FcmTokenRequestSchema(BaseSchema):
-    """Schema for updating the FCM token."""
-
-    fcm_token = fields.String(required=True)

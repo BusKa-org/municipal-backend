@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Guardian email ────────────────────────────────────────────────────────────
 
+
 def _send_guardian_consent_email(aluno: Aluno) -> None:
     """Send a consent request email to the aluno's guardian."""
     frontend_url = current_app.config.get("FRONTEND_URL", "http://localhost:8081")
@@ -76,6 +77,7 @@ def _send_guardian_consent_email(aluno: Aluno) -> None:
 
 # ─── Guardian consent ──────────────────────────────────────────────────────────
 
+
 def get_guardian_consent_info(token: str) -> Aluno:
     """Return public aluno info for the guardian consent screen (no auth)."""
     aluno = db.session.query(Aluno).filter_by(guardian_token=token).first()
@@ -115,11 +117,8 @@ def record_guardian_consent(token: str) -> Aluno:
 
         # Notify the gestor(s) of the prefeitura
         from app.models.user import Gestor
-        gestores = (
-            db.session.query(Gestor)
-            .filter_by(prefeitura_id=aluno.prefeitura_id)
-            .all()
-        )
+
+        gestores = db.session.query(Gestor).filter_by(prefeitura_id=aluno.prefeitura_id).all()
         for gestor in gestores:
             NotificacaoService._criar_notificacao_interna(
                 usuario_id=str(gestor.id),
@@ -143,6 +142,7 @@ def record_guardian_consent(token: str) -> Aluno:
 
 
 # ─── Signup ────────────────────────────────────────────────────────────────────
+
 
 def auto_cadastro(data: dict[str, Any]) -> Aluno:
     """

@@ -86,19 +86,12 @@ class OcorrenciaService:
             TipoOcorrencia.OUTRO: "Outro",
         }.get(ocorrencia.tipo, ocorrencia.tipo.value)
 
-        gestores = (
-            db.session.query(Gestor)
-            .filter_by(prefeitura_id=autor.prefeitura_id)
-            .all()
-        )
+        gestores = db.session.query(Gestor).filter_by(prefeitura_id=autor.prefeitura_id).all()
         for gestor in gestores:
             NotificacaoService._criar_notificacao_interna(
                 usuario_id=str(gestor.id),
                 titulo=f"Nova Ocorrência: {tipo_label}",
-                mensagem=(
-                    f"{autor.nome} reportou: "
-                    f"{ocorrencia.descricao or tipo_label}"
-                ),
+                mensagem=(f"{autor.nome} reportou: " f"{ocorrencia.descricao or tipo_label}"),
             )
 
     @staticmethod

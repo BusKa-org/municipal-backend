@@ -27,9 +27,7 @@ class Ocorrencia(db.Model):
         nullable=True,
     )
 
-    tipo = db.Column(
-        db.Enum(TipoOcorrencia, name="tipo_ocorrencia"), nullable=False
-    )
+    tipo = db.Column(db.Enum(TipoOcorrencia, name="tipo_ocorrencia"), nullable=False)
     descricao = db.Column(db.Text, nullable=True)
     status = db.Column(
         db.Enum(StatusOcorrencia, name="status_ocorrencia"),

@@ -244,6 +244,7 @@ def get_motoristas_by_municipio(gestor_id: str):
 
     return motoristas
 
+
 def update_profile(user_id: str, data: dict[str, Any]) -> User:
     """
     Update own profile fields (nome, telefone, receber_notificacoes).

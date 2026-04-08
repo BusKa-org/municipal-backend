@@ -3,8 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from marshmallow import ValidationError as MarshmallowValidationError
-from marshmallow import fields, validates_schema
+from marshmallow import ValidationError as MarshmallowValidationError, fields, validates_schema
 from marshmallow.validate import OneOf, Range
 
 from app.models.enum import StatusViagem
@@ -39,7 +38,7 @@ class DateISOField(fields.Field):
 
         raise MarshmallowValidationError(self.error_messages["invalid"])
 
-    def _serialize(self, value: Any, attr: str, obj: Any, **kwargs) -> str | None:
+    def _serialize(self, value: Any, attr: str | None, obj: Any, **kwargs) -> str | None:
         if value is None:
             return None
         if isinstance(value, date):
@@ -66,7 +65,7 @@ class EnumByNameField(fields.Field):
                 return self.enum_cls[v]
         raise MarshmallowValidationError(f"Valor inválido. Use um de: {', '.join(self.allowed)}")
 
-    def _serialize(self, value: Any, attr: str, obj: Any, **kwargs):
+    def _serialize(self, value: Any, attr: str | None, obj: Any, **kwargs):
         if value is None:
             return None
         return value.name if hasattr(value, "name") else str(value)
@@ -246,7 +245,7 @@ class ViagemResponseSchema(BaseSchema):
                 if ultimo_ponto.ponto:
                     return ultimo_ponto.ponto.apelido
         return None
-    
+
     alunos_embarcados_count = fields.Method("get_alunos_embarcados_count")
 
     def get_alunos_embarcados_count(self, obj):
@@ -254,6 +253,7 @@ class ViagemResponseSchema(BaseSchema):
         if obj.alunos_confirmados:
             return sum(1 for a in obj.alunos_confirmados if a.embarcou)
         return 0
+
 
 class ViagemAgendaAlunoResponseSchema(BaseSchema):
     """
@@ -291,6 +291,7 @@ class ViagemAgendaAlunoResponseSchema(BaseSchema):
         """Total students subscribed to the route."""
         if obj.horario_rota and obj.horario_rota.rota:
             from app.models.rota import RotaAluno
+
             return RotaAluno.query.filter_by(rota_id=obj.horario_rota.rota.id).count()
         return 0
 

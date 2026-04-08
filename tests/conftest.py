@@ -8,8 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import create_app
 from app.models.base import db
-from app.models.enum import DiaDaSemana, SentidoViagem, StatusViagem, UserStatus
-from app.models.rota import HorarioRota, DiasOperacao
+from app.models.enum import DiaDaSemana, StatusViagem, UserStatus
 from tests.factories.geo_factory import PontoFactory
 from tests.factories.onibus_factory import OnibusFactory
 from tests.factories.prefeitura_factory import PrefeituraFactory
@@ -240,6 +239,7 @@ def dia_operacao(_db, horario_rota):
     _db.session.add(d)
     _db.session.commit()
     return d
+
 
 @pytest.fixture()
 def dia_operacao_quarta(_db, horario_rota):

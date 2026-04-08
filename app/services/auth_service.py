@@ -95,12 +95,14 @@ def login_user(data: dict[str, Any]) -> dict[str, Any]:
             success=False,
             details={"reason": "account_disabled"},
         )
-        raise ForbiddenError(
-            "Sua conta está desativada. Entre em contato com o gestor municipal."
-        )
+        raise ForbiddenError("Sua conta está desativada. Entre em contato com o gestor municipal.")
 
     # Block minors whose guardian has not yet consented
-    if user.role == UserRole.ALUNO and hasattr(user, "status") and user.status == UserStatus.PENDING_SIGNUP:
+    if (
+        user.role == UserRole.ALUNO
+        and hasattr(user, "status")
+        and user.status == UserStatus.PENDING_SIGNUP
+    ):
         aluno = Aluno.query.get(str(user.id))
         if aluno and aluno.email_responsavel and not aluno.guardian_consented_at:
             audit_logger.log_auth(

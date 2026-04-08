@@ -5,6 +5,8 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract, viagem_contract
+from app.api.contracts.viagem_parsers import parsers
+from app.core.exceptions import ValidationError
 from app.schemas.ponto_schema import (
     PontoFlatListResponseSchema,
 )
@@ -22,7 +24,6 @@ from app.schemas.viagem_schema import (
     ViagemResponseSchema,
 )
 from app.services import viagens_service
-from app.api.contracts.viagem_parsers import parsers
 
 api = Namespace("viagens", description="Execução de Viagens")
 

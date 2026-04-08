@@ -13,7 +13,6 @@ from app.core.exceptions import (
 )
 from app.core.transaction import transactional
 from app.extensions import scheduler
-from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import DiaDaSemana, SentidoViagem, StatusViagem, UserRole
 from app.models.geo import Ponto

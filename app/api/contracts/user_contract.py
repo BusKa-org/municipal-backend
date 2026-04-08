@@ -62,7 +62,7 @@ def register_models(api):
             "message": fields.String(description="Mensagem de sucesso"),
         },
     )
-    
+
     fcm_token_request = api.model(
         "FcmTokenRequest",
         {

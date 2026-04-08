@@ -16,6 +16,7 @@ class RotaPontoAddRequestSchema(BaseSchema):
     ponto_id = fields.String(required=True)
     ordem = fields.Integer(required=True)
 
+
 class RotaPontosAddRequestSchema(BaseSchema):
     """Schema for adding points to a route."""
 

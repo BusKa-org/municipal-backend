@@ -36,8 +36,12 @@ class AlunoSelfSignupRequestSchema(BaseSchema):
     data_nascimento = fields.Date(required=True, format="%Y-%m-%d")
 
     # Guardian (required when minor, optional for adults)
-    nome_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    cpf_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
+    nome_responsavel = fields.String(
+        load_default=None, allow_none=True, validate=validate_optional_string
+    )
+    cpf_responsavel = fields.String(
+        load_default=None, allow_none=True, validate=validate_optional_cpf
+    )
     email_responsavel = fields.Email(load_default=None, allow_none=True)
 
     endereco_casa = fields.Nested(EnderecoInputSchema, required=True)
@@ -50,8 +54,12 @@ class AlunoMeUpdateRequestSchema(BaseSchema):
     telefone = fields.String(load_default=None, allow_none=True, validate=validate_optional_phone)
 
     matricula = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    nome_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_string)
-    cpf_responsavel = fields.String(load_default=None, allow_none=True, validate=validate_optional_cpf)
+    nome_responsavel = fields.String(
+        load_default=None, allow_none=True, validate=validate_optional_string
+    )
+    cpf_responsavel = fields.String(
+        load_default=None, allow_none=True, validate=validate_optional_cpf
+    )
 
     endereco_casa = fields.Nested(EnderecoInputSchema, load_default=None, allow_none=True)
 

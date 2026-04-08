@@ -18,10 +18,10 @@ from app.utils.scheduler_setup import init_scheduler
 
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
-from .api.controllers.ocorrencia_controller import api as ocorrencias_ns
 from .api.controllers.dashboard_controller import api as dashboard_ns
 from .api.controllers.instituicao_controller import api as inst_ns
 from .api.controllers.notificacao_controller import api as notificacoes_ns
+from .api.controllers.ocorrencia_controller import api as ocorrencias_ns
 from .api.controllers.onibus_controller import api as onibus_ns
 from .api.controllers.pontos_controller import api as pontos_ns
 from .api.controllers.rotas_controller import api as rotas_ns
@@ -29,8 +29,8 @@ from .api.controllers.routing_controller import api as routing_ns
 from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
 from .core.config import Settings
-from .models.base import db
 from .models import Ocorrencia  # noqa: F401 — registers table with SQLAlchemy
+from .models.base import db
 from .utils import (
     check_production_security,
     setup_logging,

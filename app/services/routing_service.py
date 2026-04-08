@@ -76,9 +76,7 @@ def get_route(
     route = (data.get("routes") or [None])[0]
 
     if not route:
-        raise AppError(
-            "Nenhuma rota encontrada entre os pontos informados", 404, "NO_ROUTE_FOUND"
-        )
+        raise AppError("Nenhuma rota encontrada entre os pontos informados", 404, "NO_ROUTE_FOUND")
 
     # GeoJSON coordinates are [longitude, latitude]; we invert to {latitude, longitude}.
     raw_coords: list[list[float]] = route.get("geometry", {}).get("coordinates", [])
@@ -94,6 +92,7 @@ def get_route(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _validate_coordinates(
     origin_lat: float,

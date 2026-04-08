@@ -40,10 +40,14 @@ def register_models(api):
             "telefone": fields.String(required=False, description="Telefone"),
             "matricula": fields.String(required=True, description="Matrícula escolar"),
             "instituicao_id": fields.String(required=True, description="UUID da instituição"),
-            "data_nascimento": fields.String(required=True, description="Data de nascimento (YYYY-MM-DD)"),
+            "data_nascimento": fields.String(
+                required=True, description="Data de nascimento (YYYY-MM-DD)"
+            ),
             "nome_responsavel": fields.String(required=False, description="Nome do responsável"),
             "cpf_responsavel": fields.String(required=False, description="CPF do responsável"),
-            "email_responsavel": fields.String(required=False, description="E-mail do responsável (obrigatório para menores)"),
+            "email_responsavel": fields.String(
+                required=False, description="E-mail do responsável (obrigatório para menores)"
+            ),
             "endereco_casa": fields.Nested(endereco_input, required=True),
         },
     )
@@ -71,14 +75,18 @@ def register_models(api):
             "matricula": fields.String(description="Matrícula"),
             "escola": fields.String(description="Nome da escola"),
             "instituicao_id": fields.String(description="UUID da instituição"),
-            "status": fields.String(description="Status (PENDING_SIGNUP, PENDING_APPROVAL, ACTIVE, DISABLED)"),
+            "status": fields.String(
+                description="Status (PENDING_SIGNUP, PENDING_APPROVAL, ACTIVE, DISABLED)"
+            ),
             "signup_completed_at": fields.DateTime(description="Data de conclusão do cadastro"),
             "data_nascimento": fields.String(description="Data de nascimento"),
             "is_minor": fields.Boolean(description="Menor de idade"),
             "email_responsavel": fields.String(description="E-mail do responsável"),
             "nome_responsavel": fields.String(description="Nome do responsável"),
             "cpf_responsavel": fields.String(description="CPF do responsável"),
-            "guardian_consented_at": fields.DateTime(description="Data/hora do consentimento do responsável"),
+            "guardian_consented_at": fields.DateTime(
+                description="Data/hora do consentimento do responsável"
+            ),
         },
     )
 

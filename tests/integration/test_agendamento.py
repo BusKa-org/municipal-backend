@@ -1,17 +1,16 @@
 """Testes de integração para o gerador de viagens em lote."""
 
 import pytest
-from datetime import time
 
-from app.models.enum import DiaDaSemana, SentidoViagem, StatusViagem, UserRole
-from app.models.rota import DiasOperacao, HorarioRota, Rota
-from app.models.user import User
+from app.models.enum import StatusViagem
 from app.models.viagem import Viagem
 from app.services.viagens_service import gerar_viagens_periodo
 
 
 @pytest.mark.integration
-def test_gerar_viagens_periodo_cria_viagens_corretamente(gestor, prefeitura, rota, horario_rota, dia_operacao, dia_operacao_quarta):
+def test_gerar_viagens_periodo_cria_viagens_corretamente(
+    gestor, prefeitura, rota, horario_rota, dia_operacao, dia_operacao_quarta
+):
     """
     Garante que a função central gera as viagens apenas para os dias da semana
     corretos e não cria viagens duplicadas se for chamada mais de uma vez.

@@ -4,6 +4,7 @@ from flask import Response, request
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import auth_contract
+from app.core.exceptions import ValidationError
 from app.schemas.auth_schema import LoginRequestSchema, TokenResponseSchema
 from app.services import auth_service
 

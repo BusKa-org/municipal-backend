@@ -1,15 +1,19 @@
 """Institution service - schools and universities management."""
 
+import logging
 from typing import Any
 
-from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from sqlalchemy import or_
 
+from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from app.models.base import db
 from app.models.enum import TipoInstituicao, UserRole
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.prefeitura import Prefeitura
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
+
 
 def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
     """
@@ -91,12 +95,8 @@ def list_all_public(filters: dict[str, Any]) -> list[Instituicao]:
                 Prefeitura.nome.ilike(search_term),
             )
         )
-    
-    query = (
-        query
-        .order_by(Instituicao.nome.asc())
-        .limit(limit)
-    )
+
+    query = query.order_by(Instituicao.nome.asc()).limit(limit)
 
     return query.all()
 

@@ -5,14 +5,14 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import instituicao_contract
+from app.api.contracts.instituicao_parsers import parsers
 from app.schemas.instituicao_schema import (
     InstituicaoCreateRequestSchema,
+    InstituicaoListQuerySchema,
     InstituicaoListResponseSchema,
     InstituicaoResponseSchema,
-    InstituicaoListQuerySchema,
 )
 from app.services import instituicao_service
-from app.api.contracts.instituicao_parsers import parsers
 
 api = Namespace("instituicoes", description="Gestão de Escolas e Instituições de Ensino")
 
@@ -24,6 +24,7 @@ instituicao_create_request_schema = InstituicaoCreateRequestSchema()
 instituicao_response_schema = InstituicaoResponseSchema()
 instituicao_list_response_schema = InstituicaoListResponseSchema()
 instituicao_list_query_schema = InstituicaoListQuerySchema()
+
 
 @api.route("/public")
 class InstituicaoPublicListResource(Resource):

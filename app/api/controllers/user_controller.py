@@ -35,6 +35,7 @@ fcm_token_request_schema = FcmTokenRequestSchema()
 fcm_token_response_schema = FcmTokenResponseSchema()
 update_profile_schema = UpdateProfileRequestSchema()
 
+
 @api.route("")
 class UserList(Resource):
     @api.doc("list_users", responses={200: "Success", 403: "Forbidden - not a gestor"})
@@ -150,7 +151,6 @@ class MotoristaCreateResource(Resource):
             200,
         )
 
-
     @api.doc(
         "create_motorista",
         responses={
@@ -208,4 +208,9 @@ class UserFcmToken(Resource):
         payload = fcm_token_request_schema.load(data)
 
         user_service.update_fcm_token(current_user_id, payload)
-        return fcm_token_response_schema.dump({"message": "Token de notificação atualizado com sucesso"}), 200
+        return (
+            fcm_token_response_schema.dump(
+                {"message": "Token de notificação atualizado com sucesso"}
+            ),
+            200,
+        )

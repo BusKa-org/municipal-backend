@@ -64,19 +64,16 @@ class NotificacaoService:
         # Motoristas can broadcast to their own active trip only
         if user.role == UserRole.MOTORISTA:
             if not viagem_id:
-                raise ForbiddenError(
-                    "Motoristas devem informar viagem_id para enviar avisos."
-                )
+                raise ForbiddenError("Motoristas devem informar viagem_id para enviar avisos.")
             viagem = db.session.get(Viagem, viagem_id)
             if not viagem or str(viagem.motorista_id) != str(user_id):
                 raise ForbiddenError(
                     "Você só pode enviar avisos para viagens que você está conduzindo."
                 )
             from app.models.enum import StatusViagem
+
             if viagem.status != StatusViagem.EM_ANDAMENTO:
-                raise ForbiddenError(
-                    "Você só pode enviar avisos durante uma viagem em andamento."
-                )
+                raise ForbiddenError("Você só pode enviar avisos durante uma viagem em andamento.")
         elif user.role != UserRole.GESTOR:
             raise ForbiddenError("Apenas gestores ou motoristas podem enviar comunicados.")
 

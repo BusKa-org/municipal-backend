@@ -639,6 +639,9 @@ jobs:
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          MUNICIPIOS_CSV_PATH: ${{ secrets.MUNICIPIOS_CSV_PATH }}
+          IES_CSV_PATH: ${{ secrets.IES_CSV_PATH }}
+          ESCOLAS_CSV_PATH: ${{ secrets.ESCOLAS_CSV_PATH }}
         run: uv run python seed.py
 
       - name: Deploy application containers

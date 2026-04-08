@@ -3,6 +3,7 @@ from marshmallow import fields, validate
 from app.schemas.common import BaseSchema
 from app.schemas.endereco_schema import EnderecoResponseSchema
 
+
 class InstituicaoCreateRequestSchema(BaseSchema):
     nome = fields.String(required=True)
     cnpj = fields.String(required=True)
@@ -28,9 +29,10 @@ class InstituicaoResponseSchema(BaseSchema):
     nome = fields.String(dump_default=None)
     cnpj = fields.String(dump_default=None)
     tipo = fields.Method("get_tipo")
+
     def get_tipo(self, obj):
         return str(obj.tipo.value) if hasattr(obj.tipo, "value") else str(obj.tipo)
-        
+
     sigla = fields.String(dump_default=None)
     uf = fields.String(dump_default=None)
     endereco = fields.Nested(EnderecoResponseSchema, attribute="ponto.endereco")
@@ -41,6 +43,7 @@ class InstituicaoResponseSchema(BaseSchema):
 class InstituicaoListResponseSchema(BaseSchema):
     items = fields.List(fields.Nested(InstituicaoResponseSchema()), required=True)
     total = fields.Integer(required=True)
+
 
 class InstituicaoListQuerySchema(BaseSchema):
     search = fields.String(required=False)
