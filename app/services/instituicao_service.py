@@ -1,16 +1,15 @@
 """Institution service - schools and universities management."""
 
-import logging
 from typing import Any
 
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
+from sqlalchemy import or_
+
 from app.models.base import db
 from app.models.enum import TipoInstituicao, UserRole
 from app.models.geo import Endereco, Instituicao, Ponto
+from app.models.prefeitura import Prefeitura
 from app.models.user import User
-
-logger = logging.getLogger(__name__)
-
 
 def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
     """
@@ -72,12 +71,34 @@ def list_all(gestor_id: str) -> list[Instituicao]:
     if not user:
         raise NotFoundError("Usuário não encontrado")
 
-    return Instituicao.query.join(Ponto).filter(Ponto.prefeitura_id == user.prefeitura_id).all()
+    return Instituicao.query.filter(Instituicao.prefeitura_id == user.prefeitura_id).all()
 
 
-def list_all_public() -> list[Instituicao]:
+def list_all_public(filters: dict[str, Any]) -> list[Instituicao]:
     """List all institutions (public - for student registration)."""
-    return Instituicao.query.all()
+    query = Instituicao.query.join(Prefeitura)
+
+    search = filters.get("search")
+    limit = filters.get("limit", 10)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                Instituicao.nome.ilike(search_term),
+                Instituicao.sigla.ilike(search_term),
+                Instituicao.uf.ilike(search_term),
+                Prefeitura.nome.ilike(search_term),
+            )
+        )
+    
+    query = (
+        query
+        .order_by(Instituicao.nome.asc())
+        .limit(limit)
+    )
+
+    return query.all()
 
 
 def get_by_id(gestor_id: str, inst_id: str) -> Instituicao:

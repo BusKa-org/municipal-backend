@@ -34,7 +34,7 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
     if not instituicao:
         raise NotFoundError("Instituição não encontrada")
 
-    prefeitura_id = instituicao.ponto.prefeitura_id
+    prefeitura_id = instituicao.prefeitura_id
     if not prefeitura_id:
         raise NotFoundError("Prefeitura não encontrada")
 

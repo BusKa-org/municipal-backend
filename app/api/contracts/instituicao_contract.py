@@ -34,6 +34,8 @@ def register_models(api):
         {
             "id": fields.String(description="UUID"),
             "nome": fields.String(description="Nome"),
+            "sigla": fields.String(description="Sigla"),
+            "uf": fields.String(description="UF"),
             "tipo": fields.String(description="Tipo"),
             "endereco": fields.String(description="Endereço formatado"),
         },

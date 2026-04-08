@@ -2,12 +2,12 @@ import enum
 
 
 class TipoInstituicao(enum.Enum):
-    INSTITUTO_FEDERAL = "INSTITUTO_FEDERAL"
-    UNIVERSIDADE_PUBLICA = "UNIVERSIDADE_PUBLICA"
-    UNIVERSIDADE_PRIVADA = "UNIVERSIDADE_PRIVADA"
-    ESCOLA_PUBLICA = "ESCOLA_PUBLICA"
-    ESCOLA_PRIVADA = "ESCOLA_PRIVADA"
-    ESCOLA_COMUNITARIA = "ESCOLA_COMUNITARIA"
+    INSTITUTO_FEDERAL = "Instituto Federal"
+    UNIVERSIDADE_PUBLICA = "Universidade Pública"
+    UNIVERSIDADE_PRIVADA = "Universidade Privada"
+    ESCOLA_PUBLICA = "Escola Pública"
+    ESCOLA_PRIVADA = "Escola Privada"
+    ESCOLA_COMUNITARIA = "Escola Comunitária"
 
 
 class DiaDaSemana(enum.Enum):

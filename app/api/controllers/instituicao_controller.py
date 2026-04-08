@@ -9,8 +9,10 @@ from app.schemas.instituicao_schema import (
     InstituicaoCreateRequestSchema,
     InstituicaoListResponseSchema,
     InstituicaoResponseSchema,
+    InstituicaoListQuerySchema,
 )
 from app.services import instituicao_service
+from app.api.contracts.instituicao_parsers import parsers
 
 api = Namespace("instituicoes", description="Gestão de Escolas e Instituições de Ensino")
 
@@ -21,14 +23,17 @@ models = instituicao_contract.register_models(api)
 instituicao_create_request_schema = InstituicaoCreateRequestSchema()
 instituicao_response_schema = InstituicaoResponseSchema()
 instituicao_list_response_schema = InstituicaoListResponseSchema()
-
+instituicao_list_query_schema = InstituicaoListQuerySchema()
 
 @api.route("/public")
 class InstituicaoPublicListResource(Resource):
     @api.doc("list_instituicoes_public")
+    @api.expect(parsers["instituicao_list"])
     @api.response(200, "Success", models["instituicao_list_response"])
     def get(self) -> tuple[dict[str, Any], int]:
-        instituicoes = instituicao_service.list_all_public()
+        filters = instituicao_list_query_schema.load(request.args.to_dict())
+        instituicoes = instituicao_service.list_all_public(filters)
+
         return (
             instituicao_list_response_schema.dump(
                 {

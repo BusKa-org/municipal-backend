@@ -63,16 +63,46 @@ class Instituicao(db.Model):
     __tablename__ = "instituicao"
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    nome = db.Column(db.String(150), nullable=False)
+
+    fonte = db.Column(db.String(20), nullable=False)  # "EMEC" | "INEP" | "MANUAL"
+    codigo_externo = db.Column(db.String(30), nullable=False)
+
+    nome = db.Column(db.String(200), nullable=False)
+    sigla = db.Column(db.String(40))
     cnpj = db.Column(db.String(20))
 
     tipo = db.Column(
         db.Enum(TipoInstituicao, name="tipo_instituicao"),
-        default=TipoInstituicao.ESCOLA_PUBLICA,
         nullable=False,
     )
 
-    ponto_id = db.Column(
-        UUID(as_uuid=True), db.ForeignKey("ponto.id", ondelete="CASCADE"), nullable=False
+    uf = db.Column(db.String(2), nullable=False, index=True)
+
+    prefeitura_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("prefeitura.id"),
+        nullable=False,
+        index=True,
     )
+
+    prefeitura = db.relationship("Prefeitura", lazy="joined")
+
+    situacao = db.Column(db.String(80))
+    categoria_administrativa = db.Column(db.String(80))
+    organizacao_academica = db.Column(db.String(80))
+
+    ponto_id = db.Column(
+        UUID(as_uuid=True),
+        db.ForeignKey("ponto.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+
     ponto = relationship("Ponto", back_populates="instituicao")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "fonte",
+            "codigo_externo",
+            name="uq_instituicao_fonte_codigo_externo",
+        ),
+    )
