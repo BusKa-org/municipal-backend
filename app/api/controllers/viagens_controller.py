@@ -22,6 +22,7 @@ from app.schemas.viagem_schema import (
     ViagemResponseSchema,
 )
 from app.services import viagens_service
+from app.api.contracts.viagem_parsers import parsers
 
 api = Namespace("viagens", description="Execução de Viagens")
 
@@ -106,6 +107,7 @@ class ViagemConfirmacaoResource(Resource):
 @api.route("/")
 class ViagemListResource(Resource):
     @api.doc("list_all_viagens")
+    @api.expect(parsers["viagem_list"])
     @api.response(200, "Success", models["viagem_list_response"])
     @jwt_required()
     def get(self) -> tuple[dict[str, Any], int]:

@@ -30,11 +30,12 @@ def setup_security_headers(app: Flask) -> None:
         # Note: Adjust as needed for your frontend requirements
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "img-src 'self' data: https://tile.openstreetmap.org https:; "
             "font-src 'self' data:; "
-            "connect-src 'self'"
+            "connect-src 'self' https:; "
+            "frame-ancestors 'self'; "
         )
 
         # Prevent MIME type sniffing

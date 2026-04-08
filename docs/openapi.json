@@ -266,20 +266,6 @@
       }
     },
     "/v1/instituicoes/": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/InstituicaoListResponse"
-            }
-          }
-        },
-        "operationId": "list_instituicoes",
-        "tags": [
-          "instituicoes"
-        ]
-      },
       "post": {
         "responses": {
           "201": {
@@ -301,6 +287,20 @@
             }
           }
         ],
+        "tags": [
+          "instituicoes"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/InstituicaoListResponse"
+            }
+          }
+        },
+        "operationId": "list_instituicoes",
         "tags": [
           "instituicoes"
         ]
@@ -331,6 +331,17 @@
           "type": "string"
         }
       ],
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "delete_instituicao",
+        "tags": [
+          "instituicoes"
+        ]
+      },
       "get": {
         "responses": {
           "200": {
@@ -344,32 +355,9 @@
         "tags": [
           "instituicoes"
         ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "delete_instituicao",
-        "tags": [
-          "instituicoes"
-        ]
       }
     },
     "/v1/notificacoes/": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Lista as notificações do usuário logado",
-        "operationId": "listar_minhas_notificacoes",
-        "tags": [
-          "notificacoes"
-        ]
-      },
       "post": {
         "responses": {
           "200": {
@@ -388,6 +376,18 @@
             }
           }
         ],
+        "tags": [
+          "notificacoes"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Lista as notificações do usuário logado",
+        "operationId": "listar_minhas_notificacoes",
         "tags": [
           "notificacoes"
         ]
@@ -416,21 +416,6 @@
       }
     },
     "/v1/onibus/": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/OnibusListResponse"
-            }
-          }
-        },
-        "summary": "Lista a frota da prefeitura",
-        "operationId": "list_onibus",
-        "tags": [
-          "onibus"
-        ]
-      },
       "post": {
         "responses": {
           "201": {
@@ -455,6 +440,21 @@
         "tags": [
           "onibus"
         ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/OnibusListResponse"
+            }
+          }
+        },
+        "summary": "Lista a frota da prefeitura",
+        "operationId": "list_onibus",
+        "tags": [
+          "onibus"
+        ]
       }
     },
     "/v1/onibus/{id}": {
@@ -466,6 +466,18 @@
           "type": "string"
         }
       ],
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Remove um ônibus",
+        "operationId": "delete_onibus",
+        "tags": [
+          "onibus"
+        ]
+      },
       "get": {
         "responses": {
           "200": {
@@ -480,35 +492,9 @@
         "tags": [
           "onibus"
         ]
-      },
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Remove um ônibus",
-        "operationId": "delete_onibus",
-        "tags": [
-          "onibus"
-        ]
       }
     },
     "/v1/pontos/": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PontoListResponse"
-            }
-          }
-        },
-        "operationId": "list_pontos",
-        "tags": [
-          "pontos"
-        ]
-      },
       "post": {
         "responses": {
           "201": {
@@ -532,6 +518,20 @@
         "tags": [
           "pontos"
         ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PontoListResponse"
+            }
+          }
+        },
+        "operationId": "list_pontos",
+        "tags": [
+          "pontos"
+        ]
       }
     },
     "/v1/pontos/{id}": {
@@ -543,20 +543,6 @@
           "type": "string"
         }
       ],
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PontoResponse"
-            }
-          }
-        },
-        "operationId": "get_ponto",
-        "tags": [
-          "pontos"
-        ]
-      },
       "delete": {
         "responses": {
           "200": {
@@ -591,23 +577,23 @@
         "tags": [
           "pontos"
         ]
-      }
-    },
-    "/v1/rotas/": {
+      },
       "get": {
         "responses": {
           "200": {
             "description": "Success",
             "schema": {
-              "$ref": "#/definitions/RotaListResponse"
+              "$ref": "#/definitions/PontoResponse"
             }
           }
         },
-        "operationId": "list_rotas",
+        "operationId": "get_ponto",
         "tags": [
-          "rotas"
+          "pontos"
         ]
-      },
+      }
+    },
+    "/v1/rotas/": {
       "post": {
         "responses": {
           "201": {
@@ -628,6 +614,20 @@
             }
           }
         ],
+        "tags": [
+          "rotas"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/RotaListResponse"
+            }
+          }
+        },
+        "operationId": "list_rotas",
         "tags": [
           "rotas"
         ]
@@ -658,20 +658,6 @@
           "type": "string"
         }
       ],
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/RotaDetailResponse"
-            }
-          }
-        },
-        "operationId": "get_rota",
-        "tags": [
-          "rotas"
-        ]
-      },
       "delete": {
         "responses": {
           "200": {
@@ -703,6 +689,20 @@
         "tags": [
           "rotas"
         ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/RotaDetailResponse"
+            }
+          }
+        },
+        "operationId": "get_rota",
+        "tags": [
+          "rotas"
+        ]
       }
     },
     "/v1/rotas/{id}/horarios": {
@@ -714,20 +714,6 @@
           "type": "string"
         }
       ],
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/RotaHorarioListResponse"
-            }
-          }
-        },
-        "operationId": "list_rota_horarios",
-        "tags": [
-          "rotas"
-        ]
-      },
       "post": {
         "responses": {
           "201": {
@@ -748,6 +734,20 @@
             }
           }
         ],
+        "tags": [
+          "rotas"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/RotaHorarioListResponse"
+            }
+          }
+        },
+        "operationId": "list_rota_horarios",
         "tags": [
           "rotas"
         ]
@@ -794,20 +794,6 @@
           "type": "string"
         }
       ],
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PontoFlatListResponse"
-            }
-          }
-        },
-        "operationId": "list_rota_pontos",
-        "tags": [
-          "rotas"
-        ]
-      },
       "post": {
         "responses": {
           "200": {
@@ -827,6 +813,71 @@
         ],
         "tags": [
           "rotas"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PontoFlatListResponse"
+            }
+          }
+        },
+        "operationId": "list_rota_pontos",
+        "tags": [
+          "rotas"
+        ]
+      }
+    },
+    "/v1/routing/route": {
+      "get": {
+        "responses": {
+          "503": {
+            "description": "Serviço de roteamento indisponível"
+          },
+          "404": {
+            "description": "Nenhuma rota encontrada"
+          },
+          "400": {
+            "description": "Parâmetros inválidos ou ausentes"
+          },
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/RouteResponse"
+            }
+          }
+        },
+        "operationId": "get_route",
+        "parameters": [
+          {
+            "description": "Latitude da origem",
+            "name": "origin_lat",
+            "type": "string",
+            "in": "query"
+          },
+          {
+            "description": "Longitude da origem",
+            "name": "origin_lng",
+            "type": "string",
+            "in": "query"
+          },
+          {
+            "description": "Latitude do destino",
+            "name": "dest_lat",
+            "type": "string",
+            "in": "query"
+          },
+          {
+            "description": "Longitude do destino",
+            "name": "dest_lng",
+            "type": "string",
+            "in": "query"
+          }
+        ],
+        "tags": [
+          "routing"
         ]
       }
     },
@@ -967,36 +1018,6 @@
       }
     },
     "/v1/users/motoristas": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/UserListResponse"
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - not a gestor"
-          }
-        },
-        "summary": "Lista motoristas do mesmo município do Gestor",
-        "operationId": "list_motoristas",
-        "parameters": [
-          {
-            "name": "X-Fields",
-            "in": "header",
-            "type": "string",
-            "format": "mask",
-            "description": "An optional fields mask"
-          }
-        ],
-        "tags": [
-          "users"
-        ]
-      },
       "post": {
         "responses": {
           "201": {
@@ -1025,6 +1046,36 @@
             "schema": {
               "$ref": "#/definitions/MotoristaCreateRequest"
             }
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/UserListResponse"
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - not a gestor"
+          }
+        },
+        "summary": "Lista motoristas do mesmo município do Gestor",
+        "operationId": "list_motoristas",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
           }
         ],
         "tags": [
@@ -1065,20 +1116,6 @@
       }
     },
     "/v1/viagens/": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/ViagemListResponse"
-            }
-          }
-        },
-        "operationId": "list_all_viagens",
-        "tags": [
-          "viagens"
-        ]
-      },
       "post": {
         "responses": {
           "201": {
@@ -1097,6 +1134,52 @@
             "schema": {
               "$ref": "#/definitions/ViagemCreateRequest"
             }
+          }
+        ],
+        "tags": [
+          "viagens"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ViagemListResponse"
+            }
+          }
+        },
+        "operationId": "list_all_viagens",
+        "parameters": [
+          {
+            "name": "data_inicio",
+            "in": "query",
+            "type": "string",
+            "description": "Data inicial (YYYY-MM-DD)"
+          },
+          {
+            "name": "data_fim",
+            "in": "query",
+            "type": "string",
+            "description": "Data final (YYYY-MM-DD)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "type": "string",
+            "description": "Status da viagem"
+          },
+          {
+            "name": "motorista_id",
+            "in": "query",
+            "type": "string",
+            "description": "UUID do motorista"
+          },
+          {
+            "name": "rota_id",
+            "in": "query",
+            "type": "string",
+            "description": "UUID da rota"
           }
         ],
         "tags": [
@@ -1261,18 +1344,6 @@
           "type": "string"
         }
       ],
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "(Aluno/Motorista) Obtém a localização atual do ônibus (viagem em andamento)",
-        "operationId": "obter_localizacao_onibus",
-        "tags": [
-          "viagens"
-        ]
-      },
       "post": {
         "responses": {
           "200": {
@@ -1291,6 +1362,18 @@
             }
           }
         ],
+        "tags": [
+          "viagens"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "(Aluno/Motorista) Obtém a localização atual do ônibus (viagem em andamento)",
+        "operationId": "obter_localizacao_onibus",
         "tags": [
           "viagens"
         ]
@@ -1407,6 +1490,10 @@
     {
       "name": "pontos",
       "description": "Gestão de Infraestrutura Geográfica"
+    },
+    {
+      "name": "routing",
+      "description": "Roteamento e Cálculo de Rotas"
     },
     {
       "name": "viagens",
@@ -1740,21 +1827,6 @@
       },
       "type": "object"
     },
-    "OnibusListResponse": {
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/OnibusResponse"
-          }
-        },
-        "total": {
-          "type": "integer",
-          "description": "Total de ônibus"
-        }
-      },
-      "type": "object"
-    },
     "OnibusResponse": {
       "properties": {
         "id": {
@@ -1776,6 +1848,21 @@
         "ano": {
           "type": "integer",
           "description": "Ano"
+        }
+      },
+      "type": "object"
+    },
+    "OnibusListResponse": {
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/OnibusResponse"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "description": "Total de ônibus"
         }
       },
       "type": "object"
@@ -1856,21 +1943,6 @@
       },
       "type": "object"
     },
-    "RotaListResponse": {
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/RotaResponse"
-          }
-        },
-        "total": {
-          "type": "integer",
-          "description": "Total de rotas"
-        }
-      },
-      "type": "object"
-    },
     "RotaResponse": {
       "properties": {
         "id": {
@@ -1900,6 +1972,21 @@
         "municipio_uf": {
           "type": "string",
           "description": "UF do município"
+        }
+      },
+      "type": "object"
+    },
+    "RotaListResponse": {
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RotaResponse"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "description": "Total de rotas"
         }
       },
       "type": "object"
@@ -1956,21 +2043,6 @@
       },
       "type": "object"
     },
-    "RotaHorarioListResponse": {
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/RotaHorarioResponse"
-          }
-        },
-        "total": {
-          "type": "integer",
-          "description": "Total de horários"
-        }
-      },
-      "type": "object"
-    },
     "RotaHorarioResponse": {
       "properties": {
         "id": {
@@ -1991,6 +2063,21 @@
           "items": {
             "type": "string"
           }
+        }
+      },
+      "type": "object"
+    },
+    "RotaHorarioListResponse": {
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RotaHorarioResponse"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "description": "Total de horários"
         }
       },
       "type": "object"
@@ -2095,21 +2182,6 @@
       },
       "type": "object"
     },
-    "PontoListResponse": {
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/PontoResponse"
-          }
-        },
-        "total": {
-          "type": "integer",
-          "description": "Total de pontos"
-        }
-      },
-      "type": "object"
-    },
     "PontoResponse": {
       "properties": {
         "id": {
@@ -2139,12 +2211,60 @@
       },
       "type": "object"
     },
+    "PontoListResponse": {
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PontoResponse"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "description": "Total de pontos"
+        }
+      },
+      "type": "object"
+    },
     "PontoUpdateRequest": {
       "properties": {
         "apelido": {
           "type": "string",
           "description": "Nome do ponto (ex: Escola A)"
         },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude"
+        }
+      },
+      "type": "object"
+    },
+    "RouteResponse": {
+      "properties": {
+        "coordinates": {
+          "type": "array",
+          "description": "Polyline ordenada do ponto de origem ao destino",
+          "items": {
+            "$ref": "#/definitions/RouteCoordinate"
+          }
+        },
+        "distance_meters": {
+          "type": "number",
+          "description": "Distância total em metros"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "description": "Duração estimada em segundos"
+        }
+      },
+      "type": "object"
+    },
+    "RouteCoordinate": {
+      "properties": {
         "latitude": {
           "type": "number",
           "description": "Latitude"
@@ -2279,21 +2399,6 @@
       },
       "type": "object"
     },
-    "ViagemListResponse": {
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ViagemResponse"
-          }
-        },
-        "total": {
-          "type": "integer",
-          "description": "Total de viagens"
-        }
-      },
-      "type": "object"
-    },
     "ViagemResponse": {
       "properties": {
         "id": {
@@ -2331,6 +2436,21 @@
         "veiculo_id": {
           "type": "string",
           "description": "UUID do veículo"
+        }
+      },
+      "type": "object"
+    },
+    "ViagemListResponse": {
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ViagemResponse"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "description": "Total de viagens"
         }
       },
       "type": "object"

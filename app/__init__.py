@@ -24,6 +24,7 @@ from .api.controllers.notificacao_controller import api as notificacoes_ns
 from .api.controllers.onibus_controller import api as onibus_ns
 from .api.controllers.pontos_controller import api as pontos_ns
 from .api.controllers.rotas_controller import api as rotas_ns
+from .api.controllers.routing_controller import api as routing_ns
 from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
 from .core.config import Settings
@@ -164,6 +165,7 @@ Inclua o header: `Authorization: Bearer <seu_token>`
     api.add_namespace(onibus_ns, path="/v1/onibus")
     api.add_namespace(rotas_ns, path="/v1/rotas")
     api.add_namespace(pontos_ns, path="/v1/pontos")
+    api.add_namespace(routing_ns, path="/v1/routing")
     api.add_namespace(viagem_ns, path="/v1/viagens")
     api.add_namespace(inst_ns, path="/v1/instituicoes")
     api.add_namespace(alunos_ns, path="/v1/alunos")
