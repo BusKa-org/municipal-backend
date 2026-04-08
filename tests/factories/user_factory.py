@@ -45,10 +45,8 @@ class AlunoFactory(factory.Factory):
     matricula = factory.Faker("random_int", min=100000, max=999999)
     instituicao_id = None
     ponto_casa_id = None
-    nome_pai = factory.Faker("name", locale="pt_BR")
-    cpf_pai = factory.Faker("cpf", locale="pt_BR")
-    nome_mae = factory.Faker("name", locale="pt_BR")
-    cpf_mae = factory.Faker("cpf", locale="pt_BR")
+    nome_responsavel = factory.Faker("name", locale="pt_BR")
+    cpf_responsavel = factory.Faker("cpf", locale="pt_BR")
 
     @classmethod
     def create_with_password(cls, password: str, **kwargs):
