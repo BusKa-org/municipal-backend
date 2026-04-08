@@ -66,12 +66,15 @@ class AlunoMeResource(Resource):
 @api.route("/")
 class AlunoListResource(Resource):
     @api.doc("list_alunos_gestor")
+    @api.param("status", "Filter by status (PENDING_APPROVAL, ACTIVE, ...)", _in="query")
     @api.response(200, "Success", models["aluno_list_response"])
     @jwt_required()
     def get(self) -> tuple[dict[str, Any], int]:
         """Gestor vê lista de alunos cadastrados"""
+        from flask import request as flask_request
         user_id = get_jwt_identity()
-        alunos = aluno_service.list_alunos_gestor(user_id)
+        status_filter = flask_request.args.get("status")
+        alunos = aluno_service.list_alunos_gestor(user_id, status=status_filter)
         return (
             aluno_list_response_schema.dump(
                 {
@@ -81,3 +84,15 @@ class AlunoListResource(Resource):
             ),
             200,
         )
+
+
+@api.route("/<string:aluno_id>/aprovar")
+class AlunoAprovarResource(Resource):
+    @api.doc("aprovar_aluno")
+    @api.response(200, "Success")
+    @jwt_required()
+    def post(self, aluno_id: str) -> tuple[dict[str, Any], int]:
+        """(Gestor) Aprova cadastro de um aluno menor"""
+        gestor_id = get_jwt_identity()
+        aluno = aluno_service.aprovar_aluno(gestor_id, aluno_id)
+        return aluno_response_schema.dump(aluno), 200

@@ -18,7 +18,7 @@ from app.schemas.rota_schema import (
     RotaDetailResponseSchema,
     RotaInscricaoRequestSchema,
     RotaListResponseSchema,
-    RotaPontoAddRequestSchema,
+    RotaPontosAddRequestSchema,
     RotaResponseSchema,
     RotaUpdateRequestSchema,
 )
@@ -38,7 +38,7 @@ rota_detail_response_schema = RotaDetailResponseSchema()
 rota_create_request_schema = RotaCreateRequestSchema()
 rota_update_request_schema = RotaUpdateRequestSchema()
 inscricao_request_schema = RotaInscricaoRequestSchema()
-ponto_add_request_schema = RotaPontoAddRequestSchema()
+pontos_add_request_schema = RotaPontosAddRequestSchema()
 
 horario_create_request_schema = HorarioCreateRequestSchema()
 horario_response_schema = HorarioResponseSchema()
@@ -132,13 +132,13 @@ class RotaPontosResource(Resource):
         )
 
     @api.doc("add_rota_pontos")
-    @api.expect(models["rota_ponto_add_request"])
+    @api.expect(models["rota_pontos_add_request"])
     @api.response(200, "Success")
     @jwt_required()
     def post(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
         data = request.get_json(silent=True) or {}
-        payload = ponto_add_request_schema.load(data)
+        payload = pontos_add_request_schema.load(data)
 
         rotas_service.add_ponto(current_user_id, id, payload)
         return {"message": "Pontos adicionados com sucesso"}, 200

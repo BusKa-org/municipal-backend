@@ -20,18 +20,6 @@
       }
     },
     "/v1/alunos/me": {
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "summary": "Aluno exclui sua conta",
-        "operationId": "aluno_delete",
-        "tags": [
-          "alunos"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -53,6 +41,18 @@
             }
           }
         ],
+        "tags": [
+          "alunos"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "summary": "Aluno exclui sua conta",
+        "operationId": "aluno_delete",
         "tags": [
           "alunos"
         ]
@@ -317,6 +317,21 @@
           }
         },
         "operationId": "list_instituicoes_public",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "type": "string",
+            "description": "Pesquisa por nome, sigla e/ou UF"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer",
+            "description": "Limite de resultados",
+            "default": 10
+          }
+        ],
         "tags": [
           "instituicoes"
         ]
@@ -543,17 +558,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "delete_ponto",
-        "tags": [
-          "pontos"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -574,6 +578,17 @@
             }
           }
         ],
+        "tags": [
+          "pontos"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "delete_ponto",
         "tags": [
           "pontos"
         ]
@@ -658,17 +673,6 @@
           "type": "string"
         }
       ],
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        },
-        "operationId": "delete_rota",
-        "tags": [
-          "rotas"
-        ]
-      },
       "put": {
         "responses": {
           "200": {
@@ -686,6 +690,17 @@
             }
           }
         ],
+        "tags": [
+          "rotas"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "operationId": "delete_rota",
         "tags": [
           "rotas"
         ]
@@ -807,7 +822,7 @@
             "required": true,
             "in": "body",
             "schema": {
-              "$ref": "#/definitions/RotaPontoAddRequest"
+              "$ref": "#/definitions/RotaPontosAddRequest"
             }
           }
         ],
@@ -2003,6 +2018,18 @@
       },
       "type": "object"
     },
+    "RotaPontosAddRequest": {
+      "properties": {
+        "pontos": {
+          "type": "array",
+          "description": "Pontos da rota",
+          "items": {
+            "$ref": "#/definitions/RotaPontoAddRequest"
+          }
+        }
+      },
+      "type": "object"
+    },
     "PontoFlatListResponse": {
       "properties": {
         "items": {
@@ -2540,6 +2567,14 @@
         "nome": {
           "type": "string",
           "description": "Nome"
+        },
+        "sigla": {
+          "type": "string",
+          "description": "Sigla"
+        },
+        "uf": {
+          "type": "string",
+          "description": "UF"
         },
         "tipo": {
           "type": "string",

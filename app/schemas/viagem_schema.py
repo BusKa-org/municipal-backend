@@ -272,6 +272,27 @@ class ViagemAgendaAlunoResponseSchema(BaseSchema):
     rota_nome = fields.Method("get_rota_nome")
     status_confirmacao = fields.Method("get_status_confirmacao")
     ponto_embarque_id = fields.Method("get_ponto_embarque_id")
+    # Trip status and capacity — exposed so students can see bus occupancy
+    status_viagem = fields.Method("get_status_viagem")
+    alunos_confirmados_count = fields.Method("get_alunos_confirmados_count")
+    total_alunos = fields.Method("get_total_alunos")
+
+    def get_status_viagem(self, obj):
+        if obj.status:
+            return obj.status.name if hasattr(obj.status, "name") else str(obj.status)
+        return "AGENDADA"
+
+    def get_alunos_confirmados_count(self, obj):
+        if obj.alunos_confirmados:
+            return sum(1 for a in obj.alunos_confirmados if a.confirmacao)
+        return 0
+
+    def get_total_alunos(self, obj):
+        """Total students subscribed to the route."""
+        if obj.horario_rota and obj.horario_rota.rota:
+            from app.models.rota import RotaAluno
+            return RotaAluno.query.filter_by(rota_id=obj.horario_rota.rota.id).count()
+        return 0
 
     def _find_confirmacao(self, obj):
         # alunos_confirmados is pre-filtered to the requesting aluno by the

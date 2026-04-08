@@ -45,5 +45,19 @@ class UserRole(enum.Enum):
 
 class UserStatus(enum.Enum):
     PENDING_SIGNUP = "PENDING_SIGNUP"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
+
+
+class TipoOcorrencia(enum.Enum):
+    ATRASO = "ATRASO"
+    SUPERLOTACAO = "SUPERLOTACAO"
+    COMPORTAMENTO = "COMPORTAMENTO"
+    CANCELAMENTO = "CANCELAMENTO"
+    OUTRO = "OUTRO"
+
+
+class StatusOcorrencia(enum.Enum):
+    ABERTA = "ABERTA"
+    RESOLVIDA = "RESOLVIDA"

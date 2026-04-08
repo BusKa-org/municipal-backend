@@ -18,6 +18,7 @@ from app.utils.scheduler_setup import init_scheduler
 
 from .api.controllers.aluno_controller import api as alunos_ns
 from .api.controllers.auth_controller import api as auth_ns
+from .api.controllers.ocorrencia_controller import api as ocorrencias_ns
 from .api.controllers.dashboard_controller import api as dashboard_ns
 from .api.controllers.instituicao_controller import api as inst_ns
 from .api.controllers.notificacao_controller import api as notificacoes_ns
@@ -29,6 +30,7 @@ from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
 from .core.config import Settings
 from .models.base import db
+from .models import Ocorrencia  # noqa: F401 — registers table with SQLAlchemy
 from .utils import (
     check_production_security,
     setup_logging,
@@ -169,6 +171,7 @@ Inclua o header: `Authorization: Bearer <seu_token>`
     api.add_namespace(viagem_ns, path="/v1/viagens")
     api.add_namespace(inst_ns, path="/v1/instituicoes")
     api.add_namespace(alunos_ns, path="/v1/alunos")
+    api.add_namespace(ocorrencias_ns, path="/v1/ocorrencias")
     api.add_namespace(dashboard_ns, path="/v1/dashboard")
 
     # ==========================================

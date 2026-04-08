@@ -65,10 +65,11 @@ def register_error_handlers(app) -> None:
         if isinstance(err, ValidationError):
             details = err.details or None
 
-        return (
-            jsonify(_error_payload(code=err.code, message=err.message, details=details)),
-            err.status_code,
-        )
+        payload = _error_payload(code=err.code, message=err.message, details=details)
+        if getattr(err, "field", None):
+            payload["error"]["field"] = err.field
+
+        return jsonify(payload), err.status_code
 
     @app.errorhandler(MarshmallowValidationError)
     def handle_marshmallow_validation_error(err: MarshmallowValidationError):

@@ -41,8 +41,10 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
     email = validate_email(data.get("email", ""))
     cpf_clean = validate_cpf(data.get("cpf", ""))
 
-    if db.session.query(User).filter((User.email == email) | (User.cpf == cpf_clean)).first():
-        raise ConflictError("Email ou CPF já cadastrado")
+    if db.session.query(User).filter(User.email == email).first():
+        raise ConflictError("Este e-mail já está cadastrado.", field="email")
+    if db.session.query(User).filter(User.cpf == cpf_clean).first():
+        raise ConflictError("Este CPF já está cadastrado.", field="cpf")
 
     try:
         end_data = data.get("endereco_casa")
@@ -72,6 +74,13 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
         )
         db.session.add(novo_end)
 
+        has_guardians = any(
+            data.get(f) for f in ("nome_pai", "cpf_pai", "nome_mae", "cpf_mae")
+        )
+        initial_status = (
+            UserStatus.PENDING_APPROVAL if has_guardians else UserStatus.PENDING_SIGNUP
+        )
+
         novo_aluno = Aluno(
             prefeitura_id=prefeitura_id,
             nome=data.get("nome"),
@@ -80,6 +89,7 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
             cpf=data.get("cpf"),
             telefone=data.get("telefone"),
             role=UserRole.ALUNO,
+            status=initial_status,
             matricula=data.get("matricula"),
             instituicao_id=instituicao.id,
             ponto_casa_id=ponto_casa.id,
@@ -207,35 +217,6 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
                 resource_id=user_id,
             )
 
-        if aluno.status == UserStatus.PENDING_SIGNUP:
-            missing = []
-            if not aluno.matricula and not data.get("matricula"):
-                missing.append("matricula")
-            if not aluno.instituicao_id and not data.get("instituicao_id"):
-                missing.append("instituicao_id")
-            end_data = data.get("endereco_casa")
-            if (
-                not end_data
-                or end_data.get("latitude") is None
-                or end_data.get("longitude") is None
-            ):
-                missing.append("endereco_casa.latitude/longitude")
-
-            if missing:
-                raise ValidationError(
-                    "Cadastro precisa ser finalizado antes de usar o app",
-                    details={"missing": missing},
-                )
-
-            aluno.status = UserStatus.ACTIVE
-            aluno.signup_completed_at = db.func.now()
-            audit_logger.log_user_action(
-                action="complete_signup",
-                user_id=user_id,
-                resource_type="aluno",
-                resource_id=user_id,
-            )
-
         db.session.commit()
         return aluno
 
@@ -268,12 +249,71 @@ def delete_me(user_id: str) -> None:
         raise AppError(f"Erro ao excluir conta: {str(e)}", 500)
 
 
-def list_alunos_gestor(gestor_id: str) -> list[Aluno]:
+def list_alunos_gestor(gestor_id: str, status: str | None = None) -> list[Aluno]:
     """
     Lista alunos da prefeitura (apenas para gestores).
+    Optionally filter by status (e.g. 'PENDING_APPROVAL').
 
     Returns: List of Aluno objects
     Raises: ForbiddenError
     """
     gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem listar alunos")
-    return db.session.query(Aluno).filter_by(prefeitura_id=gestor.prefeitura_id).all()
+    q = db.session.query(Aluno).filter_by(prefeitura_id=gestor.prefeitura_id)
+    if status:
+        try:
+            q = q.filter(Aluno.status == UserStatus[status])
+        except KeyError:
+            pass
+    return q.all()
+
+
+def aprovar_aluno(gestor_id: str, aluno_id: str) -> Aluno:
+    """
+    Gestor aprova um aluno com PENDING_APPROVAL, ativando sua conta.
+
+    Returns: Aluno object
+    Raises: ForbiddenError, NotFoundError, ValidationError
+    """
+    from app.core.exceptions import ForbiddenError
+    from app.services.notificacao_service import NotificacaoService
+
+    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem aprovar alunos")
+    aluno = db.session.get(Aluno, aluno_id)
+
+    if not aluno:
+        raise NotFoundError("Aluno não encontrado")
+    if str(aluno.prefeitura_id) != str(gestor.prefeitura_id):
+        raise ForbiddenError("Aluno não pertence à sua prefeitura")
+    if aluno.status != UserStatus.PENDING_APPROVAL:
+        raise ValidationError("Aluno não está aguardando aprovação")
+
+    try:
+        aluno.status = UserStatus.ACTIVE
+        aluno.signup_completed_at = db.func.now()
+        db.session.flush()
+
+        NotificacaoService._criar_notificacao_interna(
+            usuario_id=str(aluno.id),
+            titulo="Cadastro Aprovado!",
+            mensagem=(
+                "Seu cadastro foi aprovado pelo gestor. "
+                "Você já pode confirmar presença nas viagens."
+            ),
+        )
+
+        db.session.commit()
+        audit_logger.log_user_action(
+            action="aprovar_aluno",
+            user_id=gestor_id,
+            resource_type="aluno",
+            resource_id=aluno_id,
+        )
+        return aluno
+
+    except AppError:
+        db.session.rollback()
+        raise
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error approving student: {e}")
+        raise AppError(f"Erro ao aprovar aluno: {str(e)}", 500)

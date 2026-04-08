@@ -259,7 +259,6 @@ def gerar_viagem(user_id: str, data_input: dict) -> Viagem:
     data_viagem = data_input.get("data")
     if not data_viagem:
         raise ValidationError("Data é obrigatória")
-    data_viagem = datetime.strptime(data_viagem, "%Y-%m-%d").date()
 
     rota = db.session.get(Rota, rota_id)
     if not rota:

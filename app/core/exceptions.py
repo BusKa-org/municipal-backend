@@ -4,10 +4,17 @@ from typing import Any
 class AppError(Exception):
     """Base exception for all application errors."""
 
-    def __init__(self, message: str, status_code: int = 400, code: str = "APP_ERROR"):
+    def __init__(
+        self,
+        message: str,
+        status_code: int = 400,
+        code: str = "APP_ERROR",
+        field: str | None = None,
+    ):
         self.message = message
         self.status_code = status_code
         self.code = code
+        self.field = field
         super().__init__(self.message)
 
 
@@ -43,5 +50,5 @@ class UnauthorizedError(AppError):
 class ConflictError(AppError):
     """Resource already exists or conflict (409)."""
 
-    def __init__(self, message: str = "Recurso já existe"):
-        super().__init__(message, 409, "CONFLICT")
+    def __init__(self, message: str = "Recurso já existe", field: str | None = None):
+        super().__init__(message, 409, "CONFLICT", field=field)

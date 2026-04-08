@@ -53,9 +53,32 @@ class NotificacaoService:
 
     @staticmethod
     def notificar_por_gestor(user_id: str, dados: dict[str, Any]) -> dict[str, Any]:
+        from app.models.viagem import Viagem
+
         user = db.session.get(User, user_id)
-        if not user or user.role != UserRole.GESTOR:
-            raise ForbiddenError("Apenas gestores podem enviar comunicados em massa.")
+        if not user:
+            raise ForbiddenError("Usuário não encontrado.")
+
+        viagem_id = dados.get("viagem_id")
+
+        # Motoristas can broadcast to their own active trip only
+        if user.role == UserRole.MOTORISTA:
+            if not viagem_id:
+                raise ForbiddenError(
+                    "Motoristas devem informar viagem_id para enviar avisos."
+                )
+            viagem = db.session.get(Viagem, viagem_id)
+            if not viagem or str(viagem.motorista_id) != str(user_id):
+                raise ForbiddenError(
+                    "Você só pode enviar avisos para viagens que você está conduzindo."
+                )
+            from app.models.enum import StatusViagem
+            if viagem.status != StatusViagem.EM_ANDAMENTO:
+                raise ForbiddenError(
+                    "Você só pode enviar avisos durante uma viagem em andamento."
+                )
+        elif user.role != UserRole.GESTOR:
+            raise ForbiddenError("Apenas gestores ou motoristas podem enviar comunicados.")
 
         titulo = dados.get("titulo")
         mensagem = dados.get("mensagem")

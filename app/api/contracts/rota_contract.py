@@ -30,6 +30,15 @@ def register_models(api):
         },
     )
 
+    rota_pontos_add_request = api.model(
+        "RotaPontosAddRequest",
+        {
+            "pontos": fields.List(
+                fields.Nested(rota_ponto_add_request), description="Pontos da rota"
+            ),
+        },
+    )
+
     rota_create_request = api.model(
         "RotaCreateRequest",
         {
@@ -131,6 +140,7 @@ def register_models(api):
         "rota_horario_list_response": rota_horario_list_response,
         "rota_ponto_add_request": rota_ponto_add_request,
         "rota_ponto_list_response": rota_ponto_list_response,
+        "rota_pontos_add_request": rota_pontos_add_request,
         "rota_list_response": rota_list_response,
         "rota_detail_response": rota_detail_response,
     }
