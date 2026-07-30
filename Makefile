@@ -39,6 +39,16 @@ run:
 	$(DOCKER) -f infra/database.yml up -d db
 	$(PYTHON) flask --app app run --host=0.0.0.0 --port=5000 --debug
 
+# Espelha a produção: os jobs rodam em um processo separado da API, nunca
+# dentro dela. Rode em outro terminal, junto com o `make run`.
+scheduler:
+	@export RUN_SCHEDULER=true; \
+	if [ -n "$$VIRTUAL_ENV" ]; then \
+		python -m app.scheduler_main; \
+	else \
+		uv run python -m app.scheduler_main; \
+	fi
+
 dev: run  # Alias for run
 
 install-dev:
