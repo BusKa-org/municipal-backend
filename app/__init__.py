@@ -68,6 +68,15 @@ def create_app() -> Flask:
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=settings.JWT_EXPIRES_HOURS)
     app.config["DEBUG"] = settings.DEBUG
 
+    # O flask_restx captura as exceções levantadas dentro dos Resources e
+    # responde 500 genérico por conta própria; ele só delega para os
+    # @app.errorhandler registrados abaixo quando PROPAGATE_EXCEPTIONS é
+    # verdadeiro. Sem isso o valor cai para DEBUG or TESTING, ou seja, todo
+    # erro de negócio (400, 401, 403, 404) virava 500 em produção.
+    # As exceções inesperadas continuam cobertas pelo handler de Exception,
+    # que devolve o 500 no formato padrão sem vazar traceback.
+    app.config["PROPAGATE_EXCEPTIONS"] = True
+
     app.config["MAIL_SERVER"] = settings.MAIL_SERVER
     app.config["MAIL_PORT"] = settings.MAIL_PORT
     app.config["MAIL_USERNAME"] = settings.MAIL_USERNAME
