@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -55,6 +56,10 @@ class Actor:
     user: Any
     headers: dict[str, str]
     client: AuthenticatedClient
+
+
+# A suíte nunca deve iniciar o scheduler. A variável pode vazar do shell do dev.
+os.environ.pop("RUN_SCHEDULER", None)
 
 
 @pytest.fixture(scope="session")

@@ -644,7 +644,7 @@ jobs:
       - name: Deploy application containers
         run: |
           echo "Deploying application containers..."
-          docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d api
+          docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d api scheduler
 
       - name: "Health Check"
         run: |
@@ -662,6 +662,25 @@ jobs:
           echo "==== docker logs buska_api ===="
           docker logs buska_api || true
           exit 1
+
+      # Os jobs de background ficaram desligados em produção sem que nada
+      # sinalizasse. Um scheduler morto agora reprova o deploy.
+      - name: "Scheduler Check"
+        run: |
+          if [ "$(docker inspect -f '{{.State.Running}}' buska_scheduler)" != "true" ]; then
+            echo "Scheduler container is not running"
+            docker logs buska_scheduler || true
+            exit 1
+          fi
+
+          if ! docker logs buska_scheduler 2>&1 | grep -q "Scheduler up with"; then
+            echo "Scheduler started but registered no jobs"
+            docker logs buska_scheduler || true
+            exit 1
+          fi
+
+          echo "Scheduler is running with jobs:"
+          docker logs buska_scheduler 2>&1 | grep "Scheduler up with"
 
       - name: Smoke test - OpenAPI
         run: |
@@ -686,6 +705,8 @@ jobs:
           docker compose -f docker-compose.prod.yml --env-file .env.prod ps || true
           echo "==== docker logs buska_api ===="
           docker logs buska_api || true
+          echo "==== docker logs buska_scheduler ===="
+          docker logs buska_scheduler || true
           echo "==== docker logs buska_db_prod ===="
           docker logs buska_db_prod || true
 

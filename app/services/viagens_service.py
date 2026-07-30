@@ -679,17 +679,25 @@ def obter_progresso_viagem(gestor_id: str, viagem_id: str):
     ]
 
 
-def gerar_viagens_periodo(gestor_id: str, dias_futuros: int = 14):
+def gerar_viagens_periodo(gestor_id: str, dias_futuros: int = 14) -> int:
     """
     Função centralizada para gerar viagens em lote para os próximos N dias.
     Pode ser chamada tanto por Jobs em background quanto por ações de usuário.
+
+    Retorna o total de viagens criadas. Cada dia é isolado: uma falha em um dia
+    não impede os seguintes, já que antes um erro no dia 3 abortava os outros
+    11 em silêncio e o job ainda registrava sucesso.
     """
     hoje = date.today()
-    try:
-        for i in range(dias_futuros):
-            data_alvo = hoje + timedelta(days=i)
-            gerar_viagens_em_lote(user_id=gestor_id, data_viagem=data_alvo)
+    total = 0
 
-        logger.info(f"Gerado lote de {dias_futuros} dias para o gestor {gestor_id}")
-    except Exception as e:
-        logger.error(f"Erro ao gerar período de viagens para gestor {gestor_id}: {e}")
+    for i in range(dias_futuros):
+        data_alvo = hoje + timedelta(days=i)
+        try:
+            relatorio = gerar_viagens_em_lote(user_id=gestor_id, data_viagem=data_alvo)
+            total += relatorio["viagens_criadas"]
+        except Exception as e:
+            logger.error(f"Falha ao gerar viagens de {data_alvo} para o gestor {gestor_id}: {e}")
+
+    logger.info(f"Gestor {gestor_id}: {total} viagens criadas em {dias_futuros} dias")
+    return total
