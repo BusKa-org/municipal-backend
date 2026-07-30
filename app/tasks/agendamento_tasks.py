@@ -8,13 +8,25 @@ logger = logging.getLogger(__name__)
 
 
 def job_gerar_viagens_semanais(app):
-    """Job que roda no fim de semana para gerar a agenda."""
+    """Job diário que mantém a agenda dos próximos 14 dias preenchida."""
     with app.app_context():
+        logger.info("Job de geração de viagens iniciado.")
+
         try:
             gestores = User.query.filter_by(role=UserRole.GESTOR).distinct(User.prefeitura_id).all()
-
-            for gestor in gestores:
-                gerar_viagens_periodo(gestor_id=str(gestor.id), dias_futuros=14)
-
         except Exception as e:
-            logger.error(f"Erro crítico no job semanal: {e}")
+            logger.error(f"Erro ao buscar gestores no job de geração de viagens: {e}")
+            return
+
+        total = 0
+        for gestor in gestores:
+            # Um gestor com problema não pode derrubar a agenda das outras prefeituras.
+            try:
+                total += gerar_viagens_periodo(gestor_id=str(gestor.id), dias_futuros=14)
+            except Exception as e:
+                logger.error(f"Erro ao gerar viagens para o gestor {gestor.id}: {e}")
+
+        logger.info(
+            f"Job de geração de viagens concluído: "
+            f"{total} viagens criadas para {len(gestores)} gestores."
+        )
