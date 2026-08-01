@@ -41,27 +41,69 @@ from .utils import (
 jwt = JWTManager()
 logger = logging.getLogger(__name__)
 
+API_DESCRIPTION = """
+## Sistema de Gerenciamento de Transporte Escolar
 
-def create_app() -> Flask:
-    load_dotenv()
-    settings = Settings()
-    app = Flask(__name__)
-    app.url_map.strict_slashes = False
+API para gerenciamento de rotas, viagens e alunos do transporte escolar municipal.
 
-    if not firebase_admin._apps:
-        if settings.FIREBASE_CREDENTIALS:
-            cert_dict = json.loads(settings.FIREBASE_CREDENTIALS)
-            cred = credentials.Certificate(cert_dict)
-            logger.info("Firebase initialized via GitHub Secrets (Environment Variable).")
-            firebase_admin.initialize_app(cred)
+### Autenticação
+Todos os endpoints (exceto `/auth/login`) requerem autenticação JWT.
+Inclua o header: `Authorization: Bearer <seu_token>`
+
+### Roles
+- **ALUNO**: Visualiza rotas, confirma presença em viagens
+- **MOTORISTA**: Gerencia viagens atribuídas, inicia/finaliza trajetos
+- **GESTOR**: Acesso completo à prefeitura (CRUD de rotas, motoristas, relatórios)
+        """
+
+AUTHORIZATIONS = {
+    "Bearer": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "JWT token. Format: Bearer <token>",
+    }
+}
+
+# Ordem preservada da montagem original: qualquer mudança aqui altera o
+# app.url_map, que é contrato público consumido pelo frontend.
+NAMESPACES = (
+    (auth_ns, "/v1/auth"),
+    (user_ns, "/v1/users"),
+    (notificacoes_ns, "/v1/notificacoes"),
+    (onibus_ns, "/v1/onibus"),
+    (rotas_ns, "/v1/rotas"),
+    (pontos_ns, "/v1/pontos"),
+    (routing_ns, "/v1/routing"),
+    (viagem_ns, "/v1/viagens"),
+    (inst_ns, "/v1/instituicoes"),
+    (alunos_ns, "/v1/alunos"),
+    (ocorrencias_ns, "/v1/ocorrencias"),
+    (dashboard_ns, "/v1/dashboard"),
+)
+
+
+def init_firebase(settings: Settings) -> None:
+    """Inicializa o Firebase Admin SDK, se ainda não estiver inicializado."""
+    if firebase_admin._apps:
+        return
+
+    if settings.FIREBASE_CREDENTIALS:
+        cert_dict = json.loads(settings.FIREBASE_CREDENTIALS)
+        cred = credentials.Certificate(cert_dict)
+        logger.info("Firebase initialized via GitHub Secrets (Environment Variable).")
+        firebase_admin.initialize_app(cred)
+    else:
+        if settings.DEBUG and not os.path.exists("firebase-credentials.json"):
+            logger.warning("Firebase credentials not found in environment variables.")
         else:
-            if settings.DEBUG and not os.path.exists("firebase-credentials.json"):
-                logger.warning("Firebase credentials not found in environment variables.")
-            else:
-                cred = credentials.Certificate("firebase-credentials.json")
-                logger.info("Firebase initialized via local file.")
-                firebase_admin.initialize_app(cred)
+            cred = credentials.Certificate("firebase-credentials.json")
+            logger.info("Firebase initialized via local file.")
+            firebase_admin.initialize_app(cred)
 
+
+def configure_app(app: Flask, settings: Settings) -> None:
+    """Aplica no app.config os valores derivados do Settings."""
     app.config["SQLALCHEMY_DATABASE_URI"] = settings.SQLALCHEMY_DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JWT_SECRET_KEY"] = settings.JWT_SECRET_KEY
@@ -84,6 +126,9 @@ def create_app() -> Flask:
     app.config["MAIL_USE_TLS"] = settings.MAIL_USE_TLS
     app.config["FRONTEND_URL"] = settings.FRONTEND_URL
 
+
+def register_extensions(app: Flask, settings: Settings) -> None:
+    """Logging, CORS e as extensões Flask (SQLAlchemy, JWT)."""
     # ==========================================
     # Logging Configuration
     # ==========================================
@@ -113,6 +158,14 @@ def create_app() -> Flask:
     db.init_app(app)
     jwt.init_app(app)
 
+
+def register_scheduler(app: Flask) -> None:
+    """
+    Registra o APScheduler.
+
+    Os jobs só são agendados no processo com RUN_SCHEDULER ligado;
+    quem decide isso é o init_scheduler.
+    """
     # ==========================================
     # Scheduler Configuration
     # ==========================================
@@ -120,6 +173,9 @@ def create_app() -> Flask:
 
     init_scheduler(app, scheduler)
 
+
+def configure_security(app: Flask, settings: Settings) -> None:
+    """Headers de segurança, limite de tamanho de request e checagem de produção."""
     # ==========================================
     # Security Headers
     # ==========================================
@@ -137,59 +193,39 @@ def create_app() -> Flask:
                 extra={"warnings": security_warnings},
             )
 
-    authorizations = {
-        "Bearer": {
-            "type": "apiKey",
-            "in": "header",
-            "name": "Authorization",
-            "description": "JWT token. Format: Bearer <token>",
-        }
-    }
 
+def register_blueprints(app: Flask) -> Api:
+    """Cria a Api do flask-restx e registra os namespaces da v1."""
     api = Api(
         app,
         title="BusKá API",
         version="1.0.0",
-        description="""
-## Sistema de Gerenciamento de Transporte Escolar
-
-API para gerenciamento de rotas, viagens e alunos do transporte escolar municipal.
-
-### Autenticação
-Todos os endpoints (exceto `/auth/login`) requerem autenticação JWT.
-Inclua o header: `Authorization: Bearer <seu_token>`
-
-### Roles
-- **ALUNO**: Visualiza rotas, confirma presença em viagens
-- **MOTORISTA**: Gerencia viagens atribuídas, inicia/finaliza trajetos
-- **GESTOR**: Acesso completo à prefeitura (CRUD de rotas, motoristas, relatórios)
-        """,
+        description=API_DESCRIPTION,
         doc="/docs",
-        authorizations=authorizations,
+        authorizations=AUTHORIZATIONS,
         security="Bearer",
         contact="BusKá Team",
     )
 
     # API v1 routes
-    api.add_namespace(auth_ns, path="/v1/auth")
-    api.add_namespace(user_ns, path="/v1/users")
-    api.add_namespace(notificacoes_ns, path="/v1/notificacoes")
-    api.add_namespace(onibus_ns, path="/v1/onibus")
-    api.add_namespace(rotas_ns, path="/v1/rotas")
-    api.add_namespace(pontos_ns, path="/v1/pontos")
-    api.add_namespace(routing_ns, path="/v1/routing")
-    api.add_namespace(viagem_ns, path="/v1/viagens")
-    api.add_namespace(inst_ns, path="/v1/instituicoes")
-    api.add_namespace(alunos_ns, path="/v1/alunos")
-    api.add_namespace(ocorrencias_ns, path="/v1/ocorrencias")
-    api.add_namespace(dashboard_ns, path="/v1/dashboard")
+    for namespace, path in NAMESPACES:
+        api.add_namespace(namespace, path=path)
 
+    return api
+
+
+def register_handlers(app: Flask) -> None:
+    """Handlers de erro da aplicação e do flask-jwt-extended."""
     # ==========================================
     # Error Handlers
     # ==========================================
 
     register_jwt_handlers(jwt)
     register_error_handlers(app)
+
+
+def register_openapi_routes(app: Flask, api: Api) -> None:
+    """Endpoint e comando de CLI que exportam a especificação OpenAPI."""
 
     # ==========================================
     # OpenAPI Export Endpoint
@@ -213,6 +249,10 @@ Inclua o header: `Authorization: Bearer <seu_token>`
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(spec, f, indent=2, ensure_ascii=False)
             print(f"[*] OpenAPI spec exported to {output_path}")
+
+
+def register_health_routes(app: Flask, settings: Settings) -> None:
+    """Probes de liveness e readiness."""
 
     # ==========================================
     # Health / Readiness Endpoints
@@ -242,5 +282,26 @@ Inclua o header: `Authorization: Bearer <seu_token>`
         except Exception:
             logger.error("Readiness check failed", exc_info=True)
             return jsonify(status="error", ready=False), 503
+
+
+def create_app() -> Flask:
+    load_dotenv()
+    settings = Settings()
+    app = Flask(__name__)
+    app.url_map.strict_slashes = False
+
+    # A ordem das chamadas abaixo é a mesma da versão anterior desta função e
+    # não deve ser alterada: o registro dos namespaces define o app.url_map.
+    init_firebase(settings)
+    configure_app(app, settings)
+    register_extensions(app, settings)
+    register_scheduler(app)
+    configure_security(app, settings)
+
+    api = register_blueprints(app)
+
+    register_handlers(app)
+    register_openapi_routes(app, api)
+    register_health_routes(app, settings)
 
     return app
