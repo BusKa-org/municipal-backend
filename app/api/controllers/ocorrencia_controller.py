@@ -4,6 +4,7 @@ from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource, fields
 
+from app.api.helpers import json_body
 from app.services.ocorrencia_service import OcorrenciaService
 
 api = Namespace("ocorrencias", description="Registro de ocorrências / problemas")
@@ -58,7 +59,7 @@ class OcorrenciaListResource(Resource):
     def post(self) -> tuple[dict[str, Any], int]:
         """(Aluno / Motorista) Reporta um problema"""
         user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         ocorrencia = OcorrenciaService.criar(user_id, data)
         return _serialize(ocorrencia), 201
 

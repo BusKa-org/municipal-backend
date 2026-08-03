@@ -1,10 +1,10 @@
 from typing import Any
 
-from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import onibus_contract
+from app.api.helpers import json_body, list_envelope
 from app.schemas.onibus_schema import (
     OnibusCreateRequestSchema,
     OnibusListResponseSchema,
@@ -35,12 +35,7 @@ class OnibusListResource(Resource):
         current_user_id = get_jwt_identity()
         onibus_list = onibus_service.list_all(current_user_id)
         return (
-            onibus_list_response_schema.dump(
-                {
-                    "items": onibus_list,
-                    "total": len(onibus_list),
-                }
-            ),
+            onibus_list_response_schema.dump(list_envelope(onibus_list)),
             200,
         )
 
@@ -51,7 +46,7 @@ class OnibusListResource(Resource):
     def post(self) -> tuple[dict[str, Any], int]:
         """Cadastra um novo ônibus"""
         current_user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = onibus_create_request_schema.load(data)
         onibus = onibus_service.create_onibus(current_user_id, payload)
         return onibus_response_schema.dump(onibus), 201
@@ -75,7 +70,7 @@ class OnibusResource(Resource):
     def patch(self, id: str) -> tuple[dict[str, Any], int]:
         """Atualiza dados de um ônibus"""
         current_user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = onibus_update_request_schema.load(data)
         onibus = onibus_service.update_onibus(current_user_id, id, payload)
         return onibus_response_schema.dump(onibus), 200

@@ -1,10 +1,10 @@
 from typing import Any
 
-from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract, rota_contract
+from app.api.helpers import json_body, list_envelope
 from app.schemas.horario_schema import (
     HorarioCreateRequestSchema,
     HorarioListResponseSchema,
@@ -56,12 +56,7 @@ class RotasListResource(Resource):
         current_user_id = get_jwt_identity()
         rotas = rotas_service.list_all_rotas(current_user_id)
         return (
-            rota_list_response_schema.dump(
-                {
-                    "items": rotas,
-                    "total": len(rotas),
-                }
-            ),
+            rota_list_response_schema.dump(list_envelope(rotas)),
             200,
         )
 
@@ -71,7 +66,7 @@ class RotasListResource(Resource):
     @jwt_required()
     def post(self) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = rota_create_request_schema.load(data)
 
         rota = rotas_service.create_rota(current_user_id, payload)
@@ -87,12 +82,7 @@ class MyRotasResource(Resource):
         current_user_id = get_jwt_identity()
         rotas = rotas_service.list_my_rotas(current_user_id)
         return (
-            rota_list_response_schema.dump(
-                {
-                    "items": rotas,
-                    "total": len(rotas),
-                }
-            ),
+            rota_list_response_schema.dump(list_envelope(rotas)),
             200,
         )
 
@@ -106,7 +96,7 @@ class RotaInscricaoResource(Resource):
     @jwt_required()
     def post(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = inscricao_request_schema.load(data)
 
         result = rotas_service.gerenciar_inscricao_aluno(current_user_id, id, payload)
@@ -122,12 +112,7 @@ class RotaPontosResource(Resource):
         current_user_id = get_jwt_identity()
         pontos = rotas_service.get_pontos_by_rota(current_user_id, id)
         return (
-            ponto_flat_list_response_schema.dump(
-                {
-                    "items": pontos,
-                    "total": len(pontos),
-                }
-            ),
+            ponto_flat_list_response_schema.dump(list_envelope(pontos)),
             200,
         )
 
@@ -137,7 +122,7 @@ class RotaPontosResource(Resource):
     @jwt_required()
     def post(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = pontos_add_request_schema.load(data)
 
         rotas_service.add_ponto(current_user_id, id, payload)
@@ -153,12 +138,7 @@ class RotaHorariosResource(Resource):
         current_user = get_jwt_identity()
         horarios = rotas_service.get_horarios(current_user, id)
         return (
-            horario_list_response_schema.dump(
-                {
-                    "items": horarios,
-                    "total": len(horarios),
-                }
-            ),
+            horario_list_response_schema.dump(list_envelope(horarios)),
             200,
         )
 
@@ -168,7 +148,7 @@ class RotaHorariosResource(Resource):
     @jwt_required()
     def post(self, id: str) -> tuple[dict[str, Any], int]:
         current_user = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = horario_create_request_schema.load(data)
 
         horario = rotas_service.add_horario(current_user, id, payload)
@@ -191,7 +171,7 @@ class RotaResource(Resource):
     @jwt_required()
     def put(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = rota_update_request_schema.load(data)
 
         rota = rotas_service.update_rota(current_user_id, id, payload)

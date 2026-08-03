@@ -6,6 +6,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract, viagem_contract
 from app.api.contracts.viagem_parsers import parsers
+from app.api.helpers import json_body, list_envelope
 from app.core.exceptions import ValidationError
 from app.schemas.ponto_schema import (
     PontoFlatListResponseSchema,
@@ -61,12 +62,7 @@ class AlunoAgendaResource(Resource):
         user_id = get_jwt_identity()
         agenda = viagens_service.get_proximas_viagens_aluno(user_id)
         return (
-            viagem_agenda_aluno_list_response_schema.dump(
-                {
-                    "items": agenda,
-                    "total": len(agenda),
-                }
-            ),
+            viagem_agenda_aluno_list_response_schema.dump(list_envelope(agenda)),
             200,
         )
 
@@ -81,12 +77,7 @@ class ViagemPontosResource(Resource):
         user_id = get_jwt_identity()
         pontos = viagens_service.listar_pontos_embarque(user_id, id)
         return (
-            ponto_flat_list_response_schema.dump(
-                {
-                    "items": pontos,
-                    "total": len(pontos),
-                }
-            ),
+            ponto_flat_list_response_schema.dump(list_envelope(pontos)),
             200,
         )
 
@@ -99,7 +90,7 @@ class ViagemConfirmacaoResource(Resource):
     @jwt_required()
     def put(self, id: str) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = viagem_confirmacao_request_schema.load(data)
         result = viagens_service.confirmar_presenca_aluno(user_id, id, payload)
         return viagem_aluno_confirmacao_response_schema.dump(result), 200
@@ -116,12 +107,7 @@ class ViagemListResource(Resource):
         filters = viagem_list_query_schema.load(request.args.to_dict())
         viagens = viagens_service.list_viagens_gestor(user_id, filters)
         return (
-            viagem_list_response_schema.dump(
-                {
-                    "items": viagens,
-                    "total": len(viagens),
-                }
-            ),
+            viagem_list_response_schema.dump(list_envelope(viagens)),
             200,
         )
 
@@ -131,7 +117,7 @@ class ViagemListResource(Resource):
     @jwt_required()
     def post(self) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = viagem_create_request_schema.load(data)
         result = viagens_service.gerar_viagem(user_id, payload)
 
@@ -148,7 +134,7 @@ class ViagemLoteResource(Resource):
     @jwt_required()
     def post(self) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = viagem_lote_request_schema.load(data)
         result = viagens_service.gerar_viagens_em_lote(user_id, payload["data"])
         return viagem_lote_response_schema.dump(result), 201
@@ -163,12 +149,7 @@ class MinhasViagensResource(Resource):
         user_id = get_jwt_identity()
         viagens = viagens_service.list_viagens_motorista(user_id)
         return (
-            viagem_list_response_schema.dump(
-                {
-                    "items": viagens,
-                    "total": len(viagens),
-                }
-            ),
+            viagem_list_response_schema.dump(list_envelope(viagens)),
             200,
         )
 
@@ -181,7 +162,7 @@ class ViagemAcaoResource(Resource):
     @jwt_required()
     def put(self, id: str) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = request.get_json(silent=True) or {}
+        data = json_body()
         payload = viagem_acao_request_schema.load(data)
         viagem = viagens_service.controlar_viagem(user_id, id, payload)
         return viagem_response_schema.dump(viagem), 200
