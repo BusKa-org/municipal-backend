@@ -145,9 +145,9 @@ def test_absent_malformed_and_empty_bodies_are_equivalent(
         f"{method.upper()} {url}: absent={no_body.status_code} "
         f"malformed={malformed.status_code} empty={empty.status_code}"
     )
-    assert _comparable(no_body) == _comparable(malformed) == _comparable(empty), (
-        f"{method.upper()} {url}: bodies differ across absent/malformed/empty"
-    )
+    assert (
+        _comparable(no_body) == _comparable(malformed) == _comparable(empty)
+    ), f"{method.upper()} {url}: bodies differ across absent/malformed/empty"
 
 
 @pytest.mark.integration
@@ -165,9 +165,7 @@ def test_empty_body_status_is_unchanged(request, method, url, actor_name, empty_
 
 @pytest.mark.integration
 @pytest.mark.parametrize(("method", "url", "actor_name", "empty_status"), PAYLOAD_ROUTES)
-def test_empty_list_body_falls_back_to_empty_object(
-    request, method, url, actor_name, empty_status
-):
+def test_empty_list_body_falls_back_to_empty_object(request, method, url, actor_name, empty_status):
     """`[] or {}` is falsy, so an empty list behaves exactly like no body.
 
     Pinned because a helper that only special-cases ``None`` would change this.
@@ -176,17 +174,14 @@ def test_empty_list_body_falls_back_to_empty_object(
     empty_obj = _caller(request, actor_name, method)(url, json={})
 
     assert empty_list.status_code == empty_obj.status_code, (
-        f"{method.upper()} {url}: []={empty_list.status_code} "
-        f"vs {{}}={empty_obj.status_code}"
+        f"{method.upper()} {url}: []={empty_list.status_code} " f"vs {{}}={empty_obj.status_code}"
     )
     assert _comparable(empty_list) == _comparable(empty_obj)
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(("method", "url", "actor_name", "empty_status"), PAYLOAD_ROUTES)
-def test_non_empty_list_body_is_forwarded_verbatim(
-    request, method, url, actor_name, empty_status
-):
+def test_non_empty_list_body_is_forwarded_verbatim(request, method, url, actor_name, empty_status):
     """A non-empty list is truthy, so it reaches the schema as a list.
 
     Today this surfaces as a client error rather than a crash. Pinned because
