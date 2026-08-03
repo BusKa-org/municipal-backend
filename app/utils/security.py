@@ -1,7 +1,6 @@
 """Security utilities and middleware for enhanced application security."""
 
 import logging
-from typing import Any
 
 from flask import Flask, Response
 
@@ -103,54 +102,6 @@ class SecurityConfig:
 
     # CORS
     CORS_MAX_AGE = 86400  # 24 hours
-
-    @classmethod
-    def get_security_recommendations(cls) -> dict[str, Any]:
-        """
-        Get security configuration recommendations.
-
-        Returns:
-            Dictionary of security recommendations
-        """
-        return {
-            "password_policy": {
-                "min_length": cls.MIN_PASSWORD_LENGTH,
-                "recommendations": [
-                    "Use a password manager",
-                    "Avoid common passwords",
-                    "Use different passwords for different services",
-                ],
-            },
-            "authentication": {
-                "jwt_expiration": f"{cls.JWT_ACCESS_TOKEN_EXPIRES_HOURS} hours",
-                "rate_limiting": cls.AUTH_RATE_LIMIT,
-                "recommendations": [
-                    "Enable 2FA for production",
-                    "Implement account lockout after failed attempts",
-                    "Monitor for suspicious login patterns",
-                ],
-            },
-            "data_protection": {
-                "encryption": "Passwords hashed with werkzeug.security",
-                "transport": "HTTPS required in production",
-                "recommendations": [
-                    "Encrypt sensitive data at rest",
-                    "Use environment variables for secrets",
-                    "Regular security audits",
-                    "Keep dependencies updated",
-                ],
-            },
-            "monitoring": {
-                "logging": "Structured JSON logging with request IDs",
-                "audit_trail": "All sensitive operations logged",
-                "recommendations": [
-                    "Set up centralized logging (e.g., ELK stack)",
-                    "Configure alerts for security events",
-                    "Regular log review",
-                    "Incident response plan",
-                ],
-            },
-        }
 
 
 def check_production_security(app: Flask) -> list[str]:
