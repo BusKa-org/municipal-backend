@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
+from flask_jwt_extended import get_jwt_identity
 from marshmallow import ValidationError as MarshmallowValidationError, fields, validates_schema
 from marshmallow.validate import OneOf, Range
 
@@ -259,8 +260,9 @@ class ViagemAgendaAlunoResponseSchema(BaseSchema):
     """
     Agenda payload for a student's upcoming trips.
 
-    Expects Viagem.alunos_confirmados to be pre-loaded via contains_eager
-    filtered to the requesting aluno (see get_proximas_viagens_aluno).
+    Viagem.alunos_confirmados carries every student confirmed on the trip, so
+    the confirmation fields are resolved from the caller's JWT identity rather
+    than from the position of the record in that list.
     """
 
     viagem_id = fields.Method("get_viagem_id")
@@ -296,10 +298,28 @@ class ViagemAgendaAlunoResponseSchema(BaseSchema):
         return 0
 
     def _find_confirmacao(self, obj):
-        # alunos_confirmados is pre-filtered to the requesting aluno by the
-        # service query (contains_eager + outerjoin condition on aluno_id).
-        records = obj.alunos_confirmados or []
-        return records[0] if records else None
+        """
+        Return the confirmation record belonging to the student making the
+        request, or None if there is none.
+
+        Viagem.alunos_confirmados holds every student confirmed on the trip,
+        so it must be filtered here. When the caller cannot be identified we
+        return None instead of guessing, so that a record is never attributed
+        to the wrong student.
+        """
+        try:
+            aluno_id = get_jwt_identity()
+        except RuntimeError:
+            # Dumped outside a request carrying a JWT.
+            return None
+
+        if not aluno_id:
+            return None
+
+        for record in obj.alunos_confirmados or []:
+            if str(record.aluno_id) == str(aluno_id):
+                return record
+        return None
 
     def get_viagem_id(self, obj):
         return str(obj.id)
