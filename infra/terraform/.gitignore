@@ -6,7 +6,9 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-.terraform.lock.hcl
+# The lock file pins provider versions and is meant to be committed, so it is
+# explicitly kept. It is already tracked; this stops it being dropped later.
+!.terraform.lock.hcl
 terraform.tfvars
 terraform.tfvars.json
 clouds.yaml
