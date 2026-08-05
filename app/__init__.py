@@ -41,6 +41,34 @@ from .utils import (
 jwt = JWTManager()
 logger = logging.getLogger(__name__)
 
+
+def create_app() -> Flask:
+    load_dotenv()
+    settings = Settings()
+    app = Flask(__name__)
+    app.url_map.strict_slashes = False
+
+    # A ordem das chamadas abaixo é a mesma da versão anterior desta função e
+    # não deve ser alterada: o registro dos namespaces define o app.url_map.
+    init_firebase(settings)
+    configure_app(app, settings)
+    register_extensions(app, settings)
+    register_scheduler(app)
+    configure_security(app, settings)
+
+    api = register_blueprints(app)
+
+    register_handlers(app)
+    register_openapi_routes(app, api)
+    register_health_routes(app, settings)
+
+    return app
+
+
+# ==========================================
+# create_app() helpers (registration order above)
+# ==========================================
+
 API_DESCRIPTION = """
 ## Sistema de Gerenciamento de Transporte Escolar
 
@@ -282,26 +310,3 @@ def register_health_routes(app: Flask, settings: Settings) -> None:
         except Exception:
             logger.error("Readiness check failed", exc_info=True)
             return jsonify(status="error", ready=False), 503
-
-
-def create_app() -> Flask:
-    load_dotenv()
-    settings = Settings()
-    app = Flask(__name__)
-    app.url_map.strict_slashes = False
-
-    # A ordem das chamadas abaixo é a mesma da versão anterior desta função e
-    # não deve ser alterada: o registro dos namespaces define o app.url_map.
-    init_firebase(settings)
-    configure_app(app, settings)
-    register_extensions(app, settings)
-    register_scheduler(app)
-    configure_security(app, settings)
-
-    api = register_blueprints(app)
-
-    register_handlers(app)
-    register_openapi_routes(app, api)
-    register_health_routes(app, settings)
-
-    return app
