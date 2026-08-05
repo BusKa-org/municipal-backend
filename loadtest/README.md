@@ -11,6 +11,11 @@ Gunicorn-concurrency bottleneck, the "Dawn Departure" spike finding, and
 infra recommendations. Capacity/Stress/Breakpoint are documented there as
 deferred (need a second VM).
 
+**Why it is built this way:**
+[`docs/adr/0001-tiered-load-testing-harness.md`](../docs/adr/0001-tiered-load-testing-harness.md)
+records the design decisions, the alternatives rejected, and the open
+questions still up for comment.
+
 ## 1. One-time setup
 
 ```bash
