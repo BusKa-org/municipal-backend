@@ -1,0 +1,11 @@
+extends:
+  - "@commitlint/config-conventional"
+
+rules:
+  # Matches the local conventional-pre-commit hook (.pre-commit-config.yaml)
+  # and the types already used in this repo's history.
+  type-enum:
+    - 2
+    - always
+    - [feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+  header-max-length: [2, always, 100]
