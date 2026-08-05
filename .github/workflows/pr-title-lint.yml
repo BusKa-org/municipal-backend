@@ -1,7 +1,14 @@
 name: PR Title Lint
 
+# Uses `pull_request`, not `pull_request_target`. The latter is the action's
+# own recommended default (needed for fork-based PRs), but it always runs the
+# workflow definition from the base branch — so a workflow added in a PR
+# would never fire for that same PR (or for any PR still in flight when the
+# workflow file changes). This repo doesn't take contributions from forks
+# (all contributors have write access), so `pull_request` — which runs the
+# version of this file from the PR branch itself — is the correct choice.
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, edited, synchronize]
 
 permissions:
