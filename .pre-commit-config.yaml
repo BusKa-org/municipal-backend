@@ -1,27 +1,44 @@
 # Pre-commit hooks for code quality
-# Install: pre-commit install
+# Install: pre-commit install  (sets up both the pre-commit and commit-msg hooks)
 # Run manually: pre-commit run --all-files
+# Run manually (commit-msg only): pre-commit run --hook-stage commit-msg --commit-msg-filename <file>
+
+default_install_hook_types: [pre-commit, commit-msg]
 
 repos:
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        stages: [pre-commit]
       - id: end-of-file-fixer
+        stages: [pre-commit]
       - id: check-yaml
+        stages: [pre-commit]
       - id: check-added-large-files
+        stages: [pre-commit]
       - id: check-merge-conflict
+        stages: [pre-commit]
 
   - repo: https://github.com/psf/black
     rev: 26.1.0
     hooks:
       - id: black
+        stages: [pre-commit]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.1
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        stages: [pre-commit]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.19.1
@@ -31,6 +48,7 @@ repos:
           - types-requests
         args: [--ignore-missing-imports]
         exclude: ^(migrations|tests)/
+        stages: [pre-commit]
 
   - repo: local
     hooks:
@@ -40,3 +58,4 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
