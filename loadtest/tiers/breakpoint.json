@@ -1,0 +1,55 @@
+{
+  "tier": "breakpoint",
+  "label": "Ceiling Discovery",
+  "seed": 42,
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 99225,
+  "concurrent_trips": 2682,
+  "stages": [
+    {
+      "duration": "2m",
+      "fraction": 0.05
+    },
+    {
+      "duration": "2m",
+      "fraction": 0.15
+    },
+    {
+      "duration": "2m",
+      "fraction": 0.35
+    },
+    {
+      "duration": "2m",
+      "fraction": 0.6
+    },
+    {
+      "duration": "2m",
+      "fraction": 0.85
+    },
+    {
+      "duration": "3m",
+      "fraction": 1.0
+    },
+    {
+      "duration": "5m",
+      "fraction": 1.0
+    },
+    {
+      "duration": "1m",
+      "fraction": 0
+    }
+  ],
+  "note": "Not a pass/fail gate — methodical step-climb to find the absolute ceiling and its failure mode. ~15-30x the Stress tier. Requires the second OpenStack VM.",
+  "prefeituras": [
+    {
+      "codigo_ibge": "3550308",
+      "nome": "São Paulo",
+      "estado": "SP",
+      "center_lat": -23.5505,
+      "center_lon": -46.6333,
+      "buses": 2682,
+      "students": 99225,
+      "source_note": "students=99225 is a sourced fact (Folha de S.Paulo 21/03/2025 and G1 05/02/2024, TEG program 2024 registrations; corrected down from an earlier unverified 166,000 figure). buses=2682 is a derived assumption (99225 / ~37 seats/bus) — the plan cites ~2,700 as a rounded figure; 2682 is the unrounded value used to keep the ratio exact."
+    }
+  ]
+}

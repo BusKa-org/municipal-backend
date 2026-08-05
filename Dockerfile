@@ -41,6 +41,24 @@ ENV PYTHONUNBUFFERED=1 \
     DB_PASSWORD=buska_pass \
     DB_NAME=buska_db
 
+# Gunicorn concurrency. Load testing showed this workload is CPU-bound on the
+# 2-vCPU allocation (heavy JSON serialization + bcrypt on login), so adding
+# workers or threads beyond a small number only thrashes the two cores and
+# collapses latency — threaded (gthread) workers were the worst, and 2-4 plain
+# sync workers were the sweet spot (see loadtest/REPORT.md). The real lever for
+# more capacity is more vCPUs, not more workers. Kept as sync/4 (the validated
+# optimum for 2 vCPU) but overridable so capacity can be re-tuned per host size
+# without rebuilding — e.g. bump GUNICORN_WORKERS to ~2x vCPU on a larger box.
+ENV GUNICORN_WORKERS=4 \
+    GUNICORN_THREADS=1 \
+    GUNICORN_WORKER_CLASS=sync \
+    GUNICORN_TIMEOUT=120
+
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "app:create_app()"]
+CMD gunicorn --bind 0.0.0.0:5000 \
+    --workers ${GUNICORN_WORKERS} \
+    --threads ${GUNICORN_THREADS} \
+    --worker-class ${GUNICORN_WORKER_CLASS} \
+    --timeout ${GUNICORN_TIMEOUT} \
+    "app:create_app()"

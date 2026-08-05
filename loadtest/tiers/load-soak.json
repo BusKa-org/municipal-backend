@@ -1,0 +1,23 @@
+{
+  "tier": "load-soak",
+  "label": "School-Term Soak (Soak variant on the Load dataset)",
+  "data_source": "load",
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 1450,
+  "concurrent_trips": 39,
+  "stages": [
+    {
+      "duration": "2m",
+      "fraction": 1
+    },
+    {
+      "duration": "2h30m",
+      "fraction": 1
+    },
+    {
+      "duration": "1m",
+      "fraction": 0
+    }
+  ],
+  "note": "Reuses loadtest/exports/load_export.json — run generate_data.py --tier load first. Full endurance run: 5h sustained at the Campina Grande (load) scale. k6/lib/auth.js refreshes each VU's JWT before the 2h expiry so token expiry doesn't masquerade as a failure mid-soak. Watch for DB connection/pool drift, memory growth, and interaction with the APScheduler jobs in app/utils/scheduler_setup.py firing throughout the run."
+}

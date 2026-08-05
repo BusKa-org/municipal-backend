@@ -6,6 +6,7 @@ the proper identification headers required by OSM's usage policy.
 """
 
 import logging
+import os
 from typing import Any
 
 import requests
@@ -15,7 +16,11 @@ from app.core.exceptions import AppError, ValidationError
 
 logger = logging.getLogger(__name__)
 
-_OSRM_BASE_URL = "https://router.project-osrm.org/route/v1/driving"
+# Overridable via OSRM_BASE_URL so load tests (and any future self-hosted
+# deployment) can point this at a stub/local instance instead of the public
+# OSRM demo server, which is rate-limited and must never receive test traffic
+# (see buska-backend/loadtest/README.md).
+_OSRM_BASE_URL = os.getenv("OSRM_BASE_URL", "https://router.project-osrm.org/route/v1/driving")
 _USER_AGENT = "BusKa/1.0 (school-transport management; https://github.com/buska)"
 _TIMEOUT_SECONDS = 10
 

@@ -1,0 +1,75 @@
+{
+  "tier": "capacity",
+  "label": "Regional Rollout",
+  "seed": 42,
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 6950,
+  "concurrent_trips": 96,
+  "stages": [
+    {
+      "duration": "2m",
+      "fraction": 1
+    },
+    {
+      "duration": "10m",
+      "fraction": 1
+    },
+    {
+      "duration": "1m",
+      "fraction": 0
+    }
+  ],
+  "note": "Requires the second OpenStack VM (or equivalent) per the plan — local Docker is no longer representative at this scale.",
+  "prefeituras": [
+    {
+      "codigo_ibge": "95000001",
+      "nome": "Passagem (perfil sintético #1)",
+      "estado": "PB",
+      "center_lat": -6.98656,
+      "center_lon": -36.89558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000002",
+      "nome": "Passagem (perfil sintético #2)",
+      "estado": "PB",
+      "center_lat": -6.83656,
+      "center_lon": -36.74558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "2510709",
+      "nome": "Passagem",
+      "estado": "PB",
+      "center_lat": -7.13656,
+      "center_lon": -37.04558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Sourced fact: ~500 students (Consed, 05/09/2025). buses=14 derived (500/~37 seats)."
+    },
+    {
+      "codigo_ibge": "2511905",
+      "nome": "Pitimbu",
+      "estado": "PB",
+      "center_lat": -7.47169,
+      "center_lon": -34.81268,
+      "buses": 15,
+      "students": 4000,
+      "source_note": "Both sourced facts (Prefeitura de Pitimbu, 08/06/2023: 15 buses, 4,000 students)."
+    },
+    {
+      "codigo_ibge": "2504009",
+      "nome": "Campina Grande",
+      "estado": "PB",
+      "center_lat": -7.2306,
+      "center_lon": -35.8811,
+      "buses": 39,
+      "students": 1450,
+      "source_note": "buses=39 sourced fact (ParaibaOnline, 01/08/2025). students=1450 derived (39x~37)."
+    }
+  ]
+}

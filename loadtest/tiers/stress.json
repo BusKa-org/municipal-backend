@@ -1,0 +1,225 @@
+{
+  "tier": "stress",
+  "label": "Statewide Expansion",
+  "seed": 42,
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 29450,
+  "concurrent_trips": 361,
+  "stages": [
+    {
+      "duration": "3m",
+      "fraction": 1
+    },
+    {
+      "duration": "10m",
+      "fraction": 1
+    },
+    {
+      "duration": "1m",
+      "fraction": 0
+    }
+  ],
+  "note": "Exploratory: goal is to characterize the degradation curve, not pass/fail. Requires the second OpenStack VM.",
+  "prefeituras": [
+    {
+      "codigo_ibge": "2510709",
+      "nome": "Passagem",
+      "estado": "PB",
+      "center_lat": -7.13656,
+      "center_lon": -37.04558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Sourced fact: ~500 students (Consed, 05/09/2025). buses=14 derived (500/~37 seats)."
+    },
+    {
+      "codigo_ibge": "95000001",
+      "nome": "Passagem (perfil sintético #1)",
+      "estado": "PB",
+      "center_lat": -6.98656,
+      "center_lon": -36.89558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000002",
+      "nome": "Passagem (perfil sintético #2)",
+      "estado": "PB",
+      "center_lat": -6.83656,
+      "center_lon": -36.74558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000003",
+      "nome": "Passagem (perfil sintético #3)",
+      "estado": "PB",
+      "center_lat": -6.68656,
+      "center_lon": -36.59558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000004",
+      "nome": "Passagem (perfil sintético #4)",
+      "estado": "PB",
+      "center_lat": -6.53656,
+      "center_lon": -36.44558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000005",
+      "nome": "Passagem (perfil sintético #5)",
+      "estado": "PB",
+      "center_lat": -6.38656,
+      "center_lon": -36.29558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000006",
+      "nome": "Passagem (perfil sintético #6)",
+      "estado": "PB",
+      "center_lat": -6.23656,
+      "center_lon": -36.14558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000007",
+      "nome": "Passagem (perfil sintético #7)",
+      "estado": "PB",
+      "center_lat": -6.08656,
+      "center_lon": -35.99558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000008",
+      "nome": "Passagem (perfil sintético #8)",
+      "estado": "PB",
+      "center_lat": -5.93656,
+      "center_lon": -35.84558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000009",
+      "nome": "Passagem (perfil sintético #9)",
+      "estado": "PB",
+      "center_lat": -5.78656,
+      "center_lon": -35.69558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000010",
+      "nome": "Passagem (perfil sintético #10)",
+      "estado": "PB",
+      "center_lat": -5.63656,
+      "center_lon": -35.54558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000011",
+      "nome": "Passagem (perfil sintético #11)",
+      "estado": "PB",
+      "center_lat": -5.48656,
+      "center_lon": -35.39558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000012",
+      "nome": "Passagem (perfil sintético #12)",
+      "estado": "PB",
+      "center_lat": -5.33656,
+      "center_lon": -35.24558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "95000013",
+      "nome": "Passagem (perfil sintético #13)",
+      "estado": "PB",
+      "center_lat": -5.18656,
+      "center_lon": -35.09558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "Synthetic clone at the Passagem-scale (~500 students / 14 buses) profile (real città: Passagem, IBGE 2510709). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "2511905",
+      "nome": "Pitimbu",
+      "estado": "PB",
+      "center_lat": -7.47169,
+      "center_lon": -34.81268,
+      "buses": 15,
+      "students": 4000,
+      "source_note": "Both sourced facts (Prefeitura de Pitimbu, 08/06/2023: 15 buses, 4,000 students)."
+    },
+    {
+      "codigo_ibge": "96000001",
+      "nome": "Pitimbu (perfil sintético #1)",
+      "estado": "PB",
+      "center_lat": -7.32169,
+      "center_lon": -34.66268,
+      "buses": 15,
+      "students": 4000,
+      "source_note": "Synthetic clone at the Pitimbu-scale (~4,000 students / 15 buses) profile (real città: Pitimbu, IBGE 2511905). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "96000002",
+      "nome": "Pitimbu (perfil sintético #2)",
+      "estado": "PB",
+      "center_lat": -7.17169,
+      "center_lon": -34.51268,
+      "buses": 15,
+      "students": 4000,
+      "source_note": "Synthetic clone at the Pitimbu-scale (~4,000 students / 15 buses) profile (real città: Pitimbu, IBGE 2511905). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "96000003",
+      "nome": "Pitimbu (perfil sintético #3)",
+      "estado": "PB",
+      "center_lat": -7.02169,
+      "center_lon": -34.36268,
+      "buses": 15,
+      "students": 4000,
+      "source_note": "Synthetic clone at the Pitimbu-scale (~4,000 students / 15 buses) profile (real città: Pitimbu, IBGE 2511905). codigo_ibge is a fabricated placeholder (95xx/96xx prefixes are not used by any real Brazilian state) — used only to model 'N municípios at this scale' per the plan; not claiming N distinct real, independently-sourced towns."
+    },
+    {
+      "codigo_ibge": "2504009",
+      "nome": "Campina Grande",
+      "estado": "PB",
+      "center_lat": -7.2306,
+      "center_lon": -35.8811,
+      "buses": 39,
+      "students": 1450,
+      "source_note": "buses=39 sourced fact (ParaibaOnline, 01/08/2025). students=1450 derived (39x~37)."
+    },
+    {
+      "codigo_ibge": "2507507",
+      "nome": "João Pessoa",
+      "estado": "PB",
+      "center_lat": -7.1216,
+      "center_lon": -34.882,
+      "buses": 66,
+      "students": 5000,
+      "source_note": "Both sourced facts, verified via independent mirror (Portal Notícias do Transporte, 08/02/2025 — primary joaopessoa.pb.gov.br page was blocked by bot protection): 66 buses, ~5,000 students."
+    }
+  ]
+}
