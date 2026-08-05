@@ -1,0 +1,34 @@
+{
+  "tier": "smoke",
+  "label": "Pilot Run",
+  "seed": 42,
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 20,
+  "concurrent_trips": 4,
+  "stages": [
+    {
+      "duration": "10s",
+      "fraction": 1
+    },
+    {
+      "duration": "40s",
+      "fraction": 1
+    },
+    {
+      "duration": "10s",
+      "fraction": 0
+    }
+  ],
+  "prefeituras": [
+    {
+      "codigo_ibge": "2504009",
+      "nome": "Campina Grande",
+      "estado": "PB",
+      "center_lat": -7.2306,
+      "center_lon": -35.8811,
+      "buses": 4,
+      "students": 20,
+      "source_note": "Matches seed.py's demo scale exactly (own seed-data city, IBGE 2504009)."
+    }
+  ]
+}
