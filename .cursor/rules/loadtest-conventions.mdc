@@ -1,0 +1,32 @@
+---
+description: Load-testing harness (k6 + isolated Compose stack) conventions
+globs: loadtest/**,docker-compose.loadtest.yml
+alwaysApply: false
+---
+
+# Load testing
+
+Full rationale, architecture, tiers, scenarios, and metrics:
+`docs/adr/0001-tiered-load-testing-harness.md`. Read that before changing
+anything here — most design choices in this directory look arbitrary until
+you've read the "why" section.
+
+- **Sizing lives in `loadtest/tiers/*.json`, not in the k6 scripts.** If
+  you're changing how much load a tier generates, edit the tier file, not
+  `loadtest/k6/main.js`. Every sizing number needs a `source_note` marking it
+  as sourced fact or a modelling assumption.
+- **One file per user behaviour in `loadtest/k6/scenarios/`.** A new endpoint
+  worth load-testing gets a new scenario (or an addition to an existing one
+  that models the same real behaviour) — don't bolt unrelated calls onto an
+  existing scenario just because it's convenient.
+- **Thresholds are code, not a report artifact.** They live in
+  `loadtest/k6/lib/thresholds.js` and are identical at every tier by design —
+  don't relax a threshold to make a Stress/Breakpoint run "pass"; those tiers
+  are expected to fail and are read by a human.
+- **Never point this stack at `docker-compose.prod.yml` or a production URL.**
+  It only ever runs against `docker-compose.loadtest.yml`, which is isolated
+  on purpose.
+- **`loadtest/fixtures/firebase-credentials.fake.json` is a known-fake secret**
+  used only to satisfy Firebase's unconditional init on Gunicorn boot. It is
+  intentionally checked in; don't "fix" it by deleting it without reading the
+  ADR's consequences section first.
