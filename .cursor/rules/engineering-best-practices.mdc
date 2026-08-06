@@ -1,0 +1,98 @@
+---
+description: Cross-cutting engineering practices for Python backend code (DRY, error hygiene, query efficiency)
+globs: app/**/*.py
+alwaysApply: false
+---
+
+# Engineering best practices
+
+Layering (controller/service/model) is covered in `flask-service-layering.mdc`.
+This rule is about cross-cutting hygiene within a layer, based on patterns
+already found duplicated or inconsistently adopted in this codebase — check
+these before adding a new instance of the same shape.
+
+## Use `transactional()`, don't hand-roll the same try/except again
+
+`app/core/transaction.py` already provides this, and it is the right shape —
+commits on success, rolls back and converts an `IntegrityError` into a clean
+`ConflictError`, re-raises anything else for the global handler to turn into a
+generic 500:
+
+```python
+from app.core.transaction import transactional
+
+with transactional():
+    db.session.add(nova_viagem)
+    # ... more writes ...
+```
+
+It is currently used in 4 places, all in `viagens_service.py`
+(`app/services/viagens_service.py:139,290,321,382`). Roughly 35 other mutation
+call sites across `user_service.py`, `rotas_service.py`, `pontos_service.py`,
+`aluno_service.py`, `onibus_service.py`, `instituicao_service.py`,
+`ocorrencia_service.py`, `notificacao_service.py`, and `auth_service.py`
+hand-roll a strictly worse version instead:
+
+```python
+# Don't write this — it already exists, and it leaks exception text (below)
+except Exception as e:
+    db.session.rollback()
+    logger.error(f"Error doing X: {e}", exc_info=True)
+    raise AppError(f"Erro ao fazer X: {str(e)}", 500)
+```
+
+When touching a function that still uses the manual form, prefer switching it
+to `transactional()` over adding a second copy of the same hand-rolled
+try/except.
+
+## Never put exception text in a client-facing message
+
+`app/core/error_handlers.py` returns `AppError.message` **verbatim** in the
+JSON response body. The manual pattern above interpolates `str(e)` into that
+message — which can contain SQL fragments, constraint names, or driver
+internals — and this is inconsistent with the catch-all `Exception` handler
+two levels up, which deliberately returns a generic "Erro interno do
+servidor" for the same failure class. `transactional()` avoids this
+automatically by never wrapping the exception into an `AppError` message in
+the first place. If you're not using `transactional()` for some reason, at
+minimum:
+
+```python
+except Exception as e:
+    db.session.rollback()
+    logger.error("Error doing X", exc_info=True)   # detail goes to logs
+    raise AppError("Erro ao fazer X", 500)            # generic message to client
+```
+
+## Don't duplicate a lookup-or-404 across services
+
+The "get by id or raise `NotFoundError`" shape for `User` is duplicated 10+
+times across `app/services/*.py` (`pontos_service`, `onibus_service`,
+`rotas_service`, `instituicao_service`, `viagens_service`, ...), while
+`user_service.py` already has a private `_get_user_or_404` doing the same
+thing for its own file only. Before writing another
+`x = Model.query.get(id); if not x: raise NotFoundError(...)`, check
+`app/utils/validators.py` (the existing home for cross-service helpers like
+`validate_uuid`) for one first, and add it there if it doesn't exist yet
+rather than writing a sixth copy.
+
+## Batch a query, don't run one per loop iteration
+
+Good existing pattern — `app/services/viagens_service.py`, in
+`_popular_dados_da_viagem` (explicitly commented "Batch load ... to avoid N+1
+queries"): fetch once, index into a dict, then loop over the dict:
+
+```python
+alunos = db.session.query(Aluno).filter(Aluno.usuario_id.in_(aluno_ids)).all()
+alunos_map = {a.usuario_id: a for a in alunos}
+for inscricao in inscricoes:
+    aluno = alunos_map.get(inscricao.aluno_id)
+```
+
+The same file does not apply its own lesson consistently: `gerar_viagens_em_lote`
+has a query issued inside a nested `for rota in rotas: for horario in
+horarios_validos: db.session.query(Viagem.id)...` loop — N+1 against the
+database, worst at exactly the scale (`stress`, `breakpoint`) the
+load-testing harness models. When you're about to write a query inside a
+`for`, stop and fetch the collection you need in one query before the loop
+instead — the pattern to copy is one function above in the same file.
