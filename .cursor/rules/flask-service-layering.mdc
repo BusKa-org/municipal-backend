@@ -24,9 +24,10 @@ Controller → Service → Model → Database. Full diagram:
 Raise typed exceptions from `app/core/exceptions.py`
 (`NotFoundError`, `ValidationError`, `ForbiddenError`, `UnauthorizedError`,
 `ConflictError`) from the service layer. Never raise a bare `Exception` or
-return an ad-hoc error dict from a controller — the global handlers in
-`app/__init__.py` map these types to the correct HTTP status, and a raw
-exception loses that mapping.
+return an ad-hoc error dict from a controller — the handlers registered in
+`app/core/error_handlers.py` (via `register_error_handlers` in
+`app/__init__.py`) map these types to the correct HTTP status, and a raw
+exception loses that mapping, falling through to a generic 500.
 
 ## Tenant isolation
 

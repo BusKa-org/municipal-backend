@@ -9,7 +9,9 @@ alwaysApply: false
 Full rationale, architecture, tiers, scenarios, and metrics:
 `docs/adr/0001-tiered-load-testing-harness.md`. Read that before changing
 anything here — most design choices in this directory look arbitrary until
-you've read the "why" section.
+you've read the "why" section. (If that path doesn't exist yet, the
+load-testing PR hasn't merged to `main` — this rule only fires when
+`loadtest/` files are open, which also won't exist until then.)
 
 - **Sizing lives in `loadtest/tiers/*.json`, not in the k6 scripts.** If
   you're changing how much load a tier generates, edit the tier file, not
