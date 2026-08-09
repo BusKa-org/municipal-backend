@@ -6,14 +6,17 @@ from flask_restx import fields
 def register_models(api):
     """Register viagem models with the API namespace."""
 
+    # Only rota_id and data are accepted; see ViagemCreateRequestSchema.
+    # horario_id, motorista_id and veiculo_id were documented here but never
+    # reached the service: the request schema discards unknown fields, and
+    # gerar_viagem() derives those values on its own (the horario is looked up
+    # from the route's schedule for the weekday of `data`, and the vehicle comes
+    # from the route's veiculo_padrao_id).
     viagem_create_request = api.model(
         "ViagemCreateRequest",
         {
             "rota_id": fields.String(required=True, description="UUID da rota"),
-            "horario_id": fields.String(required=True, description="UUID do horário"),
             "data": fields.String(required=True, description="Data (YYYY-MM-DD)"),
-            "motorista_id": fields.String(description="UUID do motorista (opcional)"),
-            "veiculo_id": fields.String(description="UUID do veículo (opcional)"),
         },
     )
 
@@ -32,7 +35,7 @@ def register_models(api):
 
     viagem_acao_request = api.model(
         "ViagemAcaoRequest",
-        {"acao": fields.String(required=True, description="iniciar ou finalizar")},
+        {"acao": fields.String(required=True, description="INICIAR ou FINALIZAR")},
     )
 
     localizacao_request = api.model(
