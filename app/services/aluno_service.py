@@ -349,6 +349,9 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
         db.session.commit()
         return aluno
 
+    except AppError:
+        db.session.rollback()
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating student profile: {e}")
@@ -372,6 +375,9 @@ def delete_me(user_id: str) -> None:
         db.session.delete(aluno)
         db.session.commit()
 
+    except AppError:
+        db.session.rollback()
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting student account: {e}")
@@ -403,15 +409,18 @@ def list_alunos_gestor(gestor_id: str, status: str | None = None) -> list[Aluno]
     Optionally filter by status (e.g. 'PENDING_APPROVAL').
 
     Returns: List of Aluno objects
-    Raises: ForbiddenError
+    Raises: ForbiddenError, ValidationError
     """
     gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem listar alunos")
     q = db.session.query(Aluno).filter_by(prefeitura_id=gestor.prefeitura_id)
     if status:
         try:
-            q = q.filter(Aluno.status == UserStatus[status])
+            status_enum = UserStatus[status]
         except KeyError:
-            pass
+            raise ValidationError(
+                f"Status inválido. Valores válidos: {[s.value for s in UserStatus]}"
+            ) from None
+        q = q.filter(Aluno.status == status_enum)
     return q.all()
 
 
