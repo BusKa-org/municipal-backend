@@ -6,7 +6,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract, viagem_contract
 from app.api.contracts.viagem_parsers import parsers
-from app.api.helpers import json_body, list_envelope
+from app.api.helpers import list_envelope
 from app.core.exceptions import ValidationError
 from app.schemas.ponto_schema import (
     PontoFlatListResponseSchema,
@@ -90,7 +90,7 @@ class ViagemConfirmacaoResource(Resource):
     @jwt_required()
     def put(self, id: str) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = viagem_confirmacao_request_schema.load(data)
         result = viagens_service.confirmar_presenca_aluno(user_id, id, payload)
         return viagem_aluno_confirmacao_response_schema.dump(result), 200
@@ -117,7 +117,7 @@ class ViagemListResource(Resource):
     @jwt_required()
     def post(self) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = viagem_create_request_schema.load(data)
         result = viagens_service.gerar_viagem(user_id, payload)
 
@@ -134,7 +134,7 @@ class ViagemLoteResource(Resource):
     @jwt_required()
     def post(self) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = viagem_lote_request_schema.load(data)
         result = viagens_service.gerar_viagens_em_lote(user_id, payload["data"])
         return viagem_lote_response_schema.dump(result), 201
@@ -162,7 +162,7 @@ class ViagemAcaoResource(Resource):
     @jwt_required()
     def put(self, id: str) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = viagem_acao_request_schema.load(data)
         viagem = viagens_service.controlar_viagem(user_id, id, payload)
         return viagem_response_schema.dump(viagem), 200

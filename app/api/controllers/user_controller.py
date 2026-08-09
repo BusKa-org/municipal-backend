@@ -5,7 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract, user_contract
-from app.api.helpers import json_body, list_envelope
+from app.api.helpers import list_envelope
 from app.schemas.aluno_schema import AlunoProvisionAccountRequestSchema
 from app.schemas.user_schema import (
     ChangePasswordRequestSchema,
@@ -73,7 +73,7 @@ class UserProfile(Resource):
     def patch(self) -> tuple[dict[str, Any], int]:
         """Atualiza perfil do usuário logado (nome, telefone, receber_notificacoes, cnh)"""
         current_user_id = get_jwt_identity()
-        payload = update_profile_schema.load(json_body())
+        payload = update_profile_schema.load(request.get_json(silent=True) or {})
         user = user_service.update_profile(current_user_id, payload)
         return user_response_schema.dump(user), 200
 
@@ -157,7 +157,7 @@ class MotoristaCreateResource(Resource):
     def post(self) -> tuple[dict[str, Any], int]:
         """Gestor cria um novo Motorista"""
         current_user_id = get_jwt_identity()
-        payload = motorista_create_schema.load(json_body())
+        payload = motorista_create_schema.load(request.get_json(silent=True) or {})
 
         motorista = user_service.create_motorista(current_user_id, payload)
         return user_response_schema.dump(motorista), 201
@@ -180,7 +180,7 @@ class UserChangePassword(Resource):
     def post(self) -> tuple[dict[str, Any], int]:
         """Altera a senha do usuário logado (Requer senha atual)."""
         current_user_id = get_jwt_identity()
-        payload = change_password_schema.load(json_body())
+        payload = change_password_schema.load(request.get_json(silent=True) or {})
 
         user_service.change_password(current_user_id, payload)
         return change_password_response_schema.dump({"message": "Senha alterada com sucesso"}), 200

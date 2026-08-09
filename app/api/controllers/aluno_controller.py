@@ -1,10 +1,11 @@
 from typing import Any
 
+from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract
-from app.api.helpers import json_body, list_envelope
+from app.api.helpers import list_envelope
 from app.schemas.aluno_schema import (
     AlunoGuardianConsentPublicSchema,
     AlunoListResponseSchema,
@@ -34,7 +35,7 @@ class AlunoSignupResource(Resource):
     @api.response(201, "Success", models["aluno_response"])
     def post(self):
         """Auto-cadastro do Aluno (Público)"""
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = self_signup_schema.load(data)
         aluno = aluno_service.auto_cadastro(payload)
         return aluno_response_schema.dump(aluno), 201
@@ -49,7 +50,7 @@ class AlunoMeResource(Resource):
     def put(self) -> tuple[dict[str, Any], int]:
         """Aluno atualiza seu perfil (Dados Pessoais + Endereço)"""
         user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = me_update_schema.load(data)
 
         aluno = aluno_service.update_me(user_id, payload)

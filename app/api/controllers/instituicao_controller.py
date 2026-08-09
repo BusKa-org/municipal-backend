@@ -6,7 +6,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import instituicao_contract
 from app.api.contracts.instituicao_parsers import parsers
-from app.api.helpers import json_body, list_envelope
+from app.api.helpers import list_envelope
 from app.schemas.instituicao_schema import (
     InstituicaoCreateRequestSchema,
     InstituicaoListQuerySchema,
@@ -62,7 +62,7 @@ class InstituicaoListResource(Resource):
     def post(self) -> tuple[dict[str, Any], int]:
         """Cadastra uma nova instituição com endereço."""
         user_id = get_jwt_identity()
-        payload = instituicao_create_request_schema.load(json_body())
+        payload = instituicao_create_request_schema.load(request.get_json(silent=True) or {})
 
         inst = instituicao_service.create_instituicao(user_id, payload)
         return instituicao_response_schema.dump(inst), 201

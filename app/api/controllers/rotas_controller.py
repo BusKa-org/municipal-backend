@@ -1,10 +1,11 @@
 from typing import Any
 
+from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract, rota_contract
-from app.api.helpers import json_body, list_envelope
+from app.api.helpers import list_envelope
 from app.schemas.horario_schema import (
     HorarioCreateRequestSchema,
     HorarioListResponseSchema,
@@ -66,7 +67,7 @@ class RotasListResource(Resource):
     @jwt_required()
     def post(self) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = rota_create_request_schema.load(data)
 
         rota = rotas_service.create_rota(current_user_id, payload)
@@ -96,7 +97,7 @@ class RotaInscricaoResource(Resource):
     @jwt_required()
     def post(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = inscricao_request_schema.load(data)
 
         result = rotas_service.gerenciar_inscricao_aluno(current_user_id, id, payload)
@@ -122,7 +123,7 @@ class RotaPontosResource(Resource):
     @jwt_required()
     def post(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = pontos_add_request_schema.load(data)
 
         rotas_service.add_ponto(current_user_id, id, payload)
@@ -148,7 +149,7 @@ class RotaHorariosResource(Resource):
     @jwt_required()
     def post(self, id: str) -> tuple[dict[str, Any], int]:
         current_user = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = horario_create_request_schema.load(data)
 
         horario = rotas_service.add_horario(current_user, id, payload)
@@ -171,7 +172,7 @@ class RotaResource(Resource):
     @jwt_required()
     def put(self, id: str) -> tuple[dict[str, Any], int]:
         current_user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = rota_update_request_schema.load(data)
 
         rota = rotas_service.update_rota(current_user_id, id, payload)

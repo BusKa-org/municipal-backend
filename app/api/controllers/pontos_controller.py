@@ -1,10 +1,11 @@
 from typing import Any
 
+from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract
-from app.api.helpers import json_body, list_envelope
+from app.api.helpers import list_envelope
 from app.schemas.ponto_schema import (
     PontoCreateRequestSchema,
     PontoListResponseSchema,
@@ -44,7 +45,7 @@ class PontosListResource(Resource):
     @jwt_required()
     def post(self) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = ponto_create_request_schema.load(data)
 
         ponto = pontos_service.create_ponto(user_id, payload)
@@ -67,7 +68,7 @@ class PontoResource(Resource):
     @jwt_required()
     def put(self, id: str) -> tuple[dict[str, Any], int]:
         user_id = get_jwt_identity()
-        data = json_body()
+        data = request.get_json(silent=True) or {}
         payload = ponto_update_request_schema.load(data)
 
         ponto = pontos_service.update_ponto(user_id, id, payload)

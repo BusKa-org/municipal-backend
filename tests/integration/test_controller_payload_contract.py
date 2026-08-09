@@ -1,18 +1,10 @@
 """Characterization tests for two repeated controller patterns.
 
-These tests describe what the controllers do TODAY, not what they should do.
-They exist to lock the observable HTTP contract in place before the
-`request.get_json(silent=True) or {}` and `{"items": xs, "total": len(xs)}`
-duplication is factored into shared helpers.
-
-Two properties are pinned:
-
-1. Envelope: list endpoints answer with exactly the keys ``items`` and
-   ``total``, where ``total`` equals the number of returned items.
-
-2. Payload fallback: an absent body, a malformed JSON body and an explicit
-   empty object are indistinguishable to the endpoint -- all three collapse to
-   ``{}`` and therefore produce byte-identical responses.
+These pin what the controllers do TODAY, not what they should do, so the
+duplication can be removed without changing the HTTP contract: the
+``{"items": xs, "total": len(xs)}`` list envelope, and the
+``request.get_json(silent=True) or {}`` fallback that makes an absent,
+malformed and empty body indistinguishable to the endpoint.
 """
 
 import pytest
@@ -82,14 +74,10 @@ def test_envelope_total_tracks_real_rows(gestor, ponto, onibus):
 # 2. Payload fallback: absent == malformed == {}
 # --------------------------------------------------------------------------
 
-# (method, url, acting-user fixture or None, status returned for an empty body)
-#
-# These are the routes where `get_json(silent=True) or {}` is the first gate,
-# i.e. they do NOT carry `@api.expect(..., validate=True)`.
-#
-# Note the odd one out: PATCH /v1/users/me is a partial update, so an empty
-# payload is a legitimate no-op that answers 200 with the unchanged profile.
-# Every other route treats an empty payload as a validation failure.
+# (method, url, acting-user fixture or None, status returned for an empty body).
+# Only routes where the fallback is the first gate, i.e. without
+# `@api.expect(..., validate=True)`. PATCH /v1/users/me is a partial update, so
+# an empty payload is a legitimate no-op; the others fail validation.
 PAYLOAD_ROUTES = [
     ("post", "/v1/auth/login", None, 400),
     ("post", "/v1/alunos/signup", None, 400),
@@ -112,11 +100,7 @@ def _caller(request, actor_name, method):
 
 
 def _comparable(response):
-    """Response body with the per-request correlation id removed.
-
-    Error envelopes carry a fresh ``request_id`` UUID on every call, so raw
-    bodies never compare equal. Everything else must match exactly.
-    """
+    """Body with the per-request ``request_id`` stripped, so bodies compare."""
     body = response.get_json()
     if isinstance(body, dict) and isinstance(body.get("error"), dict):
         error = {k: v for k, v in body["error"].items() if k != "request_id"}
@@ -129,12 +113,7 @@ def _comparable(response):
 def test_absent_malformed_and_empty_bodies_are_equivalent(
     request, method, url, actor_name, empty_status
 ):
-    """No body, unparseable body and {} all collapse to the same response.
-
-    This is the whole observable effect of `get_json(silent=True) or {}`:
-    the endpoint never distinguishes "you sent nothing" from "you sent
-    garbage" from "you sent an empty object".
-    """
+    """No body, unparseable body and {} all collapse to the same response."""
     no_body = _caller(request, actor_name, method)(url)
     malformed = _caller(request, actor_name, method)(
         url, data="{this is not json", content_type="application/json"
@@ -166,27 +145,20 @@ def test_empty_body_status_is_unchanged(request, method, url, actor_name, empty_
 @pytest.mark.integration
 @pytest.mark.parametrize(("method", "url", "actor_name", "empty_status"), PAYLOAD_ROUTES)
 def test_empty_list_body_falls_back_to_empty_object(request, method, url, actor_name, empty_status):
-    """`[] or {}` is falsy, so an empty list behaves exactly like no body.
-
-    Pinned because a helper that only special-cases ``None`` would change this.
-    """
+    """`[] or {}` is falsy, so an empty list behaves exactly like no body."""
     empty_list = _caller(request, actor_name, method)(url, json=[])
     empty_obj = _caller(request, actor_name, method)(url, json={})
 
-    assert empty_list.status_code == empty_obj.status_code, (
-        f"{method.upper()} {url}: []={empty_list.status_code} " f"vs {{}}={empty_obj.status_code}"
-    )
+    assert (
+        empty_list.status_code == empty_obj.status_code
+    ), f"{method.upper()} {url}: []={empty_list.status_code} vs {{}}={empty_obj.status_code}"
     assert _comparable(empty_list) == _comparable(empty_obj)
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(("method", "url", "actor_name", "empty_status"), PAYLOAD_ROUTES)
 def test_non_empty_list_body_is_forwarded_verbatim(request, method, url, actor_name, empty_status):
-    """A non-empty list is truthy, so it reaches the schema as a list.
-
-    Today this surfaces as a client error rather than a crash. Pinned because
-    a helper coercing non-dicts to ``{}`` would quietly alter this path.
-    """
+    """A non-empty list is truthy, so it reaches the schema as a list (4xx)."""
     r = _caller(request, actor_name, method)(url, json=[{"a": 1}])
 
     assert 400 <= r.status_code < 500, (
@@ -200,15 +172,10 @@ def test_non_empty_list_body_is_forwarded_verbatim(request, method, url, actor_n
 # 3. Routes fronted by flask-restx `validate=True`
 # --------------------------------------------------------------------------
 #
-# POST /v1/ocorrencias/ is declared `@api.expect(_ocorrencia_input,
-# validate=True)`. flask-restx validates the payload *before* the handler
-# runs, using a non-silent `request.get_json()`. A request with no JSON
-# content type is therefore rejected with 415 and the handler's
-# `silent=True` fallback is never reached.
-#
-# This is why the route is excluded from the equivalence table above, and it
-# is the behaviour most at risk of drifting if the fallback is refactored
-# without noticing the extra gate.
+# POST /v1/ocorrencias/ carries `@api.expect(..., validate=True)`, which
+# validates with a non-silent `request.get_json()` before the handler runs. A
+# request without a JSON content type is rejected with 415 and the handler's
+# fallback is never reached -- hence its exclusion from the table above.
 
 
 @pytest.mark.integration
