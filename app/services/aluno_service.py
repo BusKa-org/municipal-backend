@@ -5,6 +5,7 @@ import secrets
 from typing import Any, cast
 
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from app.core.exceptions import (
@@ -349,10 +350,16 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
         db.session.commit()
         return aluno
 
-    except Exception as e:
+    except AppError:
+        # ValidationError (cadastro incompleto) nasce dentro deste try; sem este
+        # ramo o `except Exception` abaixo a converteria num 500.
         db.session.rollback()
-        logger.error(f"Error updating student profile: {e}")
-        raise AppError(f"Erro ao atualizar perfil: {str(e)}", 500)
+        raise
+    except Exception:
+        db.session.rollback()
+        # Detalhe completo (SQL, constraint) só no log — nunca na resposta.
+        logger.exception("Error updating student profile %s", user_id)
+        raise AppError("Erro ao atualizar perfil", 500) from None
 
 
 def delete_me(user_id: str) -> None:
@@ -365,17 +372,41 @@ def delete_me(user_id: str) -> None:
     if not aluno:
         raise NotFoundError("Aluno não encontrado")
 
-    try:
-        if aluno.ponto_casa:
-            db.session.delete(aluno.ponto_casa)
+    ponto_casa = cast(Ponto | None, aluno.ponto_casa)
+    ponto_casa_id = ponto_casa.id if ponto_casa else None
 
+    try:
+        # A ordem importa: `aluno.ponto_casa_id` referencia `ponto.id` numa FK
+        # sem ON DELETE, então o ponto só pode sair depois que a linha do aluno
+        # deixar de apontar para ele. Os dependentes do aluno (rota_aluno,
+        # alunos_confirmados, ocorrencia, notificacoes) são ON DELETE CASCADE.
         db.session.delete(aluno)
+        db.session.flush()
+
+        if ponto_casa is not None:
+            try:
+                # Savepoint: o ponto de casa pode ter sido reaproveitado como
+                # parada de rota/viagem (FKs RESTRICT). Nesse caso ele não pode
+                # ser removido — mas isso não pode impedir o aluno de excluir a
+                # própria conta, então abortamos só a remoção do ponto.
+                with db.session.begin_nested():
+                    db.session.delete(ponto_casa)
+            except IntegrityError:
+                logger.warning(
+                    "Ponto de casa %s mantido: ainda referenciado por outra entidade",
+                    ponto_casa_id,
+                )
+
         db.session.commit()
 
-    except Exception as e:
+    except AppError:
         db.session.rollback()
-        logger.error(f"Error deleting student account: {e}")
-        raise AppError(f"Erro ao excluir conta: {str(e)}", 500)
+        raise
+    except Exception:
+        db.session.rollback()
+        # Detalhe completo (SQL, constraint) só no log — nunca na resposta.
+        logger.exception("Error deleting student account %s", user_id)
+        raise AppError("Erro ao excluir conta", 500) from None
 
 
 def get_aluno_by_id(gestor_id: str, aluno_id: str) -> Aluno:
