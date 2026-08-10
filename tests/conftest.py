@@ -98,9 +98,8 @@ class QueryCounter:
         return "\n".join(lines)
 
     def assert_at_most(self, expected: int) -> None:
-        assert self.count <= expected, (
-            f"esperava no máximo {expected} queries, saíram {self.count}\n{self.report()}"
-        )
+        msg = f"esperava no máximo {expected} queries, saíram {self.count}\n{self.report()}"
+        assert self.count <= expected, msg
 
 
 @pytest.fixture()
