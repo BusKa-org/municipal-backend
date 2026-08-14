@@ -5,7 +5,6 @@ from typing import Any
 
 import pytest
 from flask_jwt_extended import create_access_token
-from sqlalchemy.pool import StaticPool
 
 from app import create_app
 from app.models.base import db
@@ -61,6 +60,33 @@ class Actor:
 # A suíte nunca deve iniciar o scheduler. A variável pode vazar do shell do dev.
 os.environ.pop("RUN_SCHEDULER", None)
 
+# Nome do banco que a suíte pode destruir. Todo teste roda contra Postgres real
+# e o fixture `_db` faz `drop_all()` no fim de cada um.
+TEST_DB_NAME = os.getenv("TEST_DB_NAME", "buska_test")
+
+# O alvo precisa ser definido antes de `create_app()`. O Flask-SQLAlchemy lê a
+# URI dentro de `init_app()`, então um `config.update()` depois da criação do
+# app não religa a engine: escreve no config e a conexão continua na URI antiga.
+# `load_dotenv()` não sobrescreve variável já presente no ambiente, então esta
+# linha vence o `DB_NAME` do `.env`.
+os.environ["DB_NAME"] = TEST_DB_NAME
+
+
+def _exigir_banco_de_teste(engine) -> None:
+    """Aborta a suíte se o alvo real da engine não for um banco de teste.
+
+    Guarda contra a regressão que apagava o banco de desenvolvimento: o alvo
+    verificado é `engine.url`, não o `app.config`, porque foi exatamente a
+    divergência entre os dois que passou despercebida.
+    """
+    nome = engine.url.database or ""
+    if nome != TEST_DB_NAME:
+        raise RuntimeError(
+            f"A suíte está prestes a rodar create_all/drop_all em {nome!r}, "
+            f"que não é o banco de teste ({TEST_DB_NAME!r}). Alvo real da engine: "
+            f"{engine.url.render_as_string(hide_password=True)}. Abortando."
+        )
+
 
 @pytest.fixture(scope="session")
 def app():
@@ -69,12 +95,7 @@ def app():
         TESTING=True,
         DEBUG=True,
         JWT_SECRET_KEY="change_this_secret_key_use_long_random_string",
-        SQLALCHEMY_DATABASE_URI="sqlite://",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        SQLALCHEMY_ENGINE_OPTIONS={
-            "connect_args": {"check_same_thread": False},
-            "poolclass": StaticPool,
-        },
     )
     return app
 
@@ -82,6 +103,7 @@ def app():
 @pytest.fixture()
 def _db(app):
     with app.app_context():
+        _exigir_banco_de_teste(db.engine)
         db.create_all()
         yield db
         db.session.remove()
