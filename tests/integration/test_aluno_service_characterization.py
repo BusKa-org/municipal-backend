@@ -14,7 +14,6 @@ from unittest.mock import patch
 import pytest
 
 from app.core.exceptions import (
-    AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
@@ -145,16 +144,23 @@ def test_auto_cadastro_persiste_cpf_e_email_crus(_db, instituicao):
     assert aluno.cpf == formatted  # stored raw, NOT digits-only
     assert aluno.email == "A@Buska.TEST"  # stored raw, NOT lowercased
 
-    # Same CPF again: the ConflictError guard misses it (it compares against the
-    # cleaned form) and the DB constraint turns it into a 500.
-    with pytest.raises(AppError) as exc:
+    # Same CPF again: o guard de aplicação continua errando o alvo, porque
+    # compara contra a forma só com dígitos. A colisão segue sendo pega apenas
+    # pela UNIQUE do banco. O que mudou no R7i é o status: o `transactional()`
+    # mapeia `IntegrityError` para `ConflictError` 409, que é o código que a
+    # função pretendia devolver desde sempre.
+    #
+    # A causa raiz continua aberta no B49: `auto_cadastro` grava o CPF cru e o
+    # `user_service` grava só os dígitos, então as duas rotas de cadastro
+    # divergem e a mensagem 409 é genérica em vez de nomear o campo.
+    with pytest.raises(ConflictError) as exc:
         auto_cadastro(
             signup_payload(
                 instituicao_id=str(instituicao.id), cpf=formatted, email="outro@buska.test"
             )
         )
-    assert exc.value.status_code == 500  # BUG: should be ConflictError 409
-    assert not isinstance(exc.value, ConflictError)
+    assert exc.value.status_code == 409
+    assert str(exc.value) == "Violação de integridade"
 
 
 def test_auto_cadastro_instituicao_inexistente(_db):

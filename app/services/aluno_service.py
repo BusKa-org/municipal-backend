@@ -15,6 +15,7 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
@@ -108,7 +109,7 @@ def record_guardian_consent(token: str) -> Aluno:
         if datetime.now(UTC) > expires_at:
             raise ValidationError("Este link expirou. Peça ao estudante que refaça o cadastro.")
 
-    try:
+    with transactional():
         from app.services.notificacao_service import NotificacaoService
 
         aluno.guardian_consented_at = db.func.now()
@@ -130,16 +131,7 @@ def record_guardian_consent(token: str) -> Aluno:
                 ),
             )
 
-        db.session.commit()
-        return aluno
-
-    except AppError:
-        db.session.rollback()
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error("Error recording guardian consent: %s", e, exc_info=True)
-        raise AppError("Erro ao registrar consentimento", 500)
+    return aluno
 
 
 # ─── Signup ────────────────────────────────────────────────────────────────────
@@ -171,7 +163,7 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
     if db.session.query(User).filter(User.cpf == cpf_clean).first():
         raise ConflictError("Este CPF já está cadastrado.", field="cpf")
 
-    try:
+    with transactional():
         end_data = data.get("endereco_casa")
         if not end_data:
             raise ValidationError(
@@ -230,20 +222,10 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
             novo_aluno.guardian_token = secrets.token_urlsafe(32)
             # Status stays PENDING_SIGNUP until guardian consents
 
-        db.session.commit()
+    if novo_aluno.is_minor:
+        _send_guardian_consent_email(novo_aluno)
 
-        if novo_aluno.is_minor:
-            _send_guardian_consent_email(novo_aluno)
-
-        return novo_aluno
-
-    except AppError:
-        db.session.rollback()
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating student: {e}")
-        raise AppError(f"Erro ao criar aluno: {str(e)}", 500)
+    return novo_aluno
 
 
 def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
@@ -257,7 +239,7 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
     if not aluno:
         raise NotFoundError("Aluno não encontrado")
 
-    try:
+    with transactional():
         for field in (
             "nome",
             "telefone",
@@ -347,18 +329,7 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
                 resource_id=user_id,
             )
 
-        db.session.commit()
-        return aluno
-
-    except AppError:
-        # ValidationError (cadastro incompleto) nasce dentro deste try; sem este
-        # ramo o `except Exception` abaixo a converteria num 500.
-        db.session.rollback()
-        raise
-    except Exception:
-        db.session.rollback()
-        logger.exception("Error updating student profile %s", user_id)
-        raise AppError("Erro ao atualizar perfil", 500) from None
+    return aluno
 
 
 def delete_me(user_id: str) -> None:
@@ -467,7 +438,7 @@ def aprovar_aluno(gestor_id: str, aluno_id: str) -> Aluno:
     if aluno.status != UserStatus.PENDING_APPROVAL:
         raise ValidationError("Aluno não está aguardando aprovação")
 
-    try:
+    with transactional():
         aluno.status = UserStatus.ACTIVE
         aluno.signup_completed_at = db.func.now()
         db.session.flush()
@@ -488,12 +459,4 @@ def aprovar_aluno(gestor_id: str, aluno_id: str) -> Aluno:
             resource_type="aluno",
             resource_id=aluno_id,
         )
-        return aluno
-
-    except AppError:
-        db.session.rollback()
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error approving student: {e}")
-        raise AppError(f"Erro ao aprovar aluno: {str(e)}", 500)
+    return aluno
