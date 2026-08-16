@@ -17,7 +17,6 @@ import pytest
 from sqlalchemy.exc import DataError
 
 from app.core.exceptions import (
-    AppError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -316,15 +315,9 @@ def test_notificar_rota_id_malformado_estoura_no_banco(_db, gestor):
         )
 
 
-def test_notificar_erro_no_commit_vaza_texto_do_driver(_db, gestor, rota, aluno, monkeypatch):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    O `except Exception` interpola `str(e)` na resposta, então qualquer falha
-    do commit entrega o texto do driver ao cliente num 500. Mesmo defeito do
-    B17 e do B25, aqui em `notificar_por_gestor`. Sai com o `transactional()`
-    no R7b.
-    """
+def test_notificar_erro_no_commit_nao_vaza_texto_do_driver(_db, gestor, rota, aluno, monkeypatch):
+    """B29 corrigido: a falha do commit sobe crua e o handler genérico
+    responde 500 "Erro interno do servidor", sem o texto do driver."""
     _db.session.add(RotaAluno(rota_id=rota.id, aluno_id=aluno.user.id))
     _db.session.commit()
 
@@ -333,13 +326,10 @@ def test_notificar_erro_no_commit_vaza_texto_do_driver(_db, gestor, rota, aluno,
 
     monkeypatch.setattr(notificacao_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         NotificacaoService.notificar_por_gestor(
             str(gestor.user.id), {"titulo": "t", "mensagem": "m", "rota_id": str(rota.id)}
         )
-
-    assert exc.value.status_code == 500
-    assert "boom do driver" in str(exc.value)
 
 
 # ─── listar_notificacoes ────────────────────────────────────────────────────
@@ -430,13 +420,8 @@ def test_marcar_lida_de_outro_usuario_404_e_nao_403(_db, aluno, other_aluno):
     assert alheia.enviada is False
 
 
-def test_marcar_lida_erro_no_commit_vaza_texto_do_driver(_db, aluno, monkeypatch):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    Mesmo vazamento de `str(e)` do `notificar_por_gestor`. Sai com o
-    `transactional()` no R7b.
-    """
+def test_marcar_lida_erro_no_commit_nao_vaza_texto_do_driver(_db, aluno, monkeypatch):
+    """B30 corrigido: mesma troca do `notificar_por_gestor`."""
     notificacao = _notificacao(_db, aluno.user.id)
 
     def falha_generica():
@@ -444,11 +429,8 @@ def test_marcar_lida_erro_no_commit_vaza_texto_do_driver(_db, aluno, monkeypatch
 
     monkeypatch.setattr(notificacao_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         NotificacaoService.marcar_lida(str(aluno.user.id), str(notificacao.id))
-
-    assert exc.value.status_code == 500
-    assert "boom do driver" in str(exc.value)
 
 
 # ─── notificar_alunos_viagem_iniciada ───────────────────────────────────────
@@ -466,6 +448,19 @@ def test_viagem_iniciada_notifica_so_os_confirmados(
 
     assert _titulos_de(aluno.user.id) == ["🚌 Viagem Iniciada!"]
     assert _titulos_de(other_aluno.user.id) == []
+
+
+def test_viagem_iniciada_persiste_as_notificacoes(_db, aluno, viagem_futura_iniciada_com_motorista):
+    # O rollback depois da chamada separa commit de objeto só pendente na
+    # sessão: sem commit, o autoflush faria a query passar do mesmo jeito.
+    _confirmacao(_db, viagem_futura_iniciada_com_motorista.id, aluno.user.id, True)
+
+    NotificacaoService.notificar_alunos_viagem_iniciada(
+        str(viagem_futura_iniciada_com_motorista.id)
+    )
+    _db.session.rollback()
+
+    assert _titulos_de(aluno.user.id) == ["🚌 Viagem Iniciada!"]
 
 
 def test_viagem_iniciada_grava_o_corpo_fixo(_db, aluno, viagem_futura_iniciada_com_motorista):
