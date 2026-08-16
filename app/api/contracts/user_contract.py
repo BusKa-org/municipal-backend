@@ -36,6 +36,8 @@ def register_models(api):
     )
 
     motorista_create_request = api.model(
+        # `salario` foi removido daqui: a coluna saiu de `Gestor` na migração
+        # `a1b2c3d4e5f6` e `Motorista` nunca a teve. Mesma família do resíduo do U3.
         "MotoristaCreateRequest",
         {
             "nome": fields.String(required=True, description="Nome completo"),
@@ -44,7 +46,6 @@ def register_models(api):
             "cpf": fields.String(required=True, description="CPF"),
             "telefone": fields.String(description="Telefone"),
             "cnh": fields.String(required=True, description="CNH"),
-            "salario": fields.Float(description="Salário"),
         },
     )
 
