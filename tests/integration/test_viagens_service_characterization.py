@@ -16,7 +16,6 @@ from datetime import UTC, date, datetime, time, timedelta
 import pytest
 
 from app.core.exceptions import (
-    AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
@@ -859,27 +858,19 @@ def test_cancelar_viagem_de_outra_prefeitura_passa(
     assert resultado["message"] == "Viagem cancelada com sucesso"
 
 
-def test_cancelar_viagem_erro_no_commit_vira_500_com_texto_cru(
+def test_cancelar_viagem_erro_no_commit_nao_vaza_texto_do_driver(
     _db, gestor, viagem_futura_agendada_com_motorista, monkeypatch
 ):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    O ``except Exception`` interpola ``str(e)`` na resposta, então qualquer
-    falha do commit vaza o texto do driver para o cliente num 500. É o mesmo
-    defeito do B17, aqui no `cancelar_viagem`.
-    """
+    """B25 corrigido: a falha do commit sobe crua e o handler genérico
+    responde 500 "Erro interno do servidor", sem o texto do driver."""
 
     def falha_generica():
         raise RuntimeError("boom do driver")
 
     monkeypatch.setattr(viagens_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         cancelar_viagem(str(gestor.user.id), str(viagem_futura_agendada_com_motorista.id))
-
-    assert exc.value.status_code == 500
-    assert "boom do driver" in exc.value.message
 
 
 # ─── atualizar_localizacao ──────────────────────────────────────────────────
