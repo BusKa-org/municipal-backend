@@ -4,11 +4,11 @@ import logging
 from typing import Any
 
 from app.core.exceptions import (
-    AppError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import DiaDaSemana, SentidoViagem, UserRole
 from app.models.geo import Ponto
@@ -67,6 +67,9 @@ def _get_rota_do_tenant(user_id: str, rota_id: str) -> Rota:
 
 def list_my_rotas(user_id: str) -> list[Rota]:
     """List routes linked to the logged-in user."""
+    # B10: mesma validação que a vizinha `list_all_rotas` já fazia. Sem ela o
+    # id cru ia para o Postgres e um UUID malformado virava 500 em vez de 400.
+    validate_uuid(user_id, "User ID")
     user = User.query.get(user_id)
     if not user:
         raise NotFoundError("Usuário não encontrado")
@@ -129,46 +132,37 @@ def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) 
 
     inscricao_existente = RotaAluno.query.filter_by(rota_id=rota.id, aluno_id=aluno.id).first()
 
-    try:
-        if acao == "inscrever":
-            if inscricao_existente:
-                return {"message": "Aluno já inscrito nesta rota"}
+    if acao == "inscrever":
+        if inscricao_existente:
+            return {"message": "Aluno já inscrito nesta rota"}
 
+        with transactional():
             nova_inscricao = RotaAluno(rota_id=rota.id, aluno_id=aluno.id)
             db.session.add(nova_inscricao)
-            db.session.commit()
 
-            audit_logger.log_user_action(
-                action="subscribe_route",
-                user_id=user_id,
-                resource_type="rota",
-                resource_id=rota_id,
-            )
-            logger.info(f"Student {user_id} subscribed to route {rota_id}")
-            return {"message": "Inscrição realizada com sucesso"}
+        audit_logger.log_user_action(
+            action="subscribe_route",
+            user_id=user_id,
+            resource_type="rota",
+            resource_id=rota_id,
+        )
+        logger.info(f"Student {user_id} subscribed to route {rota_id}")
+        return {"message": "Inscrição realizada com sucesso"}
 
-        else:  # unsubscribe
-            if not inscricao_existente:
-                raise NotFoundError("Aluno não está inscrito nesta rota")
+    if not inscricao_existente:
+        raise NotFoundError("Aluno não está inscrito nesta rota")
 
-            db.session.delete(inscricao_existente)
-            db.session.commit()
+    with transactional():
+        db.session.delete(inscricao_existente)
 
-            audit_logger.log_user_action(
-                action="unsubscribe_route",
-                user_id=user_id,
-                resource_type="rota",
-                resource_id=rota_id,
-            )
-            logger.info(f"Student {user_id} unsubscribed from route {rota_id}")
-            return {"message": "Inscrição removida com sucesso"}
-
-    except (NotFoundError, ValidationError, ForbiddenError):
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error managing subscription for {user_id}: {e}", exc_info=True)
-        raise AppError(f"Erro ao gerenciar inscrição: {str(e)}", 500)
+    audit_logger.log_user_action(
+        action="unsubscribe_route",
+        user_id=user_id,
+        resource_type="rota",
+        resource_id=rota_id,
+    )
+    logger.info(f"Student {user_id} unsubscribed from route {rota_id}")
+    return {"message": "Inscrição removida com sucesso"}
 
 
 def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
@@ -185,7 +179,7 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
     if not nome:
         raise ValidationError("Nome da rota é obrigatório")
 
-    try:
+    with transactional():
         # If a driver creates a route, automatically assign themselves as the default driver
         motorista_id = data.get("motorista_padrao_id")
         if not motorista_id and user.role == UserRole.MOTORISTA:
@@ -249,16 +243,9 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
                         novo_dia = DiasOperacao(horario_rota_id=novo_horario.id, dia=dia_str)
                         db.session.add(novo_dia)
 
-        db.session.commit()
+    gerar_viagens_periodo(gestor_id=gestor_id, dias_futuros=14)
 
-        gerar_viagens_periodo(gestor_id=gestor_id, dias_futuros=14)
-
-        return rota
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating route: {e}")
-        raise AppError(f"Erro ao criar rota: {str(e)}", 500)
+    return rota
 
 
 def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
@@ -283,7 +270,7 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
     if not pontos or not isinstance(pontos, list):
         raise ValidationError("A rota deve conter pelo menos um ponto válido")
 
-    try:
+    with transactional():
         # Clear existing route points (replacing with new set)
         RotaPonto.query.filter_by(rota_id=rota.id).delete()
         db.session.flush()
@@ -324,19 +311,6 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
                 novo_rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto.id, ordem=ordem)
                 db.session.add(novo_rota_ponto)
 
-        db.session.commit()
-
-    except AppError:
-        # Ponto inválido aborta a substituição inteira: o rollback devolve os
-        # pontos anteriores da rota. Sem este ramo o `except Exception` abaixo
-        # transformaria o erro de domínio num 500 genérico.
-        db.session.rollback()
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error adding points to route: {e}")
-        raise AppError(f"Erro ao adicionar pontos: {str(e)}", 500)
-
 
 def add_horario(gestor_id: str, rota_id: str, data: dict[str, Any]) -> HorarioRota:
     """
@@ -359,7 +333,7 @@ def add_horario(gestor_id: str, rota_id: str, data: dict[str, Any]) -> HorarioRo
     if not dias_list:
         raise ValidationError("Selecione pelo menos um dia da semana")
 
-    try:
+    with transactional():
         novo_horario = HorarioRota(
             rota_id=rota.id,
             horario_saida=data.get("horario_saida"),
@@ -372,13 +346,7 @@ def add_horario(gestor_id: str, rota_id: str, data: dict[str, Any]) -> HorarioRo
             novo_dia = DiasOperacao(horario_rota_id=novo_horario.id, dia=DiaDaSemana(dia_str))
             db.session.add(novo_dia)
 
-        db.session.commit()
-        return novo_horario
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error adding schedule: {e}")
-        raise AppError(f"Erro ao adicionar horário: {str(e)}", 500)
+    return novo_horario
 
 
 def get_horarios(user_id: str, rota_id: str) -> list:
@@ -452,7 +420,7 @@ def update_rota(user_id: str, rota_id: str, data: dict[str, Any]) -> Rota:
 
     updated_fields: list[str] = []
 
-    try:
+    with transactional():
         if "nome" in data:
             rota.nome = data.get("nome")
             updated_fields.append("nome")
@@ -465,23 +433,16 @@ def update_rota(user_id: str, rota_id: str, data: dict[str, Any]) -> Rota:
             rota.veiculo_padrao_id = data.get("veiculo_padrao_id")
             updated_fields.append("veiculo_padrao_id")
 
-        db.session.commit()
+    audit_logger.log_user_action(
+        action="update",
+        user_id=user_id,
+        resource_type="rota",
+        resource_id=rota_id,
+        details={"updated_fields": updated_fields},
+    )
+    logger.info(f"Route {rota_id} updated by {user_id}: {', '.join(updated_fields)}")
 
-        audit_logger.log_user_action(
-            action="update",
-            user_id=user_id,
-            resource_type="rota",
-            resource_id=rota_id,
-            details={"updated_fields": updated_fields},
-        )
-        logger.info(f"Route {rota_id} updated by {user_id}: {', '.join(updated_fields)}")
-
-        return rota
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error updating route {rota_id}: {e}", exc_info=True)
-        raise AppError(f"Erro ao atualizar rota: {str(e)}", 500)
+    return rota
 
 
 def delete_rota(user_id: str, rota_id: str) -> None:
@@ -526,26 +487,20 @@ def delete_rota(user_id: str, rota_id: str) -> None:
         )
         raise ForbiddenError("Acesso negado")
 
-    try:
+    with transactional():
         # Store route name for audit log
         rota_nome = rota.nome
 
         db.session.delete(rota)
-        db.session.commit()
 
-        audit_logger.log_user_action(
-            action="delete",
-            user_id=user_id,
-            resource_type="rota",
-            resource_id=rota_id,
-            details={"rota_nome": rota_nome},
-        )
-        logger.info(f"Route {rota_id} ({rota_nome}) deleted by gestor {user_id}")
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error deleting route {rota_id}: {e}", exc_info=True)
-        raise AppError(f"Erro ao remover rota: {str(e)}", 500)
+    audit_logger.log_user_action(
+        action="delete",
+        user_id=user_id,
+        resource_type="rota",
+        resource_id=rota_id,
+        details={"rota_nome": rota_nome},
+    )
+    logger.info(f"Route {rota_id} ({rota_nome}) deleted by gestor {user_id}")
 
 
 def get_pontos_by_rota(user_id: str, rota_id: str) -> list[dict[str, Any]]:

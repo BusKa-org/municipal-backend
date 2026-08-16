@@ -14,7 +14,6 @@ import pytest
 from sqlalchemy.exc import DataError
 
 from app.core.exceptions import (
-    AppError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -118,18 +117,12 @@ def test_list_my_rotas_usuario_inexistente_da_404(_db, gestor):
         list_my_rotas(novo_uuid())
 
 
-def test_list_my_rotas_uuid_invalido_estoura_no_banco(_db, gestor):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    ``list_all_rotas`` chama ``validate_uuid`` e devolve 400 para um ID
-    malformado. ``list_my_rotas`` não valida nada, o ID cru chega no Postgres e
-    o driver levanta ``DataError`` ("invalid input syntax for type uuid"). Sai
-    como 500 no handler genérico. As duas funções são vizinhas e tratam o mesmo
-    argumento de formas diferentes.
-    """
-    with pytest.raises(DataError):
-        list_my_rotas("nao-e-uuid")  # FALHA: seria 400 em list_all_rotas
+def test_list_my_rotas_uuid_invalido_da_400(_db, gestor):
+    """B10 corrigido: `list_my_rotas` passou a chamar `validate_uuid`, como a
+    vizinha `list_all_rotas` já fazia. As duas agora tratam o mesmo argumento
+    do mesmo jeito, e id malformado vira 400 em vez do 500 do `DataError`."""
+    with pytest.raises(ValidationError):
+        list_my_rotas("nao-e-uuid")
 
 
 # ─── gerenciar_inscricao_aluno ─────────────────────────────────────────────────
@@ -296,11 +289,14 @@ def test_create_rota_ponto_inexistente_e_ignorado_em_silencio(_db, gestor):
     assert RotaPonto.query.filter_by(rota_id=rota.id).count() == 0
 
 
-def test_create_rota_ignora_ponto_de_outra_prefeitura_em_silencio(_db, gestor, other_prefeitura):
-    """
-    Corrigido pelo PR #39: ``create_rota`` passou a conferir a prefeitura do
-    ponto antes de vincular, igual ao ``add_ponto`` já fazia. O vínculo
-    cross-tenant não é mais criado, a rota segue sendo criada sem esse ponto.
+def test_create_rota_recusa_ponto_de_outra_prefeitura(_db, gestor, other_prefeitura):
+    """B4 corrigido. Conflito programado resolvido: o PR #39 está mesclado
+    neste branch, então a asserção foi invertida aqui, como o docstring
+    anterior instruía.
+
+    `create_rota` vinculava um ponto informado por ID sem conferir a prefeitura
+    dele, enquanto `add_ponto` conferia. As duas escritas de ponto do módulo
+    agora concordam.
     """
     ponto_alheio = cria_ponto(_db, other_prefeitura.id, apelido="Alheio")
 
@@ -339,9 +335,16 @@ def test_create_rota_descarta_dia_invalido_sem_erro(_db, gestor):
     assert [d.dia for d in horario.dias] == [DiaDaSemana.SEG]
 
 
-def test_create_rota_sentido_invalido_vira_500(_db, gestor):
-    """Erro de dado do cliente sai como 500 por causa do ``except Exception``."""
-    with pytest.raises(AppError) as exc:
+def test_create_rota_sentido_invalido_sobe_como_data_error(_db, gestor):
+    """Continua sendo 500 para o cliente, agora pelo handler genérico em vez do
+    `except Exception` do serviço, e sem o SQL embutido na resposta.
+
+    Repare na diferença para o `add_horario`: lá o serviço faz
+    `DiaDaSemana(dia_str)` e o enum levanta `ValueError` antes do banco. Aqui o
+    `sentido` vai cru para a coluna, então quem recusa é o Postgres, com
+    `DataError`. Virar 400 nos dois exige validar na borda.
+    """
+    with pytest.raises(DataError):
         create_rota(
             str(gestor.user.id),
             {
@@ -350,8 +353,6 @@ def test_create_rota_sentido_invalido_vira_500(_db, gestor):
             },
         )
 
-    assert exc.value.status_code == 500  # FALHA: dado inválido do cliente deveria ser 400
-    assert str(exc.value).startswith("Erro ao criar rota:")
     assert Rota.query.filter_by(nome="Rota").count() == 0
 
 
@@ -510,16 +511,15 @@ def test_add_horario_sem_dias_da_400(_db, gestor, rota):
     assert str(exc.value) == "Selecione pelo menos um dia da semana"
 
 
-def test_add_horario_dia_invalido_vira_500(_db, gestor, rota):
-    """Erro de dado do cliente sai como 500 por causa do ``except Exception``."""
-    with pytest.raises(AppError) as exc:
+def test_add_horario_dia_invalido_sobe_como_value_error(_db, gestor, rota):
+    """Mesma troca do `create_rota`: o `ValueError` do enum sobe cru."""
+    with pytest.raises(ValueError):
         add_horario(
             str(gestor.user.id),
             str(rota.id),
             {"horario_saida": "07:30", "sentido": "IDA", "dias": ["SEGUNDA"]},
         )
 
-    assert exc.value.status_code == 500  # FALHA: dado inválido do cliente deveria ser 400
     assert HorarioRota.query.filter_by(rota_id=rota.id).count() == 0
 
 
