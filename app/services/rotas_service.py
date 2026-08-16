@@ -42,6 +42,29 @@ def list_all_rotas(user_id: str) -> list[Rota]:
     return Rota.query.filter_by(prefeitura_id=user.prefeitura_id).all()
 
 
+def _get_rota_do_tenant(user_id: str, rota_id: str) -> Rota:
+    """Resolve a rota garantindo que ela é da prefeitura de quem pediu.
+
+    Guarda única das três leituras de rota. Antes, `get_by_id` e `get_horarios`
+    só comparavam a prefeitura para GESTOR e MOTORISTA, deixando ALUNO passar,
+    e `get_pontos_by_rota` não comparava nada. Ver B9.
+
+    Raises: NotFoundError, ForbiddenError
+    """
+    user = User.query.get(user_id)
+    if not user:
+        raise NotFoundError("Usuário não encontrado")
+
+    rota = Rota.query.get(rota_id)
+    if not rota:
+        raise NotFoundError("Rota não encontrada")
+
+    if rota.prefeitura_id != user.prefeitura_id:
+        raise ForbiddenError("Acesso negado")
+
+    return rota
+
+
 def list_my_rotas(user_id: str) -> list[Rota]:
     """List routes linked to the logged-in user."""
     user = User.query.get(user_id)
@@ -273,11 +296,9 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
             if ponto_id:
                 existing_ponto = Ponto.query.get(ponto_id)
                 if not existing_ponto:
-                    logger.warning(f"Point {ponto_id} not found, skipping")
-                    continue
+                    raise NotFoundError(f"Ponto {ponto_id} não encontrado")
                 if existing_ponto.prefeitura_id != rota.prefeitura_id:
-                    logger.warning(f"Point {ponto_id} belongs to different prefeitura, skipping")
-                    continue
+                    raise ForbiddenError(f"O ponto {ponto_id} pertence a outra prefeitura")
 
                 novo_rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=ordem)
                 db.session.add(novo_rota_ponto)
@@ -289,7 +310,7 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
                 lon = p.get("longitude")
 
                 if not nome_p or lat is None or lon is None:
-                    continue
+                    raise ValidationError("Ponto novo exige nome, latitude e longitude")
 
                 ponto = Ponto(
                     prefeitura_id=rota.prefeitura_id,
@@ -305,6 +326,12 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
 
         db.session.commit()
 
+    except AppError:
+        # Ponto inválido aborta a substituição inteira: o rollback devolve os
+        # pontos anteriores da rota. Sem este ramo o `except Exception` abaixo
+        # transformaria o erro de domínio num 500 genérico. Ver B7.
+        db.session.rollback()
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error adding points to route: {e}")
@@ -360,19 +387,7 @@ def get_horarios(user_id: str, rota_id: str) -> list:
 
     Raises: NotFoundError, ForbiddenError
     """
-    user = User.query.get(user_id)
-    if not user:
-        raise NotFoundError("Usuário não encontrado")
-
-    rota = Rota.query.get(rota_id)
-    if not rota:
-        raise NotFoundError("Rota não encontrada")
-
-    if (
-        user.role in (UserRole.GESTOR, UserRole.MOTORISTA)
-        and rota.prefeitura_id != user.prefeitura_id
-    ):
-        raise ForbiddenError("Acesso negado")
+    rota = _get_rota_do_tenant(user_id, rota_id)
 
     return rota.grade_horarios
 
@@ -383,19 +398,7 @@ def get_by_id(user_id: str, rota_id: str) -> Rota:
 
     Raises: NotFoundError, ForbiddenError
     """
-    user = User.query.get(user_id)
-    if not user:
-        raise NotFoundError("Usuário não encontrado")
-
-    rota = Rota.query.get(rota_id)
-    if not rota:
-        raise NotFoundError("Rota não encontrada")
-
-    if (
-        user.role in (UserRole.GESTOR, UserRole.MOTORISTA)
-        and rota.prefeitura_id != user.prefeitura_id
-    ):
-        raise ForbiddenError("Acesso negado")
+    rota = _get_rota_do_tenant(user_id, rota_id)
 
     return rota
 
@@ -546,13 +549,7 @@ def delete_rota(user_id: str, rota_id: str) -> None:
 
 
 def get_pontos_by_rota(user_id: str, rota_id: str) -> list[dict[str, Any]]:
-    user = User.query.get(user_id)
-    if not user:
-        raise NotFoundError("Usuário não encontrado")
-
-    rota = Rota.query.get(rota_id)
-    if not rota:
-        raise NotFoundError("Rota não encontrada")
+    _get_rota_do_tenant(user_id, rota_id)
 
     rota_pontos = RotaPonto.query.filter_by(rota_id=rota_id).order_by(RotaPonto.ordem.asc()).all()
 
