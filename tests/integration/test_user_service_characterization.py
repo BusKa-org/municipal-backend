@@ -545,15 +545,14 @@ def test_delete_motorista_com_viagem_vinculada_400(_db, gestor, motorista, horar
     assert exc.value.status_code == 400
 
 
-def test_delete_motorista_qualquer_erro_vira_mensagem_de_viagem_vinculada(
+def test_delete_motorista_erro_generico_nao_vira_mensagem_de_viagem_vinculada(
     _db, gestor, motorista, monkeypatch
 ):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
+    """Corrigido no R7g: só o `ConflictError` do `transactional()`, que vem de
+    `IntegrityError`, recebe o rótulo de viagem vinculada. Uma queda de conexão
+    sobe crua. Era o mesmo defeito do `:127` do `pontos_service`.
 
-    O `except Exception` genérico responde "possui viagens vinculadas" com 400
-    para qualquer falha, inclusive as que nada têm a ver com viagem. Mesmo
-    defeito do `:127` do `pontos_service`. Sai com o `transactional()` no R7g.
+    O caso legítimo segue fixado em `test_delete_motorista_com_viagem_vinculada_400`.
     """
 
     def falha_generica():
@@ -561,12 +560,8 @@ def test_delete_motorista_qualquer_erro_vira_mensagem_de_viagem_vinculada(
 
     monkeypatch.setattr(user_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         delete_motorista(str(gestor.user.id), str(motorista.user.id))
-
-    assert str(exc.value) == (
-        "Não é possível remover este motorista pois ele possui viagens vinculadas"
-    )
 
 
 # ─── update_fcm_token ───────────────────────────────────────────────────────
@@ -597,31 +592,8 @@ def test_update_fcm_token_usuario_inexistente_404(_db):
 
 
 # ─── helper morto ───────────────────────────────────────────────────────────
-
-
-def test_require_active_nao_tem_chamador(_db):
-    """
-    CARACTERIZAÇÃO DE CÓDIGO MORTO (não removido aqui).
-
-    `_require_active` está definido e nunca é chamado, nem dentro do módulo
-    nem fora. Lido de fora, dá a impressão de que existe um bloqueio de conta
-    não finalizada nos writes de `user_service`, e não existe. Ver B48.
-    """
-    import inspect
-
-    fonte = inspect.getsource(user_service)
-    assert fonte.count("_require_active") == 1
-
-
-def test_require_active_bloqueia_quando_chamado_na_mao(_db, aluno):
-    # O corpo funciona: o que falta é alguém chamar.
-    aluno.user.status = UserStatus.PENDING_SIGNUP
-    _db.session.commit()
-
-    with pytest.raises(ForbiddenError) as exc:
-        user_service._require_active(aluno.user)
-
-    assert str(exc.value) == "Cadastro precisa ser finalizado antes de usar o app"
+# `_require_active` foi removido no R7g. Estava definido e nunca era chamado,
+# dentro ou fora do módulo. Os três testes que o fixavam saíram junto. Ver B48.
 
 
 def test_motorista_do_fixture_tem_cnh(_db, motorista):
@@ -643,15 +615,11 @@ def test_motorista_do_fixture_tem_cnh(_db, motorista):
         "update_profile",
     ],
 )
-def test_erro_no_commit_vaza_texto_do_driver(_db, gestor, aluno, monkeypatch, nome_do_caso):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    Cinco funções embrulham a exceção num `AppError` 500 interpolando
-    `str(e)`, então qualquer falha do commit entrega o texto do driver ao
-    cliente. Mesmo defeito do B17, B25, B29, B38 e B42. Saem juntos com o
-    `transactional()` no R7g.
-    """
+def test_erro_no_commit_nao_vaza_texto_do_driver(_db, gestor, aluno, monkeypatch, nome_do_caso):
+    """Corrigido no R7g. As cinco funções embrulhavam a exceção num `AppError`
+    500 interpolando `str(e)`, entregando SQL e nome de coluna ao cliente. Agora
+    a exceção sobe intacta e o handler genérico responde 500 "Erro interno do
+    servidor"."""
     chamadas = {
         "update_user": lambda: update_user(str(aluno.user.id), {"nome": "Novo"}),
         "create_aluno_account": lambda: create_aluno_account(str(gestor.user.id), _payload_aluno()),
@@ -667,11 +635,8 @@ def test_erro_no_commit_vaza_texto_do_driver(_db, gestor, aluno, monkeypatch, no
 
     monkeypatch.setattr(user_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         chamadas[nome_do_caso]()
-
-    assert exc.value.status_code == 500
-    assert "boom do driver" in str(exc.value)
 
 
 @pytest.mark.parametrize(
@@ -708,10 +673,3 @@ def test_erro_de_dominio_no_commit_passa_sem_ser_embrulhado(
 
     assert exc.value.status_code == 409
     assert str(exc.value) == "conflito vindo do commit"
-
-
-def test_require_active_deixa_passar_conta_ativa(_db, aluno):
-    aluno.user.status = UserStatus.ACTIVE
-    _db.session.commit()
-
-    assert user_service._require_active(aluno.user) is None
