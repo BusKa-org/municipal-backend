@@ -257,16 +257,12 @@ def test_create_onibus_sem_modelo_grava_string_vazia(_db, gestor):
     assert resultado.modelo == ""
 
 
-def test_create_onibus_capacidade_nao_numerica_vira_500_com_detalhe_do_banco(_db, gestor):
-    # CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui)
-    # Capacidade textual só falha no commit. O `except Exception` embrulha o
-    # erro do banco em AppError 500 e coloca a mensagem crua do driver na
-    # resposta da API.
-    with pytest.raises(AppError) as exc:
+def test_create_onibus_capacidade_nao_numerica_nao_vaza_texto_do_driver(_db, gestor):
+    # B17 corrigido: a capacidade textual continua falhando só no commit, mas o
+    # DataError sobe cru e o handler genérico responde 500 "Erro interno do
+    # servidor", sem o SQL nem o nome da coluna no corpo.
+    with pytest.raises(DataError):
         create_onibus(str(gestor.user.id), {"placa": "ABC1D23", "capacidade": "muitos"})
-
-    assert exc.value.status_code == 500
-    assert str(exc.value).startswith("Erro ao salvar ônibus:")
 
 
 # ─── update_onibus ──────────────────────────────────────────────────────────
@@ -392,28 +388,26 @@ def test_update_onibus_capacidade_textual_400(_db, gestor, onibus):
     assert str(exc.value) == "Capacidade deve ser um número inteiro positivo"
 
 
-def test_update_onibus_capacidade_invalida_nao_desfaz_placa_ja_atribuida(_db, gestor, onibus):
-    # CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui)
-    # A placa é atribuída ao objeto antes de a capacidade ser validada. Ao
-    # levantar ValidationError não há rollback, então o objeto fica sujo na
-    # sessão e qualquer commit posterior grava a placa nova.
+def test_update_onibus_capacidade_invalida_desfaz_placa_ja_atribuida(_db, gestor, onibus):
+    # B18 corrigido: a placa continua sendo atribuída antes de a capacidade ser
+    # validada, mas o ValidationError agora sobe de dentro do `transactional()`,
+    # que faz rollback. O objeto volta ao estado do banco em vez de ficar sujo
+    # na sessão esperando um commit posterior gravar a placa recusada.
+    placa_original = onibus.placa
+
     with pytest.raises(ValidationError):
         update_onibus(str(gestor.user.id), str(onibus.id), {"placa": "ZZZ9Z99", "capacidade": 0})
 
-    assert onibus.placa == "ZZZ9Z99"
+    assert onibus.placa == placa_original
 
 
-def test_update_onibus_modelo_longo_demais_500_vaza_o_erro_do_banco(_db, gestor, onibus):
-    # CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui)
-    # `modelo` é String(50) e não tem validação de tamanho no serviço. O erro
-    # do Postgres estoura no commit e vira 500 com o texto do banco no corpo,
-    # para uma entrada que é inválida do lado do cliente.
-    with pytest.raises(AppError) as exc:
+def test_update_onibus_modelo_longo_demais_nao_vaza_o_erro_do_banco(_db, gestor, onibus):
+    # B17 corrigido. `modelo` é String(50) e segue sem validação de tamanho no
+    # serviço, então a entrada inválida continua só falhando no commit. O que
+    # mudou é a resposta: DataError cru para o handler genérico, 500 "Erro
+    # interno do servidor", sem o texto do Postgres no corpo.
+    with pytest.raises(DataError):
         update_onibus(str(gestor.user.id), str(onibus.id), {"modelo": "M" * 51})
-
-    assert exc.value.status_code == 500
-    assert str(exc.value).startswith("Erro ao atualizar ônibus: ")
-    assert "StringDataRightTruncation" in str(exc.value)
 
 
 # ─── delete_onibus ──────────────────────────────────────────────────────────
