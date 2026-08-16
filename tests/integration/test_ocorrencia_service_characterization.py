@@ -14,7 +14,6 @@ import pytest
 from sqlalchemy.exc import DataError
 
 from app.core.exceptions import (
-    AppError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -224,26 +223,17 @@ def test_criar_apperror_interno_passa_sem_ser_embrulhado(_db, aluno, monkeypatch
     assert Ocorrencia.query.count() == 0
 
 
-def test_criar_erro_no_commit_vaza_texto_do_driver(_db, aluno, monkeypatch):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    O `except Exception` interpola `str(e)` na resposta, então a falha do
-    commit entrega o texto do driver ao cliente num 500. Mesmo defeito que aparece
-    nos demais serviços do sistema. Some quando o `transactional()` for
-    adotado neste serviço.
-    """
+def test_criar_erro_no_commit_nao_vaza_texto_do_driver(_db, aluno, monkeypatch):
+    """Corrigido: a falha do commit sobe crua e o handler genérico
+    responde 500 "Erro interno do servidor", sem o texto do driver."""
 
     def falha_generica():
         raise RuntimeError("boom do driver")
 
     monkeypatch.setattr(ocorrencia_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         OcorrenciaService.criar(str(aluno.user.id), {"tipo": "ATRASO"})
-
-    assert exc.value.status_code == 500
-    assert "boom do driver" in str(exc.value)
 
 
 # ─── listar ─────────────────────────────────────────────────────────────────
@@ -383,13 +373,9 @@ def test_resolver_gestor_de_outra_prefeitura_passa(_db, other_gestor, aluno):
     assert resultado.status == StatusOcorrencia.RESOLVIDA
 
 
-def test_resolver_erro_no_commit_vaza_texto_do_driver(_db, gestor, aluno, monkeypatch):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    Mesmo vazamento de `str(e)` do `criar`. Some quando o `transactional()`
-    for adotado neste serviço.
-    """
+def test_resolver_erro_no_commit_nao_vaza_texto_do_driver(_db, gestor, aluno, monkeypatch):
+    """Corrigido: a falha do commit sobe crua e o handler genérico
+    responde 500 "Erro interno do servidor", sem o texto do driver."""
     ocorrencia = _ocorrencia(_db, aluno.user.id)
 
     def falha_generica():
@@ -397,8 +383,5 @@ def test_resolver_erro_no_commit_vaza_texto_do_driver(_db, gestor, aluno, monkey
 
     monkeypatch.setattr(ocorrencia_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         OcorrenciaService.resolver(str(gestor.user.id), str(ocorrencia.id))
-
-    assert exc.value.status_code == 500
-    assert "boom do driver" in str(exc.value)
