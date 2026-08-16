@@ -13,6 +13,7 @@ from app.core.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.password_reset import PasswordResetToken
@@ -158,8 +159,8 @@ def request_password_reset(email_raw: str, base_url: str) -> None:
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + timedelta(hours=1)
     reset_record = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
-    db.session.add(reset_record)
-    db.session.commit()
+    with transactional():
+        db.session.add(reset_record)
 
     link = f"{base_url.rstrip('/')}/v1/auth/reset-password?token={token}"
     subject = "Recuperação de senha - BusKá"
@@ -186,18 +187,23 @@ def reset_password(token: str, new_password: str) -> None:
     if not record:
         raise ValidationError("Link inválido ou expirado")
     if record.is_expired():
-        db.session.delete(record)
-        db.session.commit()
+        # O delete fica fora do `raise`: com o `transactional()` envolvendo os
+        # dois, o rollback desfaria a remoção do token expirado.
+        with transactional():
+            db.session.delete(record)
         raise ValidationError("Link expirado. Solicite uma nova recuperação de senha.")
 
     new_password = validate_password(new_password, "Nova senha")
-    user = User.query.get(record.user_id)
+    user = db.session.get(User, record.user_id)
     if not user:
-        db.session.delete(record)
-        db.session.commit()
+        # Ramo inalcançável hoje: a FK do token é ON DELETE CASCADE, então não
+        # existe token cujo usuário sumiu. Mantido porque é o estreitamento de
+        # tipo que o mypy exige, e trocá-lo por um cast seria pior. Ver B46.
+        with transactional():
+            db.session.delete(record)
         raise ValidationError("Link inválido")
 
-    user.senha_hash = generate_password_hash(new_password)
-    db.session.delete(record)
-    db.session.commit()
+    with transactional():
+        user.senha_hash = generate_password_hash(new_password)
+        db.session.delete(record)
     logger.info("Password reset completed for user %s", user.id)
