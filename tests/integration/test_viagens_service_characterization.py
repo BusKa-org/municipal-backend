@@ -146,9 +146,39 @@ def test_get_proximas_viagens_aluno_ignora_status_finalizada_e_cancelada(
 
 
 def test_get_proximas_viagens_aluno_inclui_em_andamento(_db, aluno, rota, rota_aluno, horario_rota):
-    viagem = _viagem(_db, horario_rota, date.today(), status=StatusViagem.EM_ANDAMENTO)
+    viagem = _viagem(
+        _db, horario_rota, date.today() + timedelta(days=1), status=StatusViagem.EM_ANDAMENTO
+    )
 
     assert [v.id for v in get_proximas_viagens_aluno(str(aluno.user.id))] == [viagem.id]
+
+
+def test_get_proximas_viagens_aluno_corta_pela_data_utc_e_nao_pela_local(
+    _db, aluno, rota, rota_aluno, horario_rota
+):
+    """
+    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
+
+    `get_proximas_viagens_aluno` faz `hoje = datetime.now(UTC).date()`, mas
+    `gerar_viagens_periodo` gera com `date.today()`, que é a data local. Os
+    dois lados do mesmo fluxo usam referências diferentes.
+
+    No Brasil (UTC-3), entre 21h e meia-noite a data UTC já virou. Uma viagem
+    criada para "hoje" some da agenda do aluno nesse intervalo, justamente
+    quando ele mais provavelmente a consultaria. Ver B50.
+
+    O teste usa a data UTC como referência de propósito, para ser determinístico
+    a qualquer hora do dia. Foi um teste meu flaky que revelou isto.
+    """
+    hoje_utc = datetime.now(UTC).date()
+
+    de_ontem_utc = _viagem(_db, horario_rota, hoje_utc - timedelta(days=1))
+    de_hoje_utc = _viagem(_db, horario_rota, hoje_utc)
+
+    ids = [v.id for v in get_proximas_viagens_aluno(str(aluno.user.id))]
+
+    assert de_hoje_utc.id in ids
+    assert de_ontem_utc.id not in ids
 
 
 def test_get_proximas_viagens_aluno_sem_inscricao_devolve_vazio(_db, aluno, horario_rota):
