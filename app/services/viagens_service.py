@@ -4,6 +4,8 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+from sqlalchemy.orm import joinedload, selectinload
+
 from app.core.exceptions import (
     AppError,
     ConflictError,
@@ -25,6 +27,27 @@ from app.utils import audit_logger
 from app.utils.geo_utils import calcular_distancia_metros
 
 logger = logging.getLogger(__name__)
+
+
+# R8: as listagens de viagem são serializadas por acessores `fields.Method` do
+# `ViagemListResponseSchema`, que percorrem estas três relações por viagem. Sem
+# carga antecipada cada viagem da página dispara os seus próprios SELECTs, e o
+# custo cresce linearmente com o tamanho da página.
+#
+# `selectinload` nas coleções (uma query a mais por relação, não por linha) e
+# `joinedload` no caminho many-to-one até a rota.
+#
+# É função, e não constante de módulo, de propósito: avaliar as opções no
+# import forçaria a configuração dos mappers antes de todos os modelos estarem
+# registrados, e o SQLAlchemy falha ao resolver `Prefeitura`.
+def _carga_da_listagem():
+    return (
+        joinedload(Viagem.horario_rota)
+        .joinedload(HorarioRota.rota)
+        .selectinload(Rota.alunos_inscritos),
+        selectinload(Viagem.alunos_confirmados),
+        selectinload(Viagem.pontos_visitados),
+    )
 
 
 def _get_dia_semana_enum(data_obj: date) -> DiaDaSemana:
@@ -357,7 +380,11 @@ def gerar_viagens_em_lote(user_id: str, data_viagem: date) -> dict[str, Any]:
 def list_viagens_motorista(user_id: str) -> list[Viagem]:
     """List trips assigned to the driver."""
     return (
-        db.session.query(Viagem).filter_by(motorista_id=user_id).order_by(Viagem.data.desc()).all()
+        db.session.query(Viagem)
+        .options(*_carga_da_listagem())
+        .filter_by(motorista_id=user_id)
+        .order_by(Viagem.data.desc())
+        .all()
     )
 
 
@@ -448,7 +475,11 @@ def list_viagens_gestor(user_id: str, filters: dict[str, Any]) -> list[Viagem]:
     if filters.get("rota_id"):
         query = query.filter(Rota.id == filters.get("rota_id"))
 
-    return query.order_by(Viagem.data.desc(), Viagem.horario_rota_id).all()
+    return (
+        query.options(*_carga_da_listagem())
+        .order_by(Viagem.data.desc(), Viagem.horario_rota_id)
+        .all()
+    )
 
 
 def cancelar_viagem(user_id: str, viagem_id: str) -> dict[str, Any]:
