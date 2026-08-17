@@ -89,7 +89,12 @@ def get_proximas_viagens_aluno(user_id: str) -> list[Viagem]:
     if not aluno or aluno.role != UserRole.ALUNO:
         raise ForbiddenError("Apenas alunos podem ver sua agenda de viagens")
 
-    hoje = datetime.now(UTC).date()
+    # B50: data local, não UTC. O `docker-compose.prod.yml` define
+    # `TZ: America/Sao_Paulo`, então "hoje" para o aluno é a data brasileira. O
+    # `gerar_viagens_periodo` e o `Aluno.is_minor` já usam `date.today()`; esta
+    # função era a única com referência diferente. Com UTC, entre 21h e
+    # meia-noite a data virava antes e a viagem de hoje sumia da agenda.
+    hoje = date.today()
 
     query = (
         db.session.query(Viagem)
