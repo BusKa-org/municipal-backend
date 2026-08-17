@@ -228,106 +228,111 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
     return novo_aluno
 
 
+_CAMPOS_SIMPLES = ("nome", "telefone", "matricula", "nome_responsavel", "cpf_responsavel")
+
+
+def _campos_de_endereco(end_data: dict[str, Any]) -> dict[str, Any]:
+    """Mapeia o payload de endereço para as colunas de `Endereco`.
+
+    Estava escrito duas vezes dentro do `update_me`, uma para o caminho de
+    atualização e outra para o de criação, com os mesmos cinco campos.
+    """
+    return {
+        "logradouro": end_data.get("logradouro"),
+        "numero": end_data.get("numero"),
+        "bairro": end_data.get("bairro"),
+        "cidade": end_data.get("cidade"),
+        "cep": end_data.get("cep"),
+    }
+
+
+def _atualizar_endereco_casa(aluno: Aluno, data: dict[str, Any]) -> None:
+    """Atualiza o ponto de casa do aluno, criando-o quando ainda não existe."""
+    end_data = data["endereco_casa"]
+
+    if not aluno.ponto_casa:
+        novo_ponto = Ponto(
+            prefeitura_id=aluno.prefeitura_id,
+            latitude=end_data.get("latitude"),
+            longitude=end_data.get("longitude"),
+            apelido=f"Casa: {data.get('nome', aluno.nome)}",
+        )
+        db.session.add(novo_ponto)
+        db.session.flush()
+        db.session.add(Endereco(ponto_id=novo_ponto.id, **_campos_de_endereco(end_data)))
+        aluno.ponto_casa_id = novo_ponto.id
+        return
+
+    ponto_casa = cast(Ponto, aluno.ponto_casa)
+    ponto_casa.latitude = end_data.get("latitude")
+    ponto_casa.longitude = end_data.get("longitude")
+    if "nome" in data:
+        ponto_casa.apelido = f"Casa: {data['nome']}"
+
+    endereco_bd = Endereco.query.filter_by(ponto_id=aluno.ponto_casa_id).first()
+    if not endereco_bd:
+        db.session.add(Endereco(ponto_id=aluno.ponto_casa_id, **_campos_de_endereco(end_data)))
+        return
+
+    for coluna, valor in _campos_de_endereco(end_data).items():
+        setattr(endereco_bd, coluna, valor)
+
+
+def _finalizar_cadastro_se_completo(aluno: Aluno, data: dict[str, Any], user_id: str) -> None:
+    """Promove o aluno a ACTIVE quando o cadastro tem tudo que o app exige.
+
+    Só vale para maior de idade em PENDING_SIGNUP: menor depende do
+    consentimento do responsável, tratado em `record_guardian_consent`.
+    """
+    if aluno.status != UserStatus.PENDING_SIGNUP or aluno.is_minor:
+        return
+
+    faltando = []
+    if not aluno.matricula and not data.get("matricula"):
+        faltando.append("matricula")
+    if not aluno.instituicao_id and not data.get("instituicao_id"):
+        faltando.append("instituicao_id")
+
+    end_data = data.get("endereco_casa")
+    if not end_data or end_data.get("latitude") is None or end_data.get("longitude") is None:
+        faltando.append("endereco_casa.latitude/longitude")
+
+    if faltando:
+        raise ValidationError(
+            "Cadastro precisa ser finalizado antes de usar o app",
+            details={"missing": faltando},
+        )
+
+    aluno.status = UserStatus.ACTIVE
+    aluno.signup_completed_at = db.func.now()
+    audit_logger.log_user_action(
+        action="complete_signup",
+        user_id=user_id,
+        resource_type="aluno",
+        resource_id=user_id,
+    )
+
+
 def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
     """
     Atualiza perfil do aluno.
 
     Returns: Aluno object
-    Raises: NotFoundError, AppError
+    Raises: NotFoundError, ValidationError, AppError
     """
     aluno = db.session.get(Aluno, user_id)
     if not aluno:
         raise NotFoundError("Aluno não encontrado")
 
     with transactional():
-        for field in (
-            "nome",
-            "telefone",
-            "matricula",
-            "nome_responsavel",
-            "cpf_responsavel",
-        ):
+        for field in _CAMPOS_SIMPLES:
             if field in data:
                 setattr(aluno, field, data[field])
 
         if "endereco_casa" in data:
-            end_data = data["endereco_casa"]
+            _atualizar_endereco_casa(aluno, data)
 
-            if aluno.ponto_casa:
-                ponto_casa = cast(Ponto, aluno.ponto_casa)
-                ponto_casa.latitude = end_data.get("latitude")
-                ponto_casa.longitude = end_data.get("longitude")
-                if "nome" in data:
-                    ponto_casa.apelido = f"Casa: {data['nome']}"
-
-                endereco_bd = Endereco.query.filter_by(ponto_id=aluno.ponto_casa_id).first()
-
-                if endereco_bd:
-                    endereco_bd.logradouro = end_data.get("logradouro")
-                    endereco_bd.numero = end_data.get("numero")
-                    endereco_bd.bairro = end_data.get("bairro")
-                    endereco_bd.cidade = end_data.get("cidade")
-                    endereco_bd.cep = end_data.get("cep")
-                else:
-                    novo_end = Endereco(
-                        ponto_id=aluno.ponto_casa_id,
-                        logradouro=end_data.get("logradouro"),
-                        numero=end_data.get("numero"),
-                        bairro=end_data.get("bairro"),
-                        cidade=end_data.get("cidade"),
-                        cep=end_data.get("cep"),
-                    )
-                    db.session.add(novo_end)
-            else:
-                novo_ponto = Ponto(
-                    prefeitura_id=aluno.prefeitura_id,
-                    latitude=end_data.get("latitude"),
-                    longitude=end_data.get("longitude"),
-                    apelido=f"Casa: {data.get('nome', aluno.nome)}",
-                )
-                db.session.add(novo_ponto)
-                db.session.flush()
-
-                novo_end = Endereco(
-                    ponto_id=novo_ponto.id,
-                    logradouro=end_data.get("logradouro"),
-                    numero=end_data.get("numero"),
-                    bairro=end_data.get("bairro"),
-                    cidade=end_data.get("cidade"),
-                    cep=end_data.get("cep"),
-                )
-                db.session.add(novo_end)
-
-                aluno.ponto_casa_id = novo_ponto.id
-
-        if aluno.status == UserStatus.PENDING_SIGNUP and not aluno.is_minor:
-            missing = []
-            if not aluno.matricula and not data.get("matricula"):
-                missing.append("matricula")
-            if not aluno.instituicao_id and not data.get("instituicao_id"):
-                missing.append("instituicao_id")
-            end_data = data.get("endereco_casa")
-            if (
-                not end_data
-                or end_data.get("latitude") is None
-                or end_data.get("longitude") is None
-            ):
-                missing.append("endereco_casa.latitude/longitude")
-
-            if missing:
-                raise ValidationError(
-                    "Cadastro precisa ser finalizado antes de usar o app",
-                    details={"missing": missing},
-                )
-
-            aluno.status = UserStatus.ACTIVE
-            aluno.signup_completed_at = db.func.now()
-            audit_logger.log_user_action(
-                action="complete_signup",
-                user_id=user_id,
-                resource_type="aluno",
-                resource_id=user_id,
-            )
+        _finalizar_cadastro_se_completo(aluno, data, user_id)
 
     return aluno
 
