@@ -215,9 +215,7 @@ def test_create_onibus_aceita_capacidade_negativa(_db, gestor):
     # CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui)
     # `create` não valida o valor da capacidade, só a presença. Capacidade
     # negativa é aceita e persistida. `update_onibus` valida o mesmo campo.
-    resultado = create_onibus(
-        str(gestor.user.id), {"placa": "ABC1D23", "capacidade": -5}
-    )
+    resultado = create_onibus(str(gestor.user.id), {"placa": "ABC1D23", "capacidade": -5})
 
     assert resultado.capacidade == -5
 
@@ -400,9 +398,7 @@ def test_update_onibus_capacidade_invalida_nao_desfaz_placa_ja_atribuida(_db, ge
     # levantar ValidationError não há rollback, então o objeto fica sujo na
     # sessão e qualquer commit posterior grava a placa nova.
     with pytest.raises(ValidationError):
-        update_onibus(
-            str(gestor.user.id), str(onibus.id), {"placa": "ZZZ9Z99", "capacidade": 0}
-        )
+        update_onibus(str(gestor.user.id), str(onibus.id), {"placa": "ZZZ9Z99", "capacidade": 0})
 
     assert onibus.placa == "ZZZ9Z99"
 
