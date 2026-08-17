@@ -202,15 +202,16 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
 
                 if ponto_id:
                     # Link an existing ponto by ID
+                    # B51: recusa igual à do `add_ponto`. Antes esta função
+                    # pulava em silêncio e respondia sucesso, então a rota
+                    # nascia sem o ponto e o usuário só descobria na próxima
+                    # carga. As duas escritas de ponto do módulo agora falham
+                    # do mesmo jeito, com a mesma mensagem.
                     existing_ponto = Ponto.query.get(ponto_id)
                     if not existing_ponto:
-                        logger.warning(f"Ponto {ponto_id} not found, skipping")
-                        continue
+                        raise NotFoundError(f"Ponto {ponto_id} não encontrado")
                     if existing_ponto.prefeitura_id != rota.prefeitura_id:
-                        logger.warning(
-                            f"Ponto {ponto_id} belongs to different prefeitura, skipping"
-                        )
-                        continue
+                        raise ForbiddenError(f"O ponto {ponto_id} pertence a outra prefeitura")
                     rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=ordem)
                     db.session.add(rota_ponto)
                 elif "latitude" in p_data and "longitude" in p_data:

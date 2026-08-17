@@ -280,32 +280,35 @@ def test_create_rota_com_coordenadas_cria_ponto_novo(_db, gestor):
     assert vinculo.ponto.prefeitura_id == gestor.user.prefeitura_id
 
 
-def test_create_rota_ponto_inexistente_e_ignorado_em_silencio(_db, gestor):
-    rota = create_rota(
-        str(gestor.user.id),
-        {"nome": "Rota", "pontos": [{"ponto_id": novo_uuid(), "ordem": 1}]},
-    )
+def test_create_rota_ponto_inexistente_da_404(_db, gestor):
+    # B51: antes o ponto inexistente era pulado com log e a rota nascia sem
+    # ele. Agora o `create_rota` recusa igual ao `add_ponto`.
+    with pytest.raises(NotFoundError) as exc:
+        create_rota(
+            str(gestor.user.id),
+            {"nome": "Rota", "pontos": [{"ponto_id": str(uuid.uuid4()), "ordem": 1}]},
+        )
 
-    assert RotaPonto.query.filter_by(rota_id=rota.id).count() == 0
+    assert "não encontrado" in str(exc.value)
+    assert Rota.query.filter_by(nome="Rota").count() == 0
 
 
 def test_create_rota_recusa_ponto_de_outra_prefeitura(_db, gestor, other_prefeitura):
-    """Conflito programado resolvido: o PR #39 está mesclado
-    neste branch, então a asserção foi invertida aqui, como o docstring
-    anterior instruía.
-
-    `create_rota` vinculava um ponto informado por ID sem conferir a prefeitura
-    dele, enquanto `add_ponto` conferia. As duas escritas de ponto do módulo
-    agora concordam.
+    """O PR #39 fez o `create_rota` parar de vincular ponto de outra
+    prefeitura, escolhendo pular em silêncio. Esse PR desfez o empate com o
+    `add_ponto`, que levanta: agora os dois recusam do mesmo jeito e a rota
+    inteira é abortada.
     """
     ponto_alheio = cria_ponto(_db, other_prefeitura.id, apelido="Alheio")
 
-    rota = create_rota(
-        str(gestor.user.id),
-        {"nome": "Rota", "pontos": [{"ponto_id": str(ponto_alheio.id), "ordem": 1}]},
-    )
+    with pytest.raises(ForbiddenError) as exc:
+        create_rota(
+            str(gestor.user.id),
+            {"nome": "Rota", "pontos": [{"ponto_id": str(ponto_alheio.id), "ordem": 1}]},
+        )
 
-    assert RotaPonto.query.filter_by(rota_id=rota.id, ponto_id=ponto_alheio.id).count() == 0
+    assert "pertence a outra prefeitura" in str(exc.value)
+    assert Rota.query.filter_by(nome="Rota").count() == 0
 
 
 def test_create_rota_com_horarios_e_dias(_db, gestor):
