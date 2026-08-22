@@ -56,9 +56,8 @@ ENV GUNICORN_WORKERS=4 \
 
 EXPOSE 5000
 
-CMD gunicorn --bind 0.0.0.0:5000 \
-    --workers ${GUNICORN_WORKERS} \
-    --threads ${GUNICORN_THREADS} \
-    --worker-class ${GUNICORN_WORKER_CLASS} \
-    --timeout ${GUNICORN_TIMEOUT} \
-    "app:create_app()"
+# JSON-array + `sh -c` so ${GUNICORN_*} expand at runtime; `exec` so gunicorn
+# replaces the shell as PID 1 and receives SIGTERM for graceful shutdown on
+# deploy. A plain shell-form CMD leaves /bin/sh as PID 1, which does not
+# forward SIGTERM — Docker then SIGKILLs gunicorn after the stop timeout.
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:5000 --workers ${GUNICORN_WORKERS} --threads ${GUNICORN_THREADS} --worker-class ${GUNICORN_WORKER_CLASS} --timeout ${GUNICORN_TIMEOUT} 'app:create_app()'"]
