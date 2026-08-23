@@ -1,6 +1,7 @@
-"""Resíduo do U3: campos que a API anunciava e o banco não tem mais.
+"""Resíduo da limpeza do PR #34: campos que a API anunciava e o banco
+não tem mais.
 
-O U3 (PR #34) corrigiu o cadastro que estourava ao passar `nome_pai`,
+O PR #34 corrigiu o cadastro que estourava ao passar `nome_pai`,
 `nome_mae` e `salario` para construtores de `User`. As colunas foram removidas
 por migração: `nome_pai` virou `nome_responsavel` e `nome_mae` foi apagada em
 `d4e5f6a7b8c9`; `Gestor.matricula` e `Gestor.salario` saíram em `a1b2c3d4e5f6`.
