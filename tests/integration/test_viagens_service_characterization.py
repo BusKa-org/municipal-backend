@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `viagens_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T5.
 """
 
 import uuid
@@ -156,7 +154,7 @@ def test_get_proximas_viagens_aluno_inclui_em_andamento(_db, aluno, rota, rota_a
 def test_get_proximas_viagens_aluno_corta_pela_data_local(
     _db, aluno, rota, rota_aluno, horario_rota
 ):
-    """B50 corrigido: o corte usa `date.today()`, a data local.
+    """Corrigido: o corte usa `date.today()`, a data local.
 
     O `docker-compose.prod.yml` define `TZ: America/Sao_Paulo`, então "hoje"
     para o aluno é a data brasileira. Antes esta função usava
@@ -864,7 +862,7 @@ def test_cancelar_viagem_erro_no_commit_vira_500_com_texto_cru(
 
     O ``except Exception`` interpola ``str(e)`` na resposta, então qualquer
     falha do commit vaza o texto do driver para o cliente num 500. É o mesmo
-    defeito do B17, aqui no `cancelar_viagem`.
+    defeito que aparece nos demais serviços do sistema, aqui no `cancelar_viagem`.
     """
 
     def falha_generica():
