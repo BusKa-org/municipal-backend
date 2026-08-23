@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `instituicao_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T7.
 """
 
 import uuid
@@ -45,7 +43,7 @@ def _instituicao(
     codigo_externo=None,
     com_ponto=True,
 ):
-    """Instituicao válida. O serviço não consegue criar uma, ver B35."""
+    """Instituicao válida. O serviço não consegue criar uma."""
     ponto = None
     if com_ponto:
         ponto = Ponto(
@@ -120,8 +118,7 @@ def test_create_instituicao_o_proprio_tipo_padrao_do_servico_e_invalido(_db, ges
     O serviço usa `data.get("tipo", "ESCOLA_PUBLICA")` e depois
     `TipoInstituicao(tipo_str)`. O construtor do Enum resolve por **valor**, e
     o valor do membro é `"Escola Pública"`, não `"ESCOLA_PUBLICA"`. O padrão
-    do próprio serviço levanta `ValueError` antes de encostar no banco. Ver
-    B35.
+    do próprio serviço levanta `ValueError` antes de encostar no banco.
     """
     with pytest.raises(AppError) as exc:
         create_instituicao(
@@ -141,8 +138,8 @@ def test_create_instituicao_com_o_tipo_certo_ainda_viola_not_null(_db, gestor):
     `Instituicao(...)` do serviço passa só `nome`, `cnpj`, `tipo` e
     `ponto_id`, mas `fonte`, `codigo_externo`, `uf` e `prefeitura_id` são
     `nullable=False`. Não existe payload que faça esta função ter sucesso: o
-    endpoint de criar instituição está quebrado em produção, como o U3 estava
-    para o cadastro. Ver B35.
+    endpoint de criar instituição está quebrado em produção, do jeito que o
+    cadastro de aluno também esteve antes de ser corrigido.
     """
     with pytest.raises(AppError) as exc:
         create_instituicao(
@@ -159,8 +156,9 @@ def test_create_instituicao_vaza_texto_do_driver_no_500(_db, gestor):
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
     O `except Exception` interpola `str(e)` na resposta, então o cliente
-    recebe o SQL e o nome da coluna que violou NOT NULL. Mesmo defeito do
-    B17, do B25 e do B29. Sai com o `transactional()` no R7c.
+    recebe o SQL e o nome da coluna que violou NOT NULL. Mesmo defeito que
+    aparece nos demais serviços do sistema. Some quando o `transactional()`
+    for adotado neste serviço.
     """
     with pytest.raises(AppError) as exc:
         create_instituicao(
@@ -364,7 +362,7 @@ def test_list_all_e_get_by_id_usam_fontes_de_tenant_diferentes(
     `delete_instituicao` checam `inst.ponto.prefeitura_id`. São duas fontes de
     verdade para o mesmo tenant, e nada garante que concordem. Com uma
     instituição registrada na prefeitura do gestor mas apontando para um ponto
-    da outra, ela aparece na listagem e dá 403 na leitura individual. Ver B36.
+    da outra, ela aparece na listagem e dá 403 na leitura individual.
     """
     inst = _instituicao(_db, prefeitura.id, com_ponto=False)
     ponto_alheio = Ponto(
@@ -387,7 +385,7 @@ def test_get_by_id_instituicao_sem_ponto_estoura_attribute_error(_db, gestor, pr
 
     `ponto_id` é `nullable=True`, mas o guarda faz `inst.ponto.prefeitura_id`
     sem checar. Instituição sem ponto vira `AttributeError` e 500 genérico,
-    onde 404 ou 403 caberiam. Ver B37.
+    onde 404 ou 403 caberiam.
     """
     inst = _instituicao(_db, prefeitura.id, com_ponto=False)
 
@@ -460,8 +458,8 @@ def test_delete_instituicao_erro_no_commit_vaza_texto_do_driver(
     """
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
-    Mesmo vazamento de `str(e)` do create. Sai com o `transactional()` no
-    R7c.
+    Mesmo vazamento de `str(e)` do create. Some quando o `transactional()` for
+    adotado neste serviço.
     """
     from app.services import instituicao_service
 
