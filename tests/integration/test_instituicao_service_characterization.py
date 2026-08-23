@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `instituicao_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T7.
 """
 
 import uuid
@@ -45,7 +43,7 @@ def _instituicao(
     codigo_externo=None,
     com_ponto=True,
 ):
-    """Instituicao válida. O serviço não consegue criar uma, ver B35."""
+    """Instituicao válida. O serviço não consegue criar uma."""
     ponto = None
     if com_ponto:
         ponto = Ponto(
@@ -115,7 +113,7 @@ def test_create_instituicao_sem_endereco_400(_db, gestor):
 
 def test_create_instituicao_o_proprio_tipo_padrao_do_servico_e_invalido(_db, gestor):
     """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui). Ver B35.
+    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
     O serviço usa `data.get("tipo", "ESCOLA_PUBLICA")` e depois
     `TipoInstituicao(tipo_str)`. O construtor do Enum resolve por **valor**, e
@@ -135,7 +133,7 @@ def test_create_instituicao_o_proprio_tipo_padrao_do_servico_e_invalido(_db, ges
 
 def test_create_instituicao_com_o_tipo_certo_ainda_viola_not_null(_db, gestor):
     """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui). Ver B35.
+    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
     Passando o valor que o Enum aceita, a função avança e morre no commit. O
     `Instituicao(...)` do serviço passa só `nome`, `cnpj`, `tipo` e
@@ -144,8 +142,8 @@ def test_create_instituicao_com_o_tipo_certo_ainda_viola_not_null(_db, gestor):
 
     A violação de NOT NULL é `IntegrityError`, então o `transactional()` a
     mapeia para `ConflictError` 409. O 409 é semanticamente errado, porque a
-    causa é um defeito do servidor e não um conflito do cliente. Some quando o
-    B35 for corrigido, que é a correção de verdade.
+    causa é um defeito do servidor e não um conflito do cliente. Some quando
+    esse defeito de schema for corrigido, que é a correção de verdade.
     """
     with pytest.raises(ConflictError) as exc:
         create_instituicao(
@@ -157,7 +155,7 @@ def test_create_instituicao_com_o_tipo_certo_ainda_viola_not_null(_db, gestor):
 
 
 def test_create_instituicao_nao_vaza_texto_do_driver(_db, gestor):
-    """B38 corrigido: a resposta não carrega mais o SQL nem o nome da coluna
+    """Corrigido: a resposta não carrega mais o SQL nem o nome da coluna
     que violou NOT NULL, só a mensagem fixa do `transactional()`."""
     with pytest.raises(ConflictError) as exc:
         create_instituicao(
@@ -359,7 +357,7 @@ def test_list_all_e_get_by_id_usam_fontes_de_tenant_diferentes(
     `delete_instituicao` checam `inst.ponto.prefeitura_id`. São duas fontes de
     verdade para o mesmo tenant, e nada garante que concordem. Com uma
     instituição registrada na prefeitura do gestor mas apontando para um ponto
-    da outra, ela aparece na listagem e dá 403 na leitura individual. Ver B36.
+    da outra, ela aparece na listagem e dá 403 na leitura individual.
     """
     inst = _instituicao(_db, prefeitura.id, com_ponto=False)
     ponto_alheio = Ponto(
@@ -382,7 +380,7 @@ def test_get_by_id_instituicao_sem_ponto_estoura_attribute_error(_db, gestor, pr
 
     `ponto_id` é `nullable=True`, mas o guarda faz `inst.ponto.prefeitura_id`
     sem checar. Instituição sem ponto vira `AttributeError` e 500 genérico,
-    onde 404 ou 403 caberiam. Ver B37.
+    onde 404 ou 403 caberiam.
     """
     inst = _instituicao(_db, prefeitura.id, com_ponto=False)
 
@@ -452,7 +450,7 @@ def test_delete_instituicao_cross_tenant_403(_db, gestor, other_prefeitura):
 def test_delete_instituicao_erro_no_commit_nao_vaza_texto_do_driver(
     _db, gestor, prefeitura, monkeypatch
 ):
-    """B39 corrigido: a falha do commit sobe crua e o handler genérico
+    """Corrigido: a falha do commit sobe crua e o handler genérico
     responde 500 "Erro interno do servidor", sem o texto do driver."""
     from app.services import instituicao_service
 
