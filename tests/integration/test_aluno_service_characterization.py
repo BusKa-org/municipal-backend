@@ -4,11 +4,8 @@ Characterization tests for ``app/services/aluno_service.py``.
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests — where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md item
-that will change it. When such an item lands, the corresponding test must be
-updated in the SAME PR that changes the behaviour.
-
-Ref: REFACTOR_PLAN.md — T2 (Characterization tests: aluno_service.py)
+bug, the test name and comment say so. When that behaviour is fixed, the
+corresponding test must be updated in the SAME PR that changes it.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -387,7 +384,7 @@ def test_update_me_completa_signup_do_adulto(_db, aluno_pending, instituicao):
 
 
 def test_update_me_pendencias_retorna_400(_db, aluno_pending):
-    """B1 FIXED — was: pendência de cadastro virava 500.
+    """Fixed: pendência de cadastro virava 500.
 
     ``update_me`` raises ValidationError(400) for an incomplete signup. The bare
     ``except Exception`` used to swallow it and re-raise AppError 500, turning a
@@ -451,13 +448,13 @@ def test_delete_me_sem_ponto_casa(_db, aluno_ativo):
 
 
 def test_delete_me_com_ponto_casa(_db, instituicao):
-    """B8 FIXED — was: qualquer aluno vindo do auto-cadastro recebia 500.
+    """Fixed: qualquer aluno vindo do auto-cadastro recebia 500 ao excluir a conta.
 
     ``delete_me`` used to delete ``aluno.ponto_casa`` while
     ``aluno.ponto_casa_id`` still referenced it. The cascade-resolution query
     autoflushed the pending Ponto delete before the Aluno row was removed, so
     Postgres rejected it with ``aluno_ponto_casa_id_fkey`` and the caller got a
-    generic 500 — with the account still in place.
+    generic 500, with the account still in place.
 
     Since ``auto_cadastro`` ALWAYS creates a ponto_casa, self-service account
     deletion was broken for every student who signed up through the app.
