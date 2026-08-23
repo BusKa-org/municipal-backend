@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `auth_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T9.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -268,7 +266,7 @@ def test_reset_request_duas_vezes_gera_dois_tokens_validos(_db, aluno, emails_en
 
     Cada pedido cria um registro novo sem invalidar os anteriores. Todos os
     links continuam válidos até expirarem, então um link antigo que vazou
-    ainda troca a senha. Ver B45.
+    ainda troca a senha.
     """
     request_password_reset(aluno.user.email, "https://app.buska")
     request_password_reset(aluno.user.email, "https://app.buska")
@@ -353,7 +351,7 @@ def test_reset_com_usuario_ja_removido_400_e_apaga_o_registro(_db, aluno):
     # Isto é a prova de que o ramo `if not user` de `reset_password` é código
     # morto: para alcançá-lo seria preciso um token cujo usuário sumiu, e a FK
     # `ON DELETE CASCADE` impede exatamente esse estado. Por isso as linhas
-    # 197-200 ficam sem cobertura, e é de propósito. Ver B46.
+    # 197-200 ficam sem cobertura, e é de propósito.
     with pytest.raises(ValidationError) as exc:
         reset_password(token, "NovaSenha123!")
 
