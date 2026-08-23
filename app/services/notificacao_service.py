@@ -140,7 +140,7 @@ class NotificacaoService:
     def notificar_alunos_viagem_iniciada(viagem_id: str) -> None:
         """Busca os alunos confirmados na viagem e dispara o aviso de partida."""
         # O `except` largo é deliberado: quem chama é `controlar_viagem`, e uma
-        # falha de notificação não pode impedir a viagem de iniciar. Ver B34.
+        # falha de notificação não pode impedir a viagem de iniciar.
         try:
             with transactional():
                 confirmados = AlunosConfirmados.query.filter_by(
