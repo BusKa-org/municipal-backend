@@ -3,8 +3,8 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `onibus_service.py`, the change was not a refactor.
 """
 
@@ -258,9 +258,9 @@ def test_create_onibus_sem_modelo_grava_string_vazia(_db, gestor):
 
 
 def test_create_onibus_capacidade_nao_numerica_nao_vaza_texto_do_driver(_db, gestor):
-    # B17 corrigido: a capacidade textual continua falhando só no commit, mas o
-    # DataError sobe cru e o handler genérico responde 500 "Erro interno do
-    # servidor", sem o SQL nem o nome da coluna no corpo.
+    # A capacidade textual continua falhando só no commit, mas o DataError
+    # sobe cru e o handler genérico responde 500 "Erro interno do servidor",
+    # sem o SQL nem o nome da coluna no corpo.
     with pytest.raises(DataError):
         create_onibus(str(gestor.user.id), {"placa": "ABC1D23", "capacidade": "muitos"})
 
@@ -389,8 +389,8 @@ def test_update_onibus_capacidade_textual_400(_db, gestor, onibus):
 
 
 def test_update_onibus_capacidade_invalida_desfaz_placa_ja_atribuida(_db, gestor, onibus):
-    # B18 corrigido: a placa continua sendo atribuída antes de a capacidade ser
-    # validada, mas o ValidationError agora sobe de dentro do `transactional()`,
+    # A placa continua sendo atribuída antes de a capacidade ser validada,
+    # mas o ValidationError agora sobe de dentro do `transactional()`,
     # que faz rollback. O objeto volta ao estado do banco em vez de ficar sujo
     # na sessão esperando um commit posterior gravar a placa recusada.
     placa_original = onibus.placa
@@ -402,8 +402,8 @@ def test_update_onibus_capacidade_invalida_desfaz_placa_ja_atribuida(_db, gestor
 
 
 def test_update_onibus_modelo_longo_demais_nao_vaza_o_erro_do_banco(_db, gestor, onibus):
-    # B17 corrigido. `modelo` é String(50) e segue sem validação de tamanho no
-    # serviço, então a entrada inválida continua só falhando no commit. O que
+    # `modelo` é String(50) e segue sem validação de tamanho no serviço,
+    # então a entrada inválida continua só falhando no commit. O que
     # mudou é a resposta: DataError cru para o handler genérico, 500 "Erro
     # interno do servidor", sem o texto do Postgres no corpo.
     with pytest.raises(DataError):
