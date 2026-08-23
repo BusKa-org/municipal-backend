@@ -29,7 +29,7 @@ from app.utils.geo_utils import calcular_distancia_metros
 logger = logging.getLogger(__name__)
 
 
-# R8: as listagens de viagem são serializadas por acessores `fields.Method` do
+# As listagens de viagem são serializadas por acessores `fields.Method` do
 # `ViagemListResponseSchema`, que percorrem estas três relações por viagem. Sem
 # carga antecipada cada viagem da página dispara os seus próprios SELECTs, e o
 # custo cresce linearmente com o tamanho da página.

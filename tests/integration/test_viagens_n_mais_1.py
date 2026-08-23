@@ -1,4 +1,4 @@
-"""R8: contagem de queries na listagem de viagens do gestor.
+"""Contagem de queries na listagem de viagens do gestor.
 
 `ViagemListResponseSchema` serializa cada viagem com acessores `fields.Method`
 que caminham relações lazy: `obj.horario_rota.rota.alunos_inscritos`,
@@ -55,7 +55,7 @@ def _queries_para_listar(_db, query_counter, gestor, quantidade):
 def test_listagem_de_viagens_nao_cresce_com_o_numero_de_viagens(
     _db, query_counter, gestor, rota, horario_rota, aluno, motorista
 ):
-    """O teste que define o R8.
+    """O teste principal deste arquivo.
 
     Mede com 2 e com 8 viagens. Num serviço com eager loading o custo é
     praticamente o mesmo nos dois casos: as relações vêm nos mesmos SELECTs.
