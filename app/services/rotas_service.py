@@ -47,7 +47,7 @@ def _get_rota_do_tenant(user_id: str, rota_id: str) -> Rota:
 
     Guarda única das três leituras de rota. Antes, `get_by_id` e `get_horarios`
     só comparavam a prefeitura para GESTOR e MOTORISTA, deixando ALUNO passar,
-    e `get_pontos_by_rota` não comparava nada. Ver B9.
+    e `get_pontos_by_rota` não comparava nada.
 
     Raises: NotFoundError, ForbiddenError
     """
@@ -329,7 +329,7 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
     except AppError:
         # Ponto inválido aborta a substituição inteira: o rollback devolve os
         # pontos anteriores da rota. Sem este ramo o `except Exception` abaixo
-        # transformaria o erro de domínio num 500 genérico. Ver B7.
+        # transformaria o erro de domínio num 500 genérico.
         db.session.rollback()
         raise
     except Exception as e:
