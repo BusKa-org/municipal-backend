@@ -7,14 +7,14 @@ escreve a sua própria mensagem à mão. O mesmo "não pode" sai como
 "Acesso negado", "Acesso negado a este recurso" ou "Permissão negada"
 dependendo do arquivo que o desenvolvedor abriu naquele dia.
 
-O refactor R4 (centralizar autorização em ``app/core/authz.py``) vai
+A centralização futura da autorização em ``app/core/authz.py`` vai
 inevitavelmente reescrever essas mensagens. Este teste é uma
 *characterization test*: ele fotografa o que o cliente HTTP recebe HOJE, de
-forma que o diff do R4 mostre exatamente quais respostas mudaram, em vez de
-a mudança passar silenciosamente para o app.
+forma que o diff dessa mudança mostre exatamente quais respostas mudaram, em
+vez de a mudança passar silenciosamente para o app.
 
-Como usar quando o R4 (ou qualquer mexida em autorização) quebrar isto
----------------------------------------------------------------------
+Como usar quando essa centralização (ou qualquer mexida em autorização) quebrar isto
+------------------------------------------------------------------------------------
 A falha NÃO significa "o código está errado". Significa "o contrato visível
 mudou, confirme se era intencional". Se for intencional, atualize a tabela
 no mesmo commit — assim o histórico registra a quebra de contrato de API.
@@ -43,7 +43,7 @@ def ghost_headers(app):
 AUTHZ_CONTRACT = [
     # --- Gate de papel: "só gestor faz isso" -------------------------------
     # Todos passam por user_service._get_gestor_or_403, cada um com a sua
-    # própria string. É este conjunto que o R4 tende a uniformizar.
+    # própria string. É este conjunto que a futura centralização tende a uniformizar.
     (
         "listar usuários exige gestor",
         "aluno",
@@ -214,9 +214,9 @@ def test_authz_error_contract(
 ):
     """Percorre a tabela inteira e reporta TODAS as divergências de uma vez.
 
-    Escolha deliberada: um único teste em vez de parametrize. Quando o R4
-    reescrever as mensagens, o desenvolvedor quer ver a lista completa do que
-    mudou numa falha só, e não consertar 16 testes vermelhos um a um.
+    Escolha deliberada: um único teste em vez de parametrize. Quando essas
+    mensagens forem centralizadas, o desenvolvedor quer ver a lista completa do
+    que mudou numa falha só, e não consertar 16 testes vermelhos um a um.
     """
     headers_por_ator = {
         "gestor": gestor.headers,
