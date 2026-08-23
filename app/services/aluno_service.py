@@ -228,7 +228,7 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
     return novo_aluno
 
 
-_CAMPOS_SIMPLES = ("nome", "telefone", "matricula", "nome_responsavel", "cpf_responsavel")
+_CAMPOS_COPIA_DIRETA = ("nome", "telefone", "matricula", "nome_responsavel", "cpf_responsavel")
 
 
 def _campos_de_endereco(dados_endereco: dict[str, Any]) -> dict[str, Any]:
@@ -331,7 +331,7 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
         raise NotFoundError("Aluno não encontrado")
 
     with transactional():
-        for field in _CAMPOS_SIMPLES:
+        for field in _CAMPOS_COPIA_DIRETA:
             if field in data:
                 setattr(aluno, field, data[field])
 
