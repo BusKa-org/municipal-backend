@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `viagens_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T5.
 """
 
 import uuid
@@ -164,7 +162,7 @@ def test_get_proximas_viagens_aluno_corta_pela_data_utc_e_nao_pela_local(
 
     No Brasil (UTC-3), entre 21h e meia-noite a data UTC já virou. Uma viagem
     criada para "hoje" some da agenda do aluno nesse intervalo, justamente
-    quando ele mais provavelmente a consultaria. Ver B50.
+    quando ele mais provavelmente a consultaria.
 
     O teste usa a data UTC como referência de propósito, para ser determinístico
     a qualquer hora do dia. Foi um teste meu flaky que revelou isto.
@@ -861,7 +859,7 @@ def test_cancelar_viagem_de_outra_prefeitura_passa(
 def test_cancelar_viagem_erro_no_commit_nao_vaza_texto_do_driver(
     _db, gestor, viagem_futura_agendada_com_motorista, monkeypatch
 ):
-    """B25 corrigido: a falha do commit sobe crua e o handler genérico
+    """Corrigido: a falha do commit sobe crua e o handler genérico
     responde 500 "Erro interno do servidor", sem o texto do driver."""
 
     def falha_generica():
