@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public method in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `notificacao_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T6.
 """
 
 import uuid
@@ -308,7 +306,7 @@ def test_notificar_rota_id_malformado_estoura_no_banco(_db, gestor):
 
     O `rota_id` vai cru para o filtro. O Postgres levanta `DataError` e o
     handler genérico devolve 500, onde 400 de campo inválido seria o esperado.
-    Mesma família do B10 e do B13.
+    Mesma família de bugs de validação de UUID que aparece nos demais serviços.
     """
     with pytest.raises(DataError):
         NotificacaoService.notificar_por_gestor(
@@ -321,9 +319,9 @@ def test_notificar_erro_no_commit_vaza_texto_do_driver(_db, gestor, rota, aluno,
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
     O `except Exception` interpola `str(e)` na resposta, então qualquer falha
-    do commit entrega o texto do driver ao cliente num 500. Mesmo defeito do
-    B17 e do B25, aqui em `notificar_por_gestor`. Sai com o `transactional()`
-    no R7b.
+    do commit entrega o texto do driver ao cliente num 500. Mesmo defeito que
+    aparece nos demais serviços, aqui em `notificar_por_gestor`. Some quando
+    o `transactional()` for adotado neste serviço.
     """
     _db.session.add(RotaAluno(rota_id=rota.id, aluno_id=aluno.user.id))
     _db.session.commit()
@@ -434,8 +432,8 @@ def test_marcar_lida_erro_no_commit_vaza_texto_do_driver(_db, aluno, monkeypatch
     """
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
-    Mesmo vazamento de `str(e)` do `notificar_por_gestor`. Sai com o
-    `transactional()` no R7b.
+    Mesmo vazamento de `str(e)` do `notificar_por_gestor`. Some quando o
+    `transactional()` for adotado neste serviço.
     """
     notificacao = _notificacao(_db, aluno.user.id)
 
