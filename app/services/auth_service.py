@@ -198,7 +198,7 @@ def reset_password(token: str, new_password: str) -> None:
     if not user:
         # Ramo inalcançável hoje: a FK do token é ON DELETE CASCADE, então não
         # existe token cujo usuário sumiu. Mantido porque é o estreitamento de
-        # tipo que o mypy exige, e trocá-lo por um cast seria pior. Ver B46.
+        # tipo que o mypy exige, e trocá-lo por um cast seria pior.
         with transactional():
             db.session.delete(record)
         raise ValidationError("Link inválido")
