@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `user_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T10.
 """
 
 import uuid
@@ -96,7 +94,7 @@ def test_get_all_users_usuario_inexistente_404(_db):
 def test_get_all_users_uuid_malformado_400_e_nao_500(_db):
     # Contraste com os outros serviços: aqui `_get_user_or_404` chama
     # `validate_uuid` antes de tocar o banco, então id torto vira 400 em vez
-    # do 500 genérico do B10, B13, B33 e B44.
+    # do 500 genérico que esse tipo de entrada provoca nos demais serviços.
     with pytest.raises(ValidationError):
         get_all_users("nao-e-uuid")
 
@@ -197,7 +195,7 @@ def test_update_user_nao_tem_gate_de_autorizacao(_db, aluno, other_aluno):
     parâmetro de quem está pedindo, então qualquer rota que a exponha com um
     id vindo do corpo permite editar nome, e-mail e **senha** de outra conta.
     Hoje o controller passa o id do JWT, o que esconde a lacuna atrás da
-    borda. Ver B47.
+    borda.
     """
     update_user(str(other_aluno.user.id), {"password": "InvadidaAgora123!"})
 
@@ -257,7 +255,7 @@ def test_create_aluno_nao_detecta_cpf_duplicado_gravado_com_pontuacao(_db, gesto
     Resultado: um aluno que se cadastrou sozinho com "847.615.309-01" não é
     encontrado pela busca de "84761530901", e o gestor cria uma **segunda
     conta com o mesmo CPF**. O `aluno` do fixture reproduz o formato do
-    auto-cadastro. Ver B49.
+    auto-cadastro.
     """
     cpf_formatado = aluno.user.cpf
     assert "." in cpf_formatado, "o fixture precisa guardar o CPF formatado"
@@ -292,7 +290,8 @@ def test_create_aluno_checa_email_e_cpf_globalmente(_db, gestor, other_aluno):
 
     A busca por e-mail e CPF não filtra por prefeitura. O gestor recebe 409 ao
     cadastrar alguém que já existe em **outra** prefeitura, o que vaza a
-    existência do registro alheio. Mesma forma do B16, com a placa de ônibus.
+    existência do registro alheio, mesmo problema que a busca por placa de
+    ônibus tem.
     """
     with pytest.raises(ConflictError):
         create_aluno_account(str(gestor.user.id), _payload_aluno(email=other_aluno.user.email))
@@ -342,7 +341,8 @@ def test_create_motorista_cnh_e_unica_entre_prefeituras(_db, gestor, other_motor
     CARACTERIZAÇÃO DE DIVERGÊNCIA (não corrigida aqui).
 
     A busca de CNH não filtra por prefeitura. Pode ser proposital, porque CNH
-    é única no país, mas o efeito é o mesmo do B16: o 409 revela que a CNH
+    é única no país, mas o efeito é o mesmo que a busca por placa de ônibus
+    tem: o 409 revela que a CNH
     existe em outra prefeitura. Registrado como pergunta em aberto.
     """
     with pytest.raises(ConflictError) as exc:
@@ -548,7 +548,7 @@ def test_delete_motorista_com_viagem_vinculada_400(_db, gestor, motorista, horar
 def test_delete_motorista_erro_generico_nao_vira_mensagem_de_viagem_vinculada(
     _db, gestor, motorista, monkeypatch
 ):
-    """Corrigido no R7g: só o `ConflictError` do `transactional()`, que vem de
+    """Corrigido: só o `ConflictError` do `transactional()`, que vem de
     `IntegrityError`, recebe o rótulo de viagem vinculada. Uma queda de conexão
     sobe crua. Era o mesmo defeito do `:127` do `pontos_service`.
 
@@ -592,8 +592,8 @@ def test_update_fcm_token_usuario_inexistente_404(_db):
 
 
 # ─── helper morto ───────────────────────────────────────────────────────────
-# `_require_active` foi removido no R7g. Estava definido e nunca era chamado,
-# dentro ou fora do módulo. Os três testes que o fixavam saíram junto. Ver B48.
+# `_require_active` foi removido. Estava definido e nunca era chamado,
+# dentro ou fora do módulo. Os três testes que o fixavam saíram junto.
 
 
 def test_motorista_do_fixture_tem_cnh(_db, motorista):
@@ -616,7 +616,7 @@ def test_motorista_do_fixture_tem_cnh(_db, motorista):
     ],
 )
 def test_erro_no_commit_nao_vaza_texto_do_driver(_db, gestor, aluno, monkeypatch, nome_do_caso):
-    """Corrigido no R7g. As cinco funções embrulhavam a exceção num `AppError`
+    """Corrigido: as cinco funções embrulhavam a exceção num `AppError`
     500 interpolando `str(e)`, entregando SQL e nome de coluna ao cliente. Agora
     a exceção sobe intacta e o handler genérico responde 500 "Erro interno do
     servidor"."""
@@ -655,7 +655,7 @@ def test_erro_de_dominio_no_commit_passa_sem_ser_embrulhado(
     acontece.
 
     Este teste força o cenário para provar que a cláusula funciona, e para
-    registrar que ela é defensiva sem ter o que defender. Ver B48.
+    registrar que ela é defensiva sem ter o que defender.
     """
     chamadas = {
         "update_user": lambda: update_user(str(aluno.user.id), {"nome": "Novo"}),
