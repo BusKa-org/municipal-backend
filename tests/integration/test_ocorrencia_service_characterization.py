@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public method in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `ocorrencia_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T8.
 """
 
 import uuid
@@ -186,7 +184,7 @@ def test_criar_aceita_viagem_de_outra_prefeitura(
     O `viagem_id` só é checado quanto à existência. Nada compara a prefeitura
     da viagem com a do autor, então um aluno reporta ocorrência contra uma
     viagem de outra prefeitura, e o gestor de lá nunca fica sabendo porque a
-    notificação vai para os gestores da prefeitura do autor. Ver B40.
+    notificação vai para os gestores da prefeitura do autor.
     """
     ocorrencia = OcorrenciaService.criar(
         str(other_aluno.user.id),
@@ -202,7 +200,7 @@ def test_criar_viagem_id_malformado_estoura_no_banco(_db, aluno):
 
     O `viagem_id` vai cru para `db.session.get`. O Postgres levanta
     `DataError` e o handler genérico devolve 500, onde 400 caberia. Mesma
-    família do B10, B13 e B33.
+    família de bugs de validação de UUID que aparece nos demais serviços.
     """
     with pytest.raises(DataError):
         OcorrenciaService.criar(str(aluno.user.id), {"tipo": "ATRASO", "viagem_id": "nao-e-uuid"})
@@ -231,8 +229,9 @@ def test_criar_erro_no_commit_vaza_texto_do_driver(_db, aluno, monkeypatch):
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
     O `except Exception` interpola `str(e)` na resposta, então a falha do
-    commit entrega o texto do driver ao cliente num 500. Mesmo defeito do
-    B17, B25, B29 e B38. Sai com o `transactional()` no R7f.
+    commit entrega o texto do driver ao cliente num 500. Mesmo defeito que aparece
+    nos demais serviços do sistema. Some quando o `transactional()` for
+    adotado neste serviço.
     """
 
     def falha_generica():
@@ -310,7 +309,7 @@ def test_listar_status_invalido_e_ignorado_em_silencio(_db, gestor, aluno):
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
     O `except KeyError: pass` engole o status inválido e devolve a lista
-    inteira, como se nenhum filtro tivesse sido pedido. É o B3.
+    inteira, como se nenhum filtro tivesse sido pedido.
 
     **Conflito programado com a PR #42**, que corrige exatamente isto. Quando
     o #42 entrar, este teste passa a esperar `ValidationError`. Quem mergear
@@ -379,7 +378,7 @@ def test_resolver_gestor_de_outra_prefeitura_passa(_db, other_gestor, aluno):
 
     O guarda só checa o papel GESTOR. Não existe checagem de prefeitura, então
     um gestor resolve ocorrência de outra prefeitura, que ele nem consegue ver
-    pelo `listar`. Ver B41.
+    pelo `listar`.
     """
     ocorrencia = _ocorrencia(_db, aluno.user.id)
 
@@ -392,8 +391,8 @@ def test_resolver_erro_no_commit_vaza_texto_do_driver(_db, gestor, aluno, monkey
     """
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
 
-    Mesmo vazamento de `str(e)` do `criar`. Sai com o `transactional()` no
-    R7f.
+    Mesmo vazamento de `str(e)` do `criar`. Some quando o `transactional()`
+    for adotado neste serviço.
     """
     ocorrencia = _ocorrencia(_db, aluno.user.id)
 
