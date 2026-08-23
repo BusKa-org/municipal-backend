@@ -3,11 +3,9 @@
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests: where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md id.
-If one of these tests changes in the SAME PR that changes the behaviour of
+bug, the test name and comment say so. If one of these tests changes in
+the SAME PR that changes the behaviour of
 `auth_service.py`, the change was not a refactor.
-
-Ref: REFACTOR_PLAN.md, item T9.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -353,7 +351,7 @@ def test_reset_com_usuario_ja_removido_400_e_apaga_o_registro(_db, aluno):
     # Isto é a prova de que o ramo `if not user` de `reset_password` é código
     # morto: para alcançá-lo seria preciso um token cujo usuário sumiu, e a FK
     # `ON DELETE CASCADE` impede exatamente esse estado. O ramo foi mantido
-    # no R7h porque é o estreitamento de tipo que o mypy exige.
+    # porque é o estreitamento de tipo que o mypy exige.
     with pytest.raises(ValidationError) as exc:
         reset_password(token, "NovaSenha123!")
 
