@@ -6,15 +6,16 @@ aceitava qualquer `ponto_id` existente. Como o endpoint recebe o ID cru do
 cliente, um gestor podia montar uma rota apontando para os pontos de outro
 município — vazando coordenadas de embarque entre tenants.
 
-**Decisão revista no B51 (2026-08-16).** Este arquivo nasceu escolhendo
-ignorar silenciosamente e seguir com o restante da rota. Depois que o B7 fez
-o `add_ponto` levantar erro, as duas escritas de ponto do módulo passaram a
-recusar de formas diferentes: uma respondia sucesso sem o ponto, a outra
-abortava. A mesma ação dava resultado diferente conforme o endpoint.
+**Decisão revista em 2026-08-16.** Este arquivo nasceu escolhendo
+ignorar silenciosamente e seguir com o restante da rota. Depois que uma
+correção fez o `add_ponto` levantar erro, as duas escritas de ponto do
+módulo passaram a recusar de formas diferentes: uma respondia sucesso sem o
+ponto, a outra abortava. A mesma ação dava resultado diferente conforme o
+endpoint.
 
-O empate foi desfeito para o lado de falhar, pelo mesmo motivo que justificou
-o B7: o front mostra sucesso e o ponto some na próxima carga, então o usuário
-não tem como saber. Os testes abaixo foram reescritos junto.
+O empate foi desfeito para o lado de falhar, pelo mesmo motivo daquela
+correção: o front mostra sucesso e o ponto some na próxima carga, então o
+usuário não tem como saber. Os testes abaixo foram reescritos junto.
 """
 
 import pytest
@@ -69,7 +70,7 @@ def test_create_rota_vincula_ponto_da_propria_prefeitura(gestor, _db, ponto):
 def test_create_rota_mista_falha_inteira_em_vez_de_aceitar_parcial(
     gestor, _db, ponto, ponto_de_outra_prefeitura
 ):
-    """B51: um ponto alheio na lista aborta a criação inteira.
+    """Um ponto alheio na lista aborta a criação inteira.
 
     Este teste era o oposto: afirmava que os pontos válidos sobreviviam ao
     descarte do alheio. A troca é a parte visível da decisão, e é o caso a
