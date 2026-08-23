@@ -4,11 +4,8 @@ Characterization tests for ``app/services/rotas_service.py``.
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests. Where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md item
-that will change it. When such an item lands, the corresponding test must be
-updated in the SAME PR that changes the behaviour.
-
-Ref: REFACTOR_PLAN.md, item T1 (Characterization tests: rotas_service.py)
+bug, the test name and comment say so. When that behaviour is fixed, the
+corresponding test must be updated in the SAME PR that changes it.
 """
 
 import uuid
@@ -307,9 +304,9 @@ def test_create_rota_aceita_ponto_de_outra_prefeitura(_db, gestor, other_prefeit
     prefeitura dele. ``add_ponto`` faz essa conferência e pula o ponto. As
     duas rotas de escrita de pontos divergem no mesmo módulo.
 
-    Ref: REFACTOR_PLAN.md item B4, já corrigido no PR #39 (aberto). Este teste
-    QUEBRA quando o #39 entrar. Quem fizer o merge por último inverte a
-    asserção para ``count() == 0`` no mesmo PR.
+    Já corrigido no PR #39 (aberto). Este teste QUEBRA quando o #39 entrar.
+    Quem fizer o merge por último inverte a asserção para ``count() == 0`` no
+    mesmo PR.
     """
     ponto_alheio = cria_ponto(_db, other_prefeitura.id, apelido="Alheio")
 
@@ -394,7 +391,7 @@ def test_add_ponto_apaga_os_pontos_anteriores_da_rota(_db, gestor, rota, ponto, 
 
     O nome ``add_ponto`` promete adicionar. A implementação apaga todos os
     ``RotaPonto`` da rota e recria a lista a partir do payload. Um cliente que
-    mande um ponto só perde os demais. Ref: REFACTOR_PLAN.md item B7.
+    mande um ponto só perde os demais.
     """
     outro = cria_ponto(_db, rota.prefeitura_id, apelido="Novo")
 
