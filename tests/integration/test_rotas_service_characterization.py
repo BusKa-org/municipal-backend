@@ -118,7 +118,7 @@ def test_list_my_rotas_usuario_inexistente_da_404(_db, gestor):
 
 
 def test_list_my_rotas_uuid_invalido_da_400(_db, gestor):
-    """B10 corrigido: `list_my_rotas` passou a chamar `validate_uuid`, como a
+    """Corrigido: `list_my_rotas` passou a chamar `validate_uuid`, como a
     vizinha `list_all_rotas` já fazia. As duas agora tratam o mesmo argumento
     do mesmo jeito, e id malformado vira 400 em vez do 500 do `DataError`."""
     with pytest.raises(ValidationError):
@@ -290,7 +290,7 @@ def test_create_rota_ponto_inexistente_e_ignorado_em_silencio(_db, gestor):
 
 
 def test_create_rota_recusa_ponto_de_outra_prefeitura(_db, gestor, other_prefeitura):
-    """B4 corrigido. Conflito programado resolvido: o PR #39 está mesclado
+    """Conflito programado resolvido: o PR #39 está mesclado
     neste branch, então a asserção foi invertida aqui, como o docstring
     anterior instruía.
 
@@ -433,7 +433,7 @@ def test_add_ponto_lista_vazia_da_400(_db, gestor, rota):
 
 
 def test_add_ponto_de_outra_prefeitura_agora_da_403(_db, gestor, rota, other_prefeitura):
-    # B7 corrigido: antes o ponto alheio era descartado em silêncio e a API
+    # Antes o ponto alheio era descartado em silêncio e a API
     # respondia sucesso. Agora a substituição inteira é abortada.
     ponto_alheio = cria_ponto(_db, other_prefeitura.id, apelido="Alheio")
 
@@ -448,7 +448,7 @@ def test_add_ponto_de_outra_prefeitura_agora_da_403(_db, gestor, rota, other_pre
 
 
 def test_add_ponto_sem_nome_ou_coordenada_agora_da_400(_db, gestor, rota):
-    # B7 corrigido: ponto novo incompleto era descartado em silêncio.
+    # Ponto novo incompleto era descartado em silêncio.
     with pytest.raises(ValidationError) as exc:
         add_ponto(str(gestor.user.id), str(rota.id), {"pontos": [{"latitude": -7.21}]})
 
@@ -559,7 +559,7 @@ def test_get_horarios_cross_tenant_bloqueado_para_motorista(_db, other_motorista
 
 
 def test_get_horarios_aluno_de_outra_prefeitura_agora_da_403(_db, other_aluno, rota, horario_rota):
-    # B9 corrigido: o guarda deixava ALUNO passar porque só comparava a
+    # O guarda deixava ALUNO passar porque só comparava a
     # prefeitura para GESTOR e MOTORISTA. Agora vale para todos os papéis.
     with pytest.raises(ForbiddenError) as exc:
         get_horarios(str(other_aluno.user.id), str(rota.id))
@@ -593,7 +593,7 @@ def test_get_by_id_cross_tenant_bloqueado_para_gestor(_db, other_gestor, rota):
 
 
 def test_get_by_id_aluno_de_outra_prefeitura_agora_da_403(_db, other_aluno, rota):
-    # B9 corrigido, mesmo guarda do `get_horarios`.
+    # Mesmo guarda do `get_horarios`.
     with pytest.raises(ForbiddenError) as exc:
         get_by_id(str(other_aluno.user.id), str(rota.id))
 
@@ -738,7 +738,7 @@ def test_get_pontos_by_rota_inexistente_da_404(_db, gestor):
 
 
 def test_get_pontos_by_rota_agora_checa_tenant(_db, other_gestor, rota, ponto, rota_ponto):
-    # B9 corrigido. Esta era a pior das três: nenhuma checagem de prefeitura,
+    # Esta era a pior das três: nenhuma checagem de prefeitura,
     # e o `rota_id` é parâmetro de path, então qualquer autenticado lia as
     # coordenadas de embarque de qualquer rota.
     with pytest.raises(ForbiddenError) as exc:

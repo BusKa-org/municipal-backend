@@ -67,8 +67,8 @@ def _get_rota_do_tenant(user_id: str, rota_id: str) -> Rota:
 
 def list_my_rotas(user_id: str) -> list[Rota]:
     """List routes linked to the logged-in user."""
-    # B10: mesma validação que a vizinha `list_all_rotas` já fazia. Sem ela o
-    # id cru ia para o Postgres e um UUID malformado virava 500 em vez de 400.
+    # Mesma validação que a vizinha `list_all_rotas` já fazia. Sem ela o id
+    # cru ia para o Postgres e um UUID malformado virava 500 em vez de 400.
     validate_uuid(user_id, "User ID")
     user = User.query.get(user_id)
     if not user:
