@@ -1,6 +1,6 @@
 """Testes do próprio harness: contra qual banco a suíte roda.
 
-Existe por causa do achado do S4. O `tests/conftest.py` mandava
+Existe por causa de um bug real no harness de teste. O `tests/conftest.py` mandava
 `SQLALCHEMY_DATABASE_URI="sqlite://"` depois de `create_app()`, o Flask-SQLAlchemy
 já tinha lido a URI dentro de `init_app()` e a engine continuava apontada para o
 Postgres de desenvolvimento. O config dizia uma coisa, a conexão fazia outra, e o
