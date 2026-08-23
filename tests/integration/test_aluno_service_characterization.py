@@ -4,11 +4,8 @@ Characterization tests for ``app/services/aluno_service.py``.
 Purpose: pin the CURRENT observable behaviour of every public function in the
 module so the upcoming refactor can be proven behaviour-preserving. These are
 deliberately NOT "should" tests — where the behaviour pinned here is a known
-bug, the test name and comment say so and point at the REFACTOR_PLAN.md item
-that will change it. When such an item lands, the corresponding test must be
-updated in the SAME PR that changes the behaviour.
-
-Ref: REFACTOR_PLAN.md — T2 (Characterization tests: aluno_service.py)
+bug, the test name and comment say so. When that behaviour is fixed, the
+corresponding test must be updated in the SAME PR that changes it.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -386,12 +383,13 @@ def test_update_me_completa_signup_do_adulto(_db, aluno_pending, instituicao):
 
 
 def test_update_me_pendencias_viram_500_e_nao_400(_db, aluno_pending):
-    """CHARACTERIZATION OF BUG B1 (REFACTOR_PLAN.md — PR C, still open).
+    """CHARACTERIZATION OF A KNOWN BUG, not fixed here.
 
     ``update_me`` raises ValidationError(400) for an incomplete signup, but the
     bare ``except Exception`` at the end of the function swallows it and
     re-raises AppError 500. The API therefore answers 500 for what is a client
-    input problem. When PR C lands, this test must flip to ValidationError/400.
+    input problem. When this is fixed, this test must flip to
+    ValidationError/400.
     """
     aluno_pending.user.matricula = None
     aluno_pending.user.instituicao_id = None
@@ -447,7 +445,7 @@ def test_delete_me_sem_ponto_casa(_db, aluno_ativo):
 
 
 def test_delete_me_com_ponto_casa_falha_com_500(_db, instituicao):
-    """CHARACTERIZATION OF A BUG (not fixed here) — see REFACTOR_PLAN.md.
+    """CHARACTERIZATION OF A KNOWN BUG, not fixed here.
 
     ``delete_me`` deletes ``aluno.ponto_casa`` while ``aluno.ponto_casa_id``
     still references it. The cascade-resolution query autoflushes the pending
@@ -456,7 +454,7 @@ def test_delete_me_com_ponto_casa_falha_com_500(_db, instituicao):
 
     Since ``auto_cadastro`` ALWAYS creates a ponto_casa, self-service account
     deletion is broken for every student who signed up through the app. Fixing
-    it means clearing the FK (or reordering the deletes) — a behaviour change,
+    it means clearing the FK (or reordering the deletes), a behaviour change,
     so it is tracked as its own item rather than done inside the refactor.
     """
     aluno = auto_cadastro(signup_payload(instituicao_id=str(instituicao.id)))
