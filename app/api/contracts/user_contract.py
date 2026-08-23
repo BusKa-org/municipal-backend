@@ -37,7 +37,8 @@ def register_models(api):
 
     motorista_create_request = api.model(
         # `salario` foi removido daqui: a coluna saiu de `Gestor` na migração
-        # `a1b2c3d4e5f6` e `Motorista` nunca a teve. Mesma família do resíduo do U3.
+        # `a1b2c3d4e5f6` e `Motorista` nunca a teve. Mesma família de campo fantasma
+        # que sobrou de coluna removida.
         "MotoristaCreateRequest",
         {
             "nome": fields.String(required=True, description="Nome completo"),

@@ -1,4 +1,4 @@
-"""R5: o Swagger não pode prometer campo que o serviço descarta.
+"""O Swagger não pode prometer campo que o serviço descarta.
 
 `app/api/contracts/*` documenta a API para o flask-restx. `app/schemas/*` é
 quem valida de verdade, e o `BaseSchema` usa `unknown = EXCLUDE`, então todo
@@ -7,7 +7,7 @@ campo documentado que o schema não declara é silenciosamente jogado fora.
 Estes testes fixam o resultado da auditoria: para cada modelo de request do
 contrato existe um schema correspondente, e nenhum campo sobra de um lado só.
 
-Scope guard do R5, que continua valendo: 3 dos 31 `@api.expect` passam
+Guarda de escopo que continua valendo: 3 dos 31 `@api.expect` passam
 `validate=True` e por isso validam em runtime. São
 `dashboard_controller.py:41`, `notificacao_controller.py:33` e
 `ocorrencia_controller.py:55`. Editar esses models é mudança de comportamento,
@@ -53,7 +53,7 @@ def test_rota_update_nao_documenta_pontos_e_horarios(_db):
 
 def test_motorista_create_nao_documenta_salario(_db):
     # `Motorista` não tem coluna `salario`: ela saiu na migração `a1b2c3d4e5f6`.
-    # Mesma família do resíduo do U3.
+    # Mesma família de campo fantasma que sobrou de coluna removida.
     campos = _campos_do_modelo(user_contract, "MotoristaCreateRequest")
 
     assert "salario" not in campos
@@ -61,7 +61,7 @@ def test_motorista_create_nao_documenta_salario(_db):
 
 
 def test_contratos_que_validam_em_runtime_nao_foram_tocados(_db):
-    """Guarda do escopo do R5.
+    """Guarda de escopo desta auditoria.
 
     Três `@api.expect` passam `validate=True` e por isso validam de verdade.
     Se alguém mover um deles para um contrato editado por esta auditoria, o
