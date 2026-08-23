@@ -164,8 +164,8 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
         raise ConflictError("Este CPF já está cadastrado.", field="cpf")
 
     with transactional():
-        end_data = data.get("endereco_casa")
-        if not end_data:
+        dados_endereco = data.get("endereco_casa")
+        if not dados_endereco:
             raise ValidationError(
                 "Endereço de casa é obrigatório", details={"field": "endereco_casa"}
             )
@@ -174,19 +174,19 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
 
         ponto_casa = Ponto(
             prefeitura_id=prefeitura_id,
-            latitude=end_data.get("latitude"),
-            longitude=end_data.get("longitude"),
+            latitude=dados_endereco.get("latitude"),
+            longitude=dados_endereco.get("longitude"),
             apelido=f"Casa: {data.get('nome')}",
         )
         db.session.add(ponto_casa)
         db.session.flush()
 
         novo_end = Endereco(
-            logradouro=end_data.get("logradouro"),
-            numero=end_data.get("numero"),
-            bairro=end_data.get("bairro"),
-            cidade=end_data.get("cidade"),
-            cep=end_data.get("cep"),
+            logradouro=dados_endereco.get("logradouro"),
+            numero=dados_endereco.get("numero"),
+            bairro=dados_endereco.get("bairro"),
+            cidade=dados_endereco.get("cidade"),
+            cep=dados_endereco.get("cep"),
             ponto_id=ponto_casa.id,
         )
         db.session.add(novo_end)
@@ -231,50 +231,52 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
 _CAMPOS_SIMPLES = ("nome", "telefone", "matricula", "nome_responsavel", "cpf_responsavel")
 
 
-def _campos_de_endereco(end_data: dict[str, Any]) -> dict[str, Any]:
+def _campos_de_endereco(dados_endereco: dict[str, Any]) -> dict[str, Any]:
     """Mapeia o payload de endereço para as colunas de `Endereco`.
 
     Estava escrito duas vezes dentro do `update_me`, uma para o caminho de
     atualização e outra para o de criação, com os mesmos cinco campos.
     """
     return {
-        "logradouro": end_data.get("logradouro"),
-        "numero": end_data.get("numero"),
-        "bairro": end_data.get("bairro"),
-        "cidade": end_data.get("cidade"),
-        "cep": end_data.get("cep"),
+        "logradouro": dados_endereco.get("logradouro"),
+        "numero": dados_endereco.get("numero"),
+        "bairro": dados_endereco.get("bairro"),
+        "cidade": dados_endereco.get("cidade"),
+        "cep": dados_endereco.get("cep"),
     }
 
 
 def _atualizar_endereco_casa(aluno: Aluno, data: dict[str, Any]) -> None:
     """Atualiza o ponto de casa do aluno, criando-o quando ainda não existe."""
-    end_data = data["endereco_casa"]
+    dados_endereco = data["endereco_casa"]
 
     if not aluno.ponto_casa:
         novo_ponto = Ponto(
             prefeitura_id=aluno.prefeitura_id,
-            latitude=end_data.get("latitude"),
-            longitude=end_data.get("longitude"),
+            latitude=dados_endereco.get("latitude"),
+            longitude=dados_endereco.get("longitude"),
             apelido=f"Casa: {data.get('nome', aluno.nome)}",
         )
         db.session.add(novo_ponto)
         db.session.flush()
-        db.session.add(Endereco(ponto_id=novo_ponto.id, **_campos_de_endereco(end_data)))
+        db.session.add(Endereco(ponto_id=novo_ponto.id, **_campos_de_endereco(dados_endereco)))
         aluno.ponto_casa_id = novo_ponto.id
         return
 
     ponto_casa = cast(Ponto, aluno.ponto_casa)
-    ponto_casa.latitude = end_data.get("latitude")
-    ponto_casa.longitude = end_data.get("longitude")
+    ponto_casa.latitude = dados_endereco.get("latitude")
+    ponto_casa.longitude = dados_endereco.get("longitude")
     if "nome" in data:
         ponto_casa.apelido = f"Casa: {data['nome']}"
 
     endereco_bd = Endereco.query.filter_by(ponto_id=aluno.ponto_casa_id).first()
     if not endereco_bd:
-        db.session.add(Endereco(ponto_id=aluno.ponto_casa_id, **_campos_de_endereco(end_data)))
+        db.session.add(
+            Endereco(ponto_id=aluno.ponto_casa_id, **_campos_de_endereco(dados_endereco))
+        )
         return
 
-    for coluna, valor in _campos_de_endereco(end_data).items():
+    for coluna, valor in _campos_de_endereco(dados_endereco).items():
         setattr(endereco_bd, coluna, valor)
 
 
@@ -293,8 +295,12 @@ def _finalizar_cadastro_se_completo(aluno: Aluno, data: dict[str, Any], user_id:
     if not aluno.instituicao_id and not data.get("instituicao_id"):
         faltando.append("instituicao_id")
 
-    end_data = data.get("endereco_casa")
-    if not end_data or end_data.get("latitude") is None or end_data.get("longitude") is None:
+    dados_endereco = data.get("endereco_casa")
+    if (
+        not dados_endereco
+        or dados_endereco.get("latitude") is None
+        or dados_endereco.get("longitude") is None
+    ):
         faltando.append("endereco_casa.latitude/longitude")
 
     if faltando:
