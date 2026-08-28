@@ -357,7 +357,6 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
         raise
     except Exception:
         db.session.rollback()
-        # Detalhe completo (SQL, constraint) só no log — nunca na resposta.
         logger.exception("Error updating student profile %s", user_id)
         raise AppError("Erro ao atualizar perfil", 500) from None
 
@@ -404,7 +403,6 @@ def delete_me(user_id: str) -> None:
         raise
     except Exception:
         db.session.rollback()
-        # Detalhe completo (SQL, constraint) só no log — nunca na resposta.
         logger.exception("Error deleting student account %s", user_id)
         raise AppError("Erro ao excluir conta", 500) from None
 

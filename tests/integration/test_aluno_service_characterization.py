@@ -279,7 +279,6 @@ def test_record_guardian_consent_avanca_para_pending_approval(_db, aluno_menor, 
     assert aluno.guardian_consented_at is not None
     assert aluno.guardian_token is None  # single-use: token is burned
 
-    # gestor(es) da prefeitura são notificados
     from app.models.notificacao import Notificacao
 
     notifs = _db.session.query(Notificacao).filter_by(usuario_id=str(gestor.user.id)).all()
@@ -384,7 +383,7 @@ def test_update_me_completa_signup_do_adulto(_db, aluno_pending, instituicao):
 
 
 def test_update_me_pendencias_retorna_400(_db, aluno_pending):
-    """B1 corrigido. Antes, pendência de cadastro virava 500.
+    """
 
     ``update_me`` raises ValidationError(400) for an incomplete signup. The bare
     ``except Exception`` used to swallow it and re-raise AppError 500, turning a
@@ -448,12 +447,13 @@ def test_delete_me_sem_ponto_casa(_db, aluno_ativo):
 
 
 def test_delete_me_com_ponto_casa(_db, instituicao):
-    """B8 corrigido. Antes, qualquer aluno vindo do auto-cadastro recebia 500.
+    """
+
     ``delete_me`` used to delete ``aluno.ponto_casa`` while
     ``aluno.ponto_casa_id`` still referenced it. The cascade-resolution query
     autoflushed the pending Ponto delete before the Aluno row was removed, so
     Postgres rejected it with ``aluno_ponto_casa_id_fkey`` and the caller got a
-    generic 500 — with the account still in place.
+    generic 500, with the account still in place.
 
     Since ``auto_cadastro`` ALWAYS creates a ponto_casa, self-service account
     deletion was broken for every student who signed up through the app.
