@@ -5,7 +5,6 @@ import secrets
 from typing import Any, cast
 
 from flask import current_app
-from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from app.core.exceptions import (
@@ -371,31 +370,11 @@ def delete_me(user_id: str) -> None:
     if not aluno:
         raise NotFoundError("Aluno não encontrado")
 
-    ponto_casa = cast(Ponto | None, aluno.ponto_casa)
-    ponto_casa_id = ponto_casa.id if ponto_casa else None
-
     try:
-        # A ordem importa: `aluno.ponto_casa_id` referencia `ponto.id` numa FK
-        # sem ON DELETE, então o ponto só pode sair depois que a linha do aluno
-        # deixar de apontar para ele. Os dependentes do aluno (rota_aluno,
-        # alunos_confirmados, ocorrencia, notificacoes) são ON DELETE CASCADE.
+        # O ponto de casa sai junto pelo trigger trg_remover_ponto_casa, que só
+        # o remove quando mais ninguém o referencia (rota, viagem, instituição,
+        # outro aluno). Apagá-lo aqui violava a FK aluno.ponto_casa_id.
         db.session.delete(aluno)
-        db.session.flush()
-
-        if ponto_casa is not None:
-            try:
-                # Savepoint: o ponto de casa pode ter sido reaproveitado como
-                # parada de rota/viagem (FKs RESTRICT). Nesse caso ele não pode
-                # ser removido — mas isso não pode impedir o aluno de excluir a
-                # própria conta, então abortamos só a remoção do ponto.
-                with db.session.begin_nested():
-                    db.session.delete(ponto_casa)
-            except IntegrityError:
-                logger.warning(
-                    "Ponto de casa %s mantido: ainda referenciado por outra entidade",
-                    ponto_casa_id,
-                )
-
         db.session.commit()
 
     except AppError:

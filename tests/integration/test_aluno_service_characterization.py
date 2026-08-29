@@ -448,15 +448,18 @@ def test_delete_me_sem_ponto_casa(_db, aluno_ativo):
 
 def test_delete_me_com_ponto_casa(_db, instituicao):
     """
+    ``delete_me`` apagava ``aluno.ponto_casa`` enquanto ``aluno.ponto_casa_id``
+    ainda o referenciava. A query de resolução de cascade dava autoflush no
+    delete pendente do Ponto antes da linha do Aluno sair, o Postgres recusava
+    com ``aluno_ponto_casa_id_fkey`` e o cliente recebia um 500 genérico, com a
+    conta intacta.
 
-    ``delete_me`` used to delete ``aluno.ponto_casa`` while
-    ``aluno.ponto_casa_id`` still referenced it. The cascade-resolution query
-    autoflushed the pending Ponto delete before the Aluno row was removed, so
-    Postgres rejected it with ``aluno_ponto_casa_id_fkey`` and the caller got a
-    generic 500, with the account still in place.
+    Como ``auto_cadastro`` SEMPRE cria um ponto_casa, a auto-exclusão estava
+    quebrada para todo aluno que se cadastrou pelo app.
 
-    Since ``auto_cadastro`` ALWAYS creates a ponto_casa, self-service account
-    deletion was broken for every student who signed up through the app.
+    A remoção do ponto em si é do banco (trigger ``trg_remover_ponto_casa``,
+    #76), que não existe no schema montado por ``db.create_all()`` — esse
+    comportamento é coberto em ``tests/e2e/test_trigger_ponto_casa.py``.
     """
     aluno = auto_cadastro(signup_payload(instituicao_id=str(instituicao.id)))
     aluno_id, ponto_id = aluno.id, aluno.ponto_casa_id
@@ -465,14 +468,11 @@ def test_delete_me_com_ponto_casa(_db, instituicao):
     delete_me(str(aluno_id))
 
     assert _db.session.get(Aluno, aluno_id) is None
-    # o ponto de casa (e o endereço pendurado nele) saem junto
-    assert _db.session.get(Ponto, ponto_id) is None
-    assert Endereco.query.filter_by(ponto_id=ponto_id).first() is None
 
 
-def test_delete_me_mantem_ponto_casa_usado_por_rota(_db, instituicao, rota):
+def test_delete_me_com_ponto_casa_usado_por_rota(_db, instituicao, rota):
     """O ponto de casa pode ter virado parada de uma rota (rota_ponto tem FK
-    RESTRICT). A conta ainda assim precisa ser excluída — só o ponto fica."""
+    RESTRICT). A conta ainda assim precisa ser excluída."""
     aluno = auto_cadastro(signup_payload(instituicao_id=str(instituicao.id)))
     aluno_id, ponto_id = aluno.id, aluno.ponto_casa_id
 
@@ -482,7 +482,6 @@ def test_delete_me_mantem_ponto_casa_usado_por_rota(_db, instituicao, rota):
     delete_me(str(aluno_id))
 
     assert _db.session.get(Aluno, aluno_id) is None
-    assert _db.session.get(Ponto, ponto_id) is not None
 
 
 def test_delete_me_aluno_inexistente(_db):
