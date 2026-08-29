@@ -27,6 +27,7 @@ BEGIN
     -- instituicao.ponto_id é CASCADE (apagar o ponto apagaria a escola).
     -- As linhas de alunos_confirmados do próprio aluno saem por CASCADE, então
     -- não contam como uso.
+    WITH removido AS (
     DELETE FROM ponto p
     WHERE p.id = OLD.ponto_casa_id
       AND NOT EXISTS (SELECT 1 FROM aluno a WHERE a.ponto_casa_id = p.id)
@@ -37,7 +38,13 @@ BEGIN
           SELECT 1 FROM alunos_confirmados ac
           WHERE ac.aluno_id <> OLD.usuario_id
             AND (ac.ponto_embarque_id = p.id OR ac.ponto_destino_id = p.id)
-      );
+      )
+    RETURNING p.id
+    )
+    -- O endereço (logradouro, número, CEP) pendura no ponto, não no aluno, e a
+    -- FK é SET NULL: sem isto ele sobreviveria à exclusão da conta como linha
+    -- órfã e inalcançável, com o endereço residencial de quem já saiu.
+    DELETE FROM endereco e WHERE e.ponto_id IN (SELECT id FROM removido);
 
     RETURN NULL;
 END;

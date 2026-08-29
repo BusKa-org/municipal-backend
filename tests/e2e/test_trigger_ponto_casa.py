@@ -87,6 +87,25 @@ def _viagem(conn):
     ).scalar_one()
 
 
+def _endereco(conn, ponto_id):
+    return conn.execute(
+        text(
+            "INSERT INTO endereco (logradouro, numero, bairro, cidade, cep, ponto_id) "
+            "VALUES ('Rua A', '1', 'Centro', 'JP', '58000-000', :pt) RETURNING id"
+        ),
+        {"pt": ponto_id},
+    ).scalar_one()
+
+
+def _endereco_existe(conn, endereco_id):
+    return (
+        conn.execute(
+            text("SELECT count(*) FROM endereco WHERE id = :e"), {"e": endereco_id}
+        ).scalar_one()
+        > 0
+    )
+
+
 def _delete_aluno(conn, usuario_id):
     conn.execute(text("DELETE FROM usuario WHERE id = :u"), {"u": usuario_id})
 
@@ -218,3 +237,30 @@ def test_preserva_ponto_de_instituicao(conn):
     _delete_aluno(conn, aluno)
 
     assert _ponto_existe(conn, ponto)
+
+
+def test_apaga_o_endereco_junto_com_o_ponto(conn):
+    """O endereço pendura no ponto, não no aluno, e a FK é SET NULL: sem a
+    limpeza ele sobreviveria órfão, com o endereço de quem excluiu a conta."""
+    pref = _prefeitura(conn)
+    ponto = _ponto(conn, pref)
+    endereco = _endereco(conn, ponto)
+    aluno = _aluno(conn, pref, ponto)
+
+    _delete_aluno(conn, aluno)
+
+    assert not _endereco_existe(conn, endereco)
+
+
+def test_preserva_o_endereco_quando_o_ponto_e_preservado(conn):
+    """Dois alunos na mesma casa: quem fica não pode perder o endereço."""
+    pref = _prefeitura(conn)
+    ponto = _ponto(conn, pref)
+    endereco = _endereco(conn, ponto)
+    aluno = _aluno(conn, pref, ponto)
+    _aluno(conn, pref, ponto)
+
+    _delete_aluno(conn, aluno)
+
+    assert _ponto_existe(conn, ponto)
+    assert _endereco_existe(conn, endereco)
