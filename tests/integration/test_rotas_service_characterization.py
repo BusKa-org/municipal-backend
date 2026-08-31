@@ -296,17 +296,11 @@ def test_create_rota_ponto_inexistente_e_ignorado_em_silencio(_db, gestor):
     assert RotaPonto.query.filter_by(rota_id=rota.id).count() == 0
 
 
-def test_create_rota_aceita_ponto_de_outra_prefeitura(_db, gestor, other_prefeitura):
+def test_create_rota_ignora_ponto_de_outra_prefeitura_em_silencio(_db, gestor, other_prefeitura):
     """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    ``create_rota`` vincula um ponto informado por ID sem conferir a
-    prefeitura dele. ``add_ponto`` faz essa conferência e pula o ponto. As
-    duas rotas de escrita de pontos divergem no mesmo módulo.
-
-    Já corrigido no PR #39 (aberto). Este teste QUEBRA quando o #39 entrar.
-    Quem fizer o merge por último inverte a asserção para ``count() == 0`` no
-    mesmo PR.
+    Corrigido pelo PR #39: ``create_rota`` passou a conferir a prefeitura do
+    ponto antes de vincular, igual ao ``add_ponto`` já fazia. O vínculo
+    cross-tenant não é mais criado, a rota segue sendo criada sem esse ponto.
     """
     ponto_alheio = cria_ponto(_db, other_prefeitura.id, apelido="Alheio")
 
@@ -315,8 +309,7 @@ def test_create_rota_aceita_ponto_de_outra_prefeitura(_db, gestor, other_prefeit
         {"nome": "Rota", "pontos": [{"ponto_id": str(ponto_alheio.id), "ordem": 1}]},
     )
 
-    # FALHA: o vínculo cross-tenant é criado.
-    assert RotaPonto.query.filter_by(rota_id=rota.id, ponto_id=ponto_alheio.id).count() == 1
+    assert RotaPonto.query.filter_by(rota_id=rota.id, ponto_id=ponto_alheio.id).count() == 0
 
 
 def test_create_rota_com_horarios_e_dias(_db, gestor):
