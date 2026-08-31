@@ -7,12 +7,14 @@ def register_models(api):
     """Register onibus models with the API namespace."""
 
     onibus_create_request = api.model(
+        # `ano` foi removido daqui: nunca existiu no modelo `Onibus`, no
+        # `OnibusCreateRequestSchema` nem no `create_onibus`. O `BaseSchema` usa
+        # `unknown = EXCLUDE`, então o campo era aceito no corpo e descartado.
         "OnibusCreateRequest",
         {
             "placa": fields.String(required=True, description="Placa do veículo"),
             "modelo": fields.String(description="Modelo"),
             "capacidade": fields.Integer(description="Capacidade de passageiros"),
-            "ano": fields.Integer(description="Ano de fabricação"),
         },
     )
 
