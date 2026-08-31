@@ -237,6 +237,20 @@ jobs:
             sleep 2
           done
 
+      # A suíte roda create_all/drop_all, então precisa de um banco descartável.
+      # O serviço só cria o buska_db; o buska_test nasce aqui, com as extensões
+      # que o database/init.sql dá ao banco local.
+      - name: "Create test database"
+        env:
+          PGPASSWORD: buska_pass
+        run: |
+          psql -h localhost -p 5432 -U buska_user -d buska_db \
+            -c "CREATE DATABASE buska_test OWNER buska_user ENCODING 'UTF8'"
+          psql -h localhost -p 5432 -U buska_user -d buska_test -q \
+            -c "CREATE EXTENSION IF NOT EXISTS postgis" \
+            -c "CREATE EXTENSION IF NOT EXISTS postgis_topology" \
+            -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'
+
       - name: "Run Integration (DB) with Coverage"
         id: coverage
         env:
@@ -245,7 +259,7 @@ jobs:
           DB_PASSWORD: buska_pass
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_NAME: buska_db
+          DB_NAME: buska_test
           JWT_SECRET_KEY: test_secret
         run: |
           uv run pytest -m "not e2e" \
