@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import onibus_contract
+from app.api.helpers import list_envelope
 from app.schemas.onibus_schema import (
     OnibusCreateRequestSchema,
     OnibusListResponseSchema,
@@ -35,12 +36,7 @@ class OnibusListResource(Resource):
         current_user_id = get_jwt_identity()
         onibus_list = onibus_service.list_all(current_user_id)
         return (
-            onibus_list_response_schema.dump(
-                {
-                    "items": onibus_list,
-                    "total": len(onibus_list),
-                }
-            ),
+            onibus_list_response_schema.dump(list_envelope(onibus_list)),
             200,
         )
 

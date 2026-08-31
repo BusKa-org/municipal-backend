@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract
+from app.api.helpers import list_envelope
 from app.schemas.aluno_schema import (
     AlunoGuardianConsentPublicSchema,
     AlunoListResponseSchema,
@@ -79,12 +80,7 @@ class AlunoListResource(Resource):
         status_filter = flask_request.args.get("status")
         alunos = aluno_service.list_alunos_gestor(user_id, status=status_filter)
         return (
-            aluno_list_response_schema.dump(
-                {
-                    "items": alunos,
-                    "total": len(alunos),
-                }
-            ),
+            aluno_list_response_schema.dump(list_envelope(alunos)),
             200,
         )
 
