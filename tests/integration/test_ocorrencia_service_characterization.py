@@ -304,21 +304,17 @@ def test_listar_filtra_por_status(_db, gestor, aluno):
     assert [o.id for o in resultado] == [aberta.id]
 
 
-def test_listar_status_invalido_e_ignorado_em_silencio(_db, gestor, aluno):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    O `except KeyError: pass` engole o status inválido e devolve a lista
-    inteira, como se nenhum filtro tivesse sido pedido.
-
-    **Conflito programado com a PR #42**, que corrige exatamente isto. Quando
-    o #42 entrar, este teste passa a esperar `ValidationError`. Quem mergear
-    por último inverte a asserção dentro da própria PR.
-    """
+def test_listar_status_invalido_da_400(_db, gestor, aluno):
+    """Corrigido pelo PR #42: filtro de status inválido agora responde 400,
+    em vez de devolver a lista inteira como se nenhum filtro tivesse sido
+    pedido."""
     _ocorrencia(_db, aluno.user.id, status=StatusOcorrencia.ABERTA)
     _ocorrencia(_db, aluno.user.id, status=StatusOcorrencia.RESOLVIDA)
 
-    assert len(OcorrenciaService.listar(str(gestor.user.id), status="NAO_EXISTE")) == 2
+    with pytest.raises(ValidationError) as exc:
+        OcorrenciaService.listar(str(gestor.user.id), status="NAO_EXISTE")
+
+    assert "Status inválido" in str(exc.value)
 
 
 def test_listar_sem_ocorrencias_devolve_lista_vazia(_db, gestor):
