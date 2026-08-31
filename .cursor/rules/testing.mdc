@@ -1,0 +1,29 @@
+---
+description: Test conventions and how to run tests locally
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Tests
+
+Layout: `tests/unit/`, `tests/integration/`, `tests/e2e/`, shared
+`tests/factories/` and `tests/helpers/`.
+
+```bash
+uv run pytest -m "not e2e" -q   # what pre-commit runs on every commit
+uv run pytest -m e2e            # needs the full stack up, not run by pre-commit
+uv run pytest path/to/test.py -k name_substring   # one test while iterating
+```
+
+- **Integration and e2e tests need a real Postgres/PostGIS connection.** If a
+  test fails with a connection error rather than an assertion error, the fix
+  is almost always starting the database
+  (`docker compose -f infra/database.yml up -d`), not the test or the code.
+- **Use the factories in `tests/factories/`** to build model instances rather
+  than constructing them by hand — they already satisfy required
+  relationships (e.g. a `Viagem` needs a `Rota`, a `Prefeitura`, etc.).
+- **New pytest markers must be declared** in `pyproject.toml` under
+  `[tool.pytest.ini_options].markers` — `--strict-markers` is set, so an
+  undeclared marker fails the run outright instead of being silently ignored.
+- Coverage runs on every invocation (`--cov=app`); a PR that drops coverage
+  meaningfully should add a test, not just note the drop.
