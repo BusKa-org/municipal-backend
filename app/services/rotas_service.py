@@ -189,6 +189,11 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
                     if not existing_ponto:
                         logger.warning(f"Ponto {ponto_id} not found, skipping")
                         continue
+                    if existing_ponto.prefeitura_id != rota.prefeitura_id:
+                        logger.warning(
+                            f"Ponto {ponto_id} belongs to different prefeitura, skipping"
+                        )
+                        continue
                     rota_ponto = RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=ordem)
                     db.session.add(rota_ponto)
                 elif "latitude" in p_data and "longitude" in p_data:
