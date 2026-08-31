@@ -1,10 +1,13 @@
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
 from flask_jwt_extended import create_access_token
+from sqlalchemy import event
 from sqlalchemy.pool import StaticPool
 
 from app import create_app
@@ -56,6 +59,79 @@ class Actor:
     user: Any
     headers: dict[str, str]
     client: AuthenticatedClient
+
+
+class QueryCounter:
+    """Coleta as queries SQL emitidas dentro de um bloco.
+
+    Existe para tornar N+1 uma asserção e não uma impressão. Um teste que
+    afirma "esse endpoint faz 4 queries" falha quando alguém reintroduz o
+    lazy load, e a mensagem de falha mostra o SQL repetido.
+    """
+
+    def __init__(self) -> None:
+        self.statements: list[str] = []
+
+    @property
+    def count(self) -> int:
+        return len(self.statements)
+
+    def matching(self, fragment: str) -> list[str]:
+        """Statements que contêm `fragment` (case-insensitive)."""
+        needle = fragment.lower()
+        return [s for s in self.statements if needle in s.lower()]
+
+    def report(self) -> str:
+        """SQL capturado, agrupado por statement idêntico e ordenado por repetição.
+
+        O statement mais repetido é quase sempre o N+1.
+        """
+        if not self.statements:
+            return "(nenhuma query capturada)"
+        counts: dict[str, int] = {}
+        for stmt in self.statements:
+            normalised = " ".join(stmt.split())
+            counts[normalised] = counts.get(normalised, 0) + 1
+        lines = [f"{self.count} queries:"]
+        for stmt, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+            lines.append(f"  {n:>3}x  {stmt[:160]}")
+        return "\n".join(lines)
+
+    def assert_at_most(self, expected: int) -> None:
+        msg = f"esperava no máximo {expected} queries, saíram {self.count}\n{self.report()}"
+        assert self.count <= expected, msg
+
+
+@pytest.fixture()
+def query_counter(_db):
+    """Fábrica de context manager que conta queries num trecho específico.
+
+    Escopo explícito de propósito: a montagem das fixtures também emite SQL,
+    e contá-la junto tornaria os números inúteis.
+
+        def test_agenda_nao_tem_n_mais_1(query_counter, aluno):
+            with query_counter() as qc:
+                resp = aluno.client.get("/api/v1/alunos/me/agenda")
+            qc.assert_at_most(5)
+    """
+
+    @contextmanager
+    def _counter() -> Iterator[QueryCounter]:
+        counter = QueryCounter()
+        engine = _db.engine
+
+        def _on_execute(conn, cursor, statement, parameters, context, executemany):
+            counter.statements.append(statement)
+
+        event.listen(engine, "before_cursor_execute", _on_execute)
+        try:
+            yield counter
+        finally:
+            # Remoção no finally: um listener vazado contaminaria todos os
+            # testes seguintes da sessão, já que a engine é compartilhada.
+            event.remove(engine, "before_cursor_execute", _on_execute)
+
+    return _counter
 
 
 # A suíte nunca deve iniciar o scheduler. A variável pode vazar do shell do dev.
