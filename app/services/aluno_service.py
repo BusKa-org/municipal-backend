@@ -7,6 +7,7 @@ from typing import Any, cast
 from flask import current_app
 from werkzeug.security import generate_password_hash
 
+from app.core.authz import get_gestor_or_403
 from app.core.exceptions import (
     AppError,
     ConflictError,
@@ -17,7 +18,6 @@ from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.user import Aluno, User
-from app.services.user_service import _get_gestor_or_403
 from app.utils import audit_logger, validate_cpf, validate_email, validate_password
 from app.utils.email_sender import send_email
 
@@ -386,7 +386,7 @@ def get_aluno_by_id(gestor_id: str, aluno_id: str) -> Aluno:
     """
     from app.core.exceptions import ForbiddenError
 
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem consultar alunos")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem consultar alunos")
     aluno = db.session.get(Aluno, aluno_id)
 
     if not aluno:
@@ -405,7 +405,7 @@ def list_alunos_gestor(gestor_id: str, status: str | None = None) -> list[Aluno]
     Returns: List of Aluno objects
     Raises: ForbiddenError, ValidationError
     """
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem listar alunos")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem listar alunos")
     q = db.session.query(Aluno).filter_by(prefeitura_id=gestor.prefeitura_id)
     if status:
         try:
@@ -428,7 +428,7 @@ def aprovar_aluno(gestor_id: str, aluno_id: str) -> Aluno:
     from app.core.exceptions import ForbiddenError
     from app.services.notificacao_service import NotificacaoService
 
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem aprovar alunos")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem aprovar alunos")
     aluno = db.session.get(Aluno, aluno_id)
 
     if not aluno:
