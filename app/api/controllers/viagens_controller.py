@@ -6,6 +6,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract, viagem_contract
 from app.api.contracts.viagem_parsers import parsers
+from app.api.helpers import list_envelope
 from app.core.exceptions import ValidationError
 from app.schemas.ponto_schema import (
     PontoFlatListResponseSchema,
@@ -61,12 +62,7 @@ class AlunoAgendaResource(Resource):
         user_id = get_jwt_identity()
         agenda = viagens_service.get_proximas_viagens_aluno(user_id)
         return (
-            viagem_agenda_aluno_list_response_schema.dump(
-                {
-                    "items": agenda,
-                    "total": len(agenda),
-                }
-            ),
+            viagem_agenda_aluno_list_response_schema.dump(list_envelope(agenda)),
             200,
         )
 
@@ -81,12 +77,7 @@ class ViagemPontosResource(Resource):
         user_id = get_jwt_identity()
         pontos = viagens_service.listar_pontos_embarque(user_id, id)
         return (
-            ponto_flat_list_response_schema.dump(
-                {
-                    "items": pontos,
-                    "total": len(pontos),
-                }
-            ),
+            ponto_flat_list_response_schema.dump(list_envelope(pontos)),
             200,
         )
 
@@ -116,12 +107,7 @@ class ViagemListResource(Resource):
         filters = viagem_list_query_schema.load(request.args.to_dict())
         viagens = viagens_service.list_viagens_gestor(user_id, filters)
         return (
-            viagem_list_response_schema.dump(
-                {
-                    "items": viagens,
-                    "total": len(viagens),
-                }
-            ),
+            viagem_list_response_schema.dump(list_envelope(viagens)),
             200,
         )
 
@@ -163,12 +149,7 @@ class MinhasViagensResource(Resource):
         user_id = get_jwt_identity()
         viagens = viagens_service.list_viagens_motorista(user_id)
         return (
-            viagem_list_response_schema.dump(
-                {
-                    "items": viagens,
-                    "total": len(viagens),
-                }
-            ),
+            viagem_list_response_schema.dump(list_envelope(viagens)),
             200,
         )
 
