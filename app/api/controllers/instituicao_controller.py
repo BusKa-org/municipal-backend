@@ -6,6 +6,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import instituicao_contract
 from app.api.contracts.instituicao_parsers import parsers
+from app.api.helpers import list_envelope
 from app.schemas.instituicao_schema import (
     InstituicaoCreateRequestSchema,
     InstituicaoListQuerySchema,
@@ -36,12 +37,7 @@ class InstituicaoPublicListResource(Resource):
         instituicoes = instituicao_service.list_all_public(filters)
 
         return (
-            instituicao_list_response_schema.dump(
-                {
-                    "items": instituicoes,
-                    "total": len(instituicoes),
-                }
-            ),
+            instituicao_list_response_schema.dump(list_envelope(instituicoes)),
             200,
         )
 
@@ -55,9 +51,7 @@ class InstituicaoListResource(Resource):
         user_id = get_jwt_identity()
         instituicoes = instituicao_service.list_all(user_id)
         return (
-            instituicao_list_response_schema.dump(
-                {"items": instituicoes, "total": len(instituicoes)}
-            ),
+            instituicao_list_response_schema.dump(list_envelope(instituicoes)),
             200,
         )
 

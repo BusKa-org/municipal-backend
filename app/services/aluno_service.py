@@ -403,15 +403,18 @@ def list_alunos_gestor(gestor_id: str, status: str | None = None) -> list[Aluno]
     Optionally filter by status (e.g. 'PENDING_APPROVAL').
 
     Returns: List of Aluno objects
-    Raises: ForbiddenError
+    Raises: ForbiddenError, ValidationError
     """
     gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem listar alunos")
     q = db.session.query(Aluno).filter_by(prefeitura_id=gestor.prefeitura_id)
     if status:
         try:
-            q = q.filter(Aluno.status == UserStatus[status])
+            status_enum = UserStatus[status]
         except KeyError:
-            pass
+            raise ValidationError(
+                f"Status inválido. Valores válidos: {[s.value for s in UserStatus]}"
+            ) from None
+        q = q.filter(Aluno.status == status_enum)
     return q.all()
 
 

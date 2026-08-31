@@ -108,9 +108,12 @@ class OcorrenciaService:
         )
         if status:
             try:
-                q = q.filter(Ocorrencia.status == StatusOcorrencia[status])
+                status_enum = StatusOcorrencia[status]
             except KeyError:
-                pass
+                raise ValidationError(
+                    f"Status inválido. Valores válidos: {[s.value for s in StatusOcorrencia]}"
+                ) from None
+            q = q.filter(Ocorrencia.status == status_enum)
         return q.all()
 
     @staticmethod
