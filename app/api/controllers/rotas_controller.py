@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract, rota_contract
+from app.api.helpers import list_envelope
 from app.schemas.horario_schema import (
     HorarioCreateRequestSchema,
     HorarioListResponseSchema,
@@ -56,12 +57,7 @@ class RotasListResource(Resource):
         current_user_id = get_jwt_identity()
         rotas = rotas_service.list_all_rotas(current_user_id)
         return (
-            rota_list_response_schema.dump(
-                {
-                    "items": rotas,
-                    "total": len(rotas),
-                }
-            ),
+            rota_list_response_schema.dump(list_envelope(rotas)),
             200,
         )
 
@@ -87,12 +83,7 @@ class MyRotasResource(Resource):
         current_user_id = get_jwt_identity()
         rotas = rotas_service.list_my_rotas(current_user_id)
         return (
-            rota_list_response_schema.dump(
-                {
-                    "items": rotas,
-                    "total": len(rotas),
-                }
-            ),
+            rota_list_response_schema.dump(list_envelope(rotas)),
             200,
         )
 
@@ -122,12 +113,7 @@ class RotaPontosResource(Resource):
         current_user_id = get_jwt_identity()
         pontos = rotas_service.get_pontos_by_rota(current_user_id, id)
         return (
-            ponto_flat_list_response_schema.dump(
-                {
-                    "items": pontos,
-                    "total": len(pontos),
-                }
-            ),
+            ponto_flat_list_response_schema.dump(list_envelope(pontos)),
             200,
         )
 
@@ -153,12 +139,7 @@ class RotaHorariosResource(Resource):
         current_user = get_jwt_identity()
         horarios = rotas_service.get_horarios(current_user, id)
         return (
-            horario_list_response_schema.dump(
-                {
-                    "items": horarios,
-                    "total": len(horarios),
-                }
-            ),
+            horario_list_response_schema.dump(list_envelope(horarios)),
             200,
         )
 

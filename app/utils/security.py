@@ -65,18 +65,6 @@ def setup_security_headers(app: Flask) -> None:
     logger.info("Security headers configured")
 
 
-def validate_request_size(max_content_length: int = 16 * 1024 * 1024) -> None:
-    """
-    Configure maximum request size to prevent DoS attacks.
-
-    Args:
-        max_content_length: Maximum request size in bytes (default: 16MB)
-    """
-    # This would be configured on the Flask app
-    # app.config["MAX_CONTENT_LENGTH"] = max_content_length
-    pass
-
-
 class SecurityConfig:
     """Security configuration constants and recommendations."""
 
