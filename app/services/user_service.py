@@ -5,6 +5,7 @@ from typing import Any, cast
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from app.core.authz import get_gestor_or_403, get_user_or_404
 from app.core.exceptions import (
     AppError,
     ConflictError,
@@ -15,8 +16,8 @@ from app.core.exceptions import (
 )
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
-from app.models.user import Aluno, Gestor, Motorista, User
-from app.utils import audit_logger, validate_cpf, validate_email, validate_password, validate_uuid
+from app.models.user import Aluno, Motorista, User
+from app.utils import audit_logger, validate_cpf, validate_email, validate_password
 
 logger = logging.getLogger(__name__)
 
@@ -27,27 +28,9 @@ def _require_active(user: User) -> None:
         raise ForbiddenError("Cadastro precisa ser finalizado antes de usar o app")
 
 
-def _get_user_or_404(user_id: str) -> User:
-    """Get user by ID or raise NotFoundError."""
-    validate_uuid(user_id, "User ID")
-    user = db.session.get(User, user_id)
-    if not user:
-        raise NotFoundError("Usuário não encontrado")
-    return user
-
-
-def _get_gestor_or_403(
-    user_id: str, message: str = "Apenas gestores podem executar esta ação"
-) -> Gestor:
-    user = _get_user_or_404(user_id)
-    if user.role != UserRole.GESTOR:
-        raise ForbiddenError(message)
-    return cast(Gestor, user)
-
-
 def get_all_users(current_user_id: str) -> list[User]:
     """List all users in the same prefeitura (gestor only)."""
-    gestor = _get_gestor_or_403(current_user_id, "Apenas gestores podem listar usuários")
+    gestor = get_gestor_or_403(current_user_id, "Apenas gestores podem listar usuários")
     return db.session.query(User).filter_by(prefeitura_id=gestor.prefeitura_id).all()
 
 
@@ -56,13 +39,13 @@ def get_user_by_id(user_id: str, current_user_id: str | None = None) -> User:
     Get user by ID with tenant isolation.
     Users can view themselves, gestores can view users in their prefeitura.
     """
-    user = _get_user_or_404(user_id)
+    user = get_user_or_404(user_id)
 
     # Skip authorization for internal use
     if current_user_id is None:
         return user
 
-    current_user = _get_user_or_404(current_user_id)
+    current_user = get_user_or_404(current_user_id)
 
     # Allow self-access
     if str(user_id) == str(current_user_id):
@@ -84,7 +67,7 @@ def get_user_by_id(user_id: str, current_user_id: str | None = None) -> User:
 
 def update_user(user_id: str, data: dict[str, Any]) -> User:
     """Update user data (nome, email, password, telefone)."""
-    user = _get_user_or_404(user_id)
+    user = get_user_or_404(user_id)
 
     if nome := data.get("nome"):
         user.nome = nome.strip()
@@ -116,7 +99,7 @@ def update_user(user_id: str, data: dict[str, Any]) -> User:
 
 def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
     """Create a new aluno account (gestor only)."""
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem cadastrar alunos")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem cadastrar alunos")
 
     email = validate_email(data.get("email", ""))
     cpf_clean = validate_cpf(data.get("cpf", ""))
@@ -150,7 +133,7 @@ def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
 
 def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
     """Create a new driver (gestor only)."""
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem cadastrar motoristas")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem cadastrar motoristas")
 
     email = validate_email(data.get("email", ""))
     cpf_clean = validate_cpf(data.get("cpf", ""))
@@ -192,7 +175,7 @@ def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
 
 def change_password(user_id: str, data: dict[str, Any]) -> None:
     """Change user password (requires current password verification)."""
-    user = _get_user_or_404(user_id)
+    user = get_user_or_404(user_id)
 
     current_password = data.get("current_password")
     new_password = data.get("new_password")
@@ -236,7 +219,7 @@ def change_password(user_id: str, data: dict[str, Any]) -> None:
 def get_motoristas_by_municipio(gestor_id: str):
     from app.models.user import User
 
-    gestor = _get_user_or_404(gestor_id)
+    gestor = get_user_or_404(gestor_id)
 
     motoristas = User.query.filter(
         User.prefeitura_id == gestor.prefeitura_id, User.role == UserRole.MOTORISTA
@@ -252,7 +235,7 @@ def update_profile(user_id: str, data: dict[str, Any]) -> User:
 
     Raises: NotFoundError, ConflictError, ValidationError, AppError
     """
-    user = _get_user_or_404(user_id)
+    user = get_user_or_404(user_id)
 
     if nome := data.get("nome"):
         user.nome = nome.strip()
@@ -291,7 +274,7 @@ def delete_motorista(gestor_id: str, motorista_id: str) -> None:
 
     Raises: ForbiddenError, NotFoundError, AppError
     """
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem remover motoristas")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem remover motoristas")
 
     motorista = db.session.get(User, motorista_id)
     if not motorista or motorista.role != UserRole.MOTORISTA:
@@ -319,6 +302,6 @@ def delete_motorista(gestor_id: str, motorista_id: str) -> None:
 
 def update_fcm_token(user_id: str, data: dict[str, Any]) -> None:
     """Update the FCM token for a user."""
-    user = _get_user_or_404(user_id)
+    user = get_user_or_404(user_id)
     user.fcm_token = data.get("fcm_token")
     db.session.commit()
