@@ -70,7 +70,8 @@ class AlunoMeResource(Resource):
 class AlunoListResource(Resource):
     @api.doc("list_alunos_gestor")
     @api.param("status", "Filter by status (PENDING_APPROVAL, ACTIVE, ...)", _in="query")
-    @api.response(200, "Success", models["aluno_list_response"])
+    @api.response(200, "Lista de alunos retornada com sucesso", models["aluno_list_response"])
+    @api.response(400, "Parâmetros inválidos ou ausentes")
     @jwt_required()
     def get(self) -> tuple[dict[str, Any], int]:
         """Gestor vê lista de alunos cadastrados"""
