@@ -64,7 +64,8 @@ class OcorrenciaListResource(Resource):
 
     @api.doc("listar_ocorrencias")
     @api.param("status", "Filter by status (ABERTA, RESOLVIDA)", _in="query")
-    @api.response(200, "Success")
+    @api.response(200, "Lista de ocorrências retornada com sucesso")
+    @api.response(400, "Parâmetros inválidos ou ausentes")
     @jwt_required()
     def get(self) -> tuple[list[dict[str, Any]], int]:
         """(Gestor) Lista ocorrências da prefeitura"""
