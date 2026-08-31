@@ -1,0 +1,32 @@
+---
+description: Alembic migration discipline when changing SQLAlchemy models
+globs: app/models/**/*.py,migrations/versions/**/*.py
+alwaysApply: false
+---
+
+# Database migrations
+
+Nothing currently catches a model changed without a matching migration —
+CI only runs `alembic upgrade head` (applies existing migrations), never an
+autogenerate diff against the models. A model edit that isn't followed by a
+migration will pass CI and fail later, at runtime, in whatever environment
+notices the missing column first.
+
+- **Every change to a model in `app/models/*.py` needs a migration in the
+  same PR.** Generate it with `make migrate-create` (prompts for a message,
+  runs `alembic revision --autogenerate`), don't hand-write one unless
+  autogenerate can't express the change.
+- **Read the generated migration before committing it.** Autogenerate is
+  unreliable for PostGIS/geometry columns (`app/models/geo.py`) and for
+  `server_default`/trigger-backed columns (see the `updated_at` trigger
+  documented in `docs/architecture.md`) — it can miss them entirely or
+  generate a spurious drop/recreate. Diff it against the model change you
+  actually intended.
+- **Never edit an already-merged migration in `migrations/versions/`.** If a
+  past migration was wrong, add a new one that corrects it — editing history
+  breaks anyone who already ran `alembic upgrade head` against the old
+  version.
+- **Test locally with `make db-reset`** (drops, recreates, runs every
+  migration from scratch) before relying on `make migrate` (upgrades an
+  existing db) alone — the latter won't catch a migration that only works
+  because your local db already happened to be in the right prior state.

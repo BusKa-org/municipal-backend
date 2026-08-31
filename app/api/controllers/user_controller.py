@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract, user_contract
+from app.api.helpers import list_envelope
 from app.schemas.aluno_schema import AlunoProvisionAccountRequestSchema
 from app.schemas.user_schema import (
     ChangePasswordRequestSchema,
@@ -46,12 +47,7 @@ class UserList(Resource):
         current_user_id = get_jwt_identity()
         users = user_service.get_all_users(current_user_id)
         return (
-            user_list_response_schema.dump(
-                {
-                    "items": users,
-                    "total": len(users),
-                }
-            ),
+            user_list_response_schema.dump(list_envelope(users)),
             200,
         )
 
@@ -142,12 +138,7 @@ class MotoristaCreateResource(Resource):
         current_user_id = get_jwt_identity()
         motoristas = user_service.get_motoristas_by_municipio(current_user_id)
         return (
-            user_list_response_schema.dump(
-                {
-                    "items": motoristas,
-                    "total": len(motoristas),
-                }
-            ),
+            user_list_response_schema.dump(list_envelope(motoristas)),
             200,
         )
 
