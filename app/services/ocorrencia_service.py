@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from app.core.authz import get_gestor_or_403
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from app.models.base import db
 from app.models.enum import StatusOcorrencia, TipoOcorrencia, UserRole
@@ -15,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 class OcorrenciaService:
-
     @staticmethod
     def criar(user_id: str, dados: dict[str, Any]) -> Ocorrencia:
         """
@@ -91,15 +91,14 @@ class OcorrenciaService:
             NotificacaoService._criar_notificacao_interna(
                 usuario_id=str(gestor.id),
                 titulo=f"Nova Ocorrência: {tipo_label}",
-                mensagem=(f"{autor.nome} reportou: " f"{ocorrencia.descricao or tipo_label}"),
+                mensagem=(f"{autor.nome} reportou: {ocorrencia.descricao or tipo_label}"),
             )
 
     @staticmethod
     def listar(gestor_id: str, status: str | None = None) -> list[Ocorrencia]:
         """Gestor lista ocorrências da sua prefeitura."""
-        from app.services.user_service import _get_gestor_or_403
 
-        gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem listar ocorrências.")
+        gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem listar ocorrências.")
 
         q = (
             db.session.query(Ocorrencia)
@@ -109,17 +108,19 @@ class OcorrenciaService:
         )
         if status:
             try:
-                q = q.filter(Ocorrencia.status == StatusOcorrencia[status])
+                status_enum = StatusOcorrencia[status]
             except KeyError:
-                pass
+                raise ValidationError(
+                    f"Status inválido. Valores válidos: {[s.value for s in StatusOcorrencia]}"
+                ) from None
+            q = q.filter(Ocorrencia.status == status_enum)
         return q.all()
 
     @staticmethod
     def resolver(gestor_id: str, ocorrencia_id: str) -> Ocorrencia:
         """Gestor marca uma ocorrência como resolvida."""
-        from app.services.user_service import _get_gestor_or_403
 
-        _get_gestor_or_403(gestor_id, "Apenas gestores podem resolver ocorrências.")
+        get_gestor_or_403(gestor_id, "Apenas gestores podem resolver ocorrências.")
 
         ocorrencia = db.session.get(Ocorrencia, ocorrencia_id)
         if not ocorrencia:

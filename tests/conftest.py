@@ -1,11 +1,13 @@
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
 from flask_jwt_extended import create_access_token
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import event
 
 from app import create_app
 from app.models.base import db
@@ -58,8 +60,108 @@ class Actor:
     client: AuthenticatedClient
 
 
+class QueryCounter:
+    """Coleta as queries SQL emitidas dentro de um bloco.
+
+    Existe para tornar N+1 uma asserção e não uma impressão. Um teste que
+    afirma "esse endpoint faz 4 queries" falha quando alguém reintroduz o
+    lazy load, e a mensagem de falha mostra o SQL repetido.
+    """
+
+    def __init__(self) -> None:
+        self.statements: list[str] = []
+
+    @property
+    def count(self) -> int:
+        return len(self.statements)
+
+    def matching(self, fragment: str) -> list[str]:
+        """Statements que contêm `fragment` (case-insensitive)."""
+        needle = fragment.lower()
+        return [s for s in self.statements if needle in s.lower()]
+
+    def report(self) -> str:
+        """SQL capturado, agrupado por statement idêntico e ordenado por repetição.
+
+        O statement mais repetido é quase sempre o N+1.
+        """
+        if not self.statements:
+            return "(nenhuma query capturada)"
+        counts: dict[str, int] = {}
+        for stmt in self.statements:
+            normalised = " ".join(stmt.split())
+            counts[normalised] = counts.get(normalised, 0) + 1
+        lines = [f"{self.count} queries:"]
+        for stmt, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+            lines.append(f"  {n:>3}x  {stmt[:160]}")
+        return "\n".join(lines)
+
+    def assert_at_most(self, expected: int) -> None:
+        msg = f"esperava no máximo {expected} queries, saíram {self.count}\n{self.report()}"
+        assert self.count <= expected, msg
+
+
+@pytest.fixture()
+def query_counter(_db):
+    """Fábrica de context manager que conta queries num trecho específico.
+
+    Escopo explícito de propósito: a montagem das fixtures também emite SQL,
+    e contá-la junto tornaria os números inúteis.
+
+        def test_agenda_nao_tem_n_mais_1(query_counter, aluno):
+            with query_counter() as qc:
+                resp = aluno.client.get("/api/v1/alunos/me/agenda")
+            qc.assert_at_most(5)
+    """
+
+    @contextmanager
+    def _counter() -> Iterator[QueryCounter]:
+        counter = QueryCounter()
+        engine = _db.engine
+
+        def _on_execute(conn, cursor, statement, parameters, context, executemany):
+            counter.statements.append(statement)
+
+        event.listen(engine, "before_cursor_execute", _on_execute)
+        try:
+            yield counter
+        finally:
+            # Remoção no finally: um listener vazado contaminaria todos os
+            # testes seguintes da sessão, já que a engine é compartilhada.
+            event.remove(engine, "before_cursor_execute", _on_execute)
+
+    return _counter
+
+
 # A suíte nunca deve iniciar o scheduler. A variável pode vazar do shell do dev.
 os.environ.pop("RUN_SCHEDULER", None)
+
+# Nome do banco que a suíte pode destruir. Todo teste roda contra Postgres real
+# e o fixture `_db` faz `drop_all()` no fim de cada um.
+TEST_DB_NAME = os.getenv("TEST_DB_NAME", "buska_test")
+
+# O alvo precisa ser definido antes de `create_app()`. O Flask-SQLAlchemy lê a
+# URI dentro de `init_app()`, então um `config.update()` depois da criação do
+# app não religa a engine: escreve no config e a conexão continua na URI antiga.
+# `load_dotenv()` não sobrescreve variável já presente no ambiente, então esta
+# linha vence o `DB_NAME` do `.env`.
+os.environ["DB_NAME"] = TEST_DB_NAME
+
+
+def _exigir_banco_de_teste(engine) -> None:
+    """Aborta a suíte se o alvo real da engine não for um banco de teste.
+
+    Guarda contra a regressão que apagava o banco de desenvolvimento: o alvo
+    verificado é `engine.url`, não o `app.config`, porque foi exatamente a
+    divergência entre os dois que passou despercebida.
+    """
+    nome = engine.url.database or ""
+    if nome != TEST_DB_NAME:
+        raise RuntimeError(
+            f"A suíte está prestes a rodar create_all/drop_all em {nome!r}, "
+            f"que não é o banco de teste ({TEST_DB_NAME!r}). Alvo real da engine: "
+            f"{engine.url.render_as_string(hide_password=True)}. Abortando."
+        )
 
 
 @pytest.fixture(scope="session")
@@ -69,12 +171,7 @@ def app():
         TESTING=True,
         DEBUG=True,
         JWT_SECRET_KEY="change_this_secret_key_use_long_random_string",
-        SQLALCHEMY_DATABASE_URI="sqlite://",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        SQLALCHEMY_ENGINE_OPTIONS={
-            "connect_args": {"check_same_thread": False},
-            "poolclass": StaticPool,
-        },
     )
     return app
 
@@ -82,6 +179,7 @@ def app():
 @pytest.fixture()
 def _db(app):
     with app.app_context():
+        _exigir_banco_de_teste(db.engine)
         db.create_all()
         yield db
         db.session.remove()
