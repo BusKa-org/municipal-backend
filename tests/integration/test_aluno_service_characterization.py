@@ -523,12 +523,12 @@ def test_list_alunos_gestor_filtro_status_valido(_db, gestor, aluno_ativo, aluno
     assert [a.id for a in pendentes] == [aluno_pending.user.id]
 
 
-def test_list_alunos_gestor_status_invalido_e_ignorado(_db, gestor, aluno, aluno_pending):
-    """CHARACTERIZATION: an unknown status is swallowed (``except KeyError: pass``)
-    and the filter is dropped, so the caller gets every aluno instead of an
-    error. Behaviour changed by the status-filter validation work (PR B)."""
-    todos = list_alunos_gestor(str(gestor.user.id), status="NAO_EXISTE")
-    assert {a.id for a in todos} == {aluno.user.id, aluno_pending.user.id}
+def test_list_alunos_gestor_status_invalido_levanta_erro(_db, gestor, aluno, aluno_pending):
+    """Corrigido pelo PR #42: um status desconhecido agora levanta
+    ``ValidationError`` em vez de ser engolido e a listagem cair pra sem
+    filtro."""
+    with pytest.raises(ValidationError):
+        list_alunos_gestor(str(gestor.user.id), status="NAO_EXISTE")
 
 
 # ─── aprovar_aluno ─────────────────────────────────────────────────────────────
