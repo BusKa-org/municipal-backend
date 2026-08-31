@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
 
 from app.api.contracts import ponto_contract
+from app.api.helpers import list_envelope
 from app.schemas.ponto_schema import (
     PontoCreateRequestSchema,
     PontoListResponseSchema,
@@ -34,12 +35,7 @@ class PontosListResource(Resource):
         user_id = get_jwt_identity()
         pontos = pontos_service.list_all(user_id)
         return (
-            ponto_list_response_schema.dump(
-                {
-                    "items": pontos,
-                    "total": len(pontos),
-                }
-            ),
+            ponto_list_response_schema.dump(list_envelope(pontos)),
             200,
         )
 
