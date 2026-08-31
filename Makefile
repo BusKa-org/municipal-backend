@@ -59,7 +59,7 @@ install-dev:
 # Database
 # ==========================================
 
-.PHONY: db-up db-down db-reset db-shell db-create seed migrate migrate-create migrate-history migrate-downgrade
+.PHONY: db-up db-down db-reset db-shell db-create db-test-create seed migrate migrate-create migrate-history migrate-downgrade
 
 db-up:
 	$(DOCKER) -f infra/database.yml up -d db
@@ -84,6 +84,27 @@ db-create:
 	@echo "Waiting for database to start..."
 	sleep 5
 	uv run alembic upgrade head
+
+# O database/init.sql só roda quando o volume do Postgres é criado do zero. Quem
+# subiu o banco antes de o buska_test existir no init.sql fica sem o banco de
+# testes. Este alvo cria o que falta num volume já existente. É idempotente.
+db-test-create:
+	@SU=$${POSTGRES_USER:-postgres}; \
+	if docker exec buska_db psql -U $$SU -tAc "SELECT 1 FROM pg_database WHERE datname='buska_test'" | grep -q 1; then \
+		echo "Banco buska_test já existe."; \
+	else \
+		docker exec buska_db psql -U $$SU -c "CREATE DATABASE buska_test OWNER buska_user ENCODING 'UTF8'"; \
+	fi; \
+	docker exec buska_db psql -U $$SU -d buska_test -q \
+		-c "CREATE EXTENSION IF NOT EXISTS postgis" \
+		-c "CREATE EXTENSION IF NOT EXISTS postgis_topology" \
+		-c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"' \
+		-c "GRANT ALL PRIVILEGES ON DATABASE buska_test TO buska_user" \
+		-c "GRANT ALL PRIVILEGES ON SCHEMA public TO buska_user" \
+		-c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO buska_user" \
+		-c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO buska_user" \
+		-c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO buska_user"
+	@echo "Banco de testes pronto. Rode 'make test-integration'."
 
 db-shell:
 	PGPASSWORD=$${DB_PASSWORD:-buska_pass} psql -h $${DB_HOST:-localhost} -p $${DB_PORT:-5432} -U $${DB_USER:-buska_user} -d $${DB_NAME:-buska_db}
@@ -200,6 +221,7 @@ help:
 	@echo "  db-down         Stop database container"
 	@echo "  db-reset        Reset database (drop + recreate via Alembic)"
 	@echo "  db-create       Create database from scratch (Alembic)"
+	@echo "  db-test-create  Create the buska_test database on an existing volume"
 	@echo "  db-shell        Connect to database via psql"
 	@echo "  seed            Seed data using seed.py"
 	@echo "  seed-sql        Seed data using populate.sql"
