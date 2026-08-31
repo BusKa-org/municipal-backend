@@ -71,8 +71,6 @@ class UserResponseSchema(BaseSchema):
 
     # Polymorphic fields (may not exist on all User subtypes)
     matricula = fields.String(dump_default=None)
-    nome_pai = fields.String(dump_default=None)
-    nome_mae = fields.String(dump_default=None)
     cnh = fields.String(dump_default=None)
 
     def get_role(self, obj):
