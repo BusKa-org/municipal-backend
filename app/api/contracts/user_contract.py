@@ -21,8 +21,6 @@ def register_models(api):
             "municipio_nome": fields.String(description="Nome do município (prefeitura)"),
             "municipio_uf": fields.String(description="UF do município"),
             "matricula": fields.String(description="Matrícula (aluno)"),
-            "nome_pai": fields.String(description="Nome do pai (aluno)"),
-            "nome_mae": fields.String(description="Nome da mãe (aluno)"),
             "cnh": fields.String(description="CNH (motorista)"),
         },
     )
