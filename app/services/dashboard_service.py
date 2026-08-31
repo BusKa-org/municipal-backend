@@ -2,12 +2,12 @@ import logging
 
 from sqlalchemy import case, func
 
+from app.core.authz import get_gestor_or_403
 from app.core.exceptions import NotFoundError
 from app.models.base import db
 from app.models.enum import StatusViagem
 from app.models.rota import HorarioRota, Rota
 from app.models.viagem import AlunosConfirmados, TelemetriaViagem, Viagem, ViagemPonto
-from app.services.user_service import _get_gestor_or_403
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def obter_progresso_viagem(gestor_id: str, viagem_id: str) -> list[dict]:
     """Retorna os pontos pelos quais o motorista já passou, em ordem cronológica."""
 
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem auditar o trajeto de viagens")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem auditar o trajeto de viagens")
 
     viagem = (
         db.session.query(Viagem)
@@ -48,7 +48,7 @@ def obter_progresso_viagem(gestor_id: str, viagem_id: str) -> list[dict]:
 
 def relatorio_periodo_gestor(gestor_id: str, data_inicio: str, data_fim: str) -> dict:
     """Gera inteligência de negócio agregada para o painel web do Gestor."""
-    gestor = _get_gestor_or_403(
+    gestor = get_gestor_or_403(
         gestor_id, "Apenas gestores podem visualizar relatórios operacionais"
     )
 
@@ -122,7 +122,7 @@ def relatorio_periodo_gestor(gestor_id: str, data_inicio: str, data_fim: str) ->
 def obter_telemetria_viagem(gestor_id: str, viagem_id: str) -> list[dict]:
     """Retorna o rastro de GPS (telemetria) de uma viagem em ordem cronológica."""
 
-    gestor = _get_gestor_or_403(gestor_id, "Apenas gestores podem auditar a telemetria de viagens")
+    gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem auditar a telemetria de viagens")
 
     viagem = (
         db.session.query(Viagem)
