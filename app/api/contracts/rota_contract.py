@@ -54,18 +54,17 @@ def register_models(api):
         },
     )
 
+    # `pontos` e `horarios` foram removidos daqui: `update_rota` trata apenas
+    # nome, motorista_padrao_id e veiculo_padrao_id. Os dois têm endpoints
+    # próprios, `POST /rotas/{id}/pontos` e `POST /rotas/{id}/horarios`. O
+    # `RotaCreateRequest` acima segue documentando os dois, e ali é correto,
+    # porque o `create_rota` realmente os processa.
     rota_update_request = api.model(
         "RotaUpdateRequest",
         {
             "nome": fields.String(required=True, description="Nome da rota"),
             "motorista_padrao_id": fields.String(description="UUID do motorista padrão"),
             "veiculo_padrao_id": fields.String(description="UUID do veículo padrão"),
-            "pontos": fields.List(
-                fields.Nested(rota_ponto_add_request), description="Pontos da rota"
-            ),
-            "horarios": fields.List(
-                fields.Nested(rota_horario_create_request), description="Grade de horários"
-            ),
         },
     )
 

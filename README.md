@@ -74,6 +74,22 @@ make deletedb       # Limpar banco de dados
 make bdcon          # Conectar ao banco via psql
 ```
 
+### Testes
+
+```bash
+make test               # Suíte completa
+make test-unit          # Só testes unitários
+make test-integration   # Só testes de integração (precisa do Postgres)
+make db-test-create     # Criar o banco buska_test num volume já existente
+```
+
+Os testes de integração rodam contra o banco `buska_test`, separado do
+`buska_db` de desenvolvimento. O `database/init.sql` cria os dois, e o Postgres
+só executa esse script quando o volume é criado do zero. Se o seu volume é
+anterior à criação do `buska_test`, os testes falham na conexão. Rode
+`make db-test-create` para criar o banco que falta sem perder os dados de
+desenvolvimento. O alvo é idempotente e pode ser rodado sempre.
+
 ### Docker (Produção)
 
 ```bash
