@@ -6,13 +6,20 @@ aceitava qualquer `ponto_id` existente. Como o endpoint recebe o ID cru do
 cliente, um gestor podia montar uma rota apontando para os pontos de outro
 município — vazando coordenadas de embarque entre tenants.
 
-O comportamento esperado é o mesmo dos demais pontos inválidos: ignorar
-silenciosamente e seguir com o restante da rota.
+**Decisão revista em 2026-08-16.** Este arquivo nasceu escolhendo
+ignorar silenciosamente e seguir com o restante da rota. Depois que uma
+correção fez o `add_ponto` levantar erro, as duas escritas de ponto do
+módulo passaram a recusar de formas diferentes: uma respondia sucesso sem o
+ponto, a outra abortava. A mesma ação dava resultado diferente conforme o
+endpoint.
+
+O empate foi desfeito para o lado de falhar, pelo mesmo motivo daquela
+correção: o front mostra sucesso e o ponto some na próxima carga, então o
+usuário não tem como saber. Os testes abaixo foram reescritos junto.
 """
 
 import pytest
 
-from app.models.base import db
 from app.models.rota import Rota, RotaPonto
 from tests.factories.geo_factory import PontoFactory
 
@@ -25,7 +32,7 @@ def ponto_de_outra_prefeitura(_db, other_prefeitura):
     return p
 
 
-def test_create_rota_ignora_ponto_de_outra_prefeitura(gestor, _db, ponto_de_outra_prefeitura):
+def test_create_rota_recusa_ponto_de_outra_prefeitura(gestor, _db, ponto_de_outra_prefeitura):
     resp = gestor.client.post(
         "/v1/rotas/",
         json={
@@ -34,14 +41,10 @@ def test_create_rota_ignora_ponto_de_outra_prefeitura(gestor, _db, ponto_de_outr
         },
     )
 
-    assert resp.status_code == 201
-
-    rota_id = resp.get_json()["id"]
-    vinculos = RotaPonto.query.filter_by(rota_id=rota_id).all()
-
-    assert vinculos == [], (
-        "create_rota vinculou um ponto de outra prefeitura à rota — "
-        "o mesmo vazamento entre tenants que add_ponto já bloqueia"
+    assert resp.status_code == 403
+    assert Rota.query.filter_by(nome="Rota com ponto alheio").count() == 0, (
+        "a rota não pode nascer quando um dos pontos é recusado: "
+        "o rollback do transactional desfaz tudo"
     )
 
 
@@ -64,10 +67,15 @@ def test_create_rota_vincula_ponto_da_propria_prefeitura(gestor, _db, ponto):
     assert str(vinculos[0].ponto_id) == str(ponto.id)
 
 
-def test_create_rota_mantem_pontos_validos_ao_descartar_alheio(
+def test_create_rota_mista_falha_inteira_em_vez_de_aceitar_parcial(
     gestor, _db, ponto, ponto_de_outra_prefeitura
 ):
-    """O ponto alheio é descartado sem levar junto os pontos válidos."""
+    """Um ponto alheio na lista aborta a criação inteira.
+
+    Este teste era o oposto: afirmava que os pontos válidos sobreviviam ao
+    descarte do alheio. A troca é a parte visível da decisão, e é o caso a
+    revisitar se ela for revertida.
+    """
     resp = gestor.client.post(
         "/v1/rotas/",
         json={
@@ -79,10 +87,6 @@ def test_create_rota_mantem_pontos_validos_ao_descartar_alheio(
         },
     )
 
-    assert resp.status_code == 201
-
-    rota_id = resp.get_json()["id"]
-    vinculos = RotaPonto.query.filter_by(rota_id=rota_id).all()
-
-    assert [str(v.ponto_id) for v in vinculos] == [str(ponto.id)]
-    assert db.session.get(Rota, rota_id) is not None
+    assert resp.status_code == 403
+    assert Rota.query.filter_by(nome="Rota mista").count() == 0
+    assert RotaPonto.query.filter_by(ponto_id=ponto.id).count() == 0
