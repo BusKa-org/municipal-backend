@@ -256,7 +256,7 @@ def test_authz_error_contract(
 
 
 @pytest.mark.integration
-def test_authz_falhas_conhecidas(client, aluno):
+def test_authz_falhas_conhecidas(client, aluno, motorista):
     """Fotografa buracos REAIS de autorização que existem hoje.
 
     ATENÇÃO: ao contrário do teste acima, o que está travado aqui NÃO é o
@@ -270,6 +270,9 @@ def test_authz_falhas_conhecidas(client, aluno):
     #    lugar de _get_gestor_or_403, embora o próprio Swagger do endpoint
     #    declare `403: Forbidden - not a gestor`. Resultado: um aluno lista
     #    os motoristas da prefeitura com CPF, e-mail e telefone.
+    #    O parâmetro `motorista` não é referenciado abaixo, mas precisa existir:
+    #    é o efeito colateral do fixture que garante um motorista na mesma
+    #    prefeitura do `aluno`, senão a lista vem vazia.
     r = client.get("/v1/users/motoristas", headers=aluno.headers)
     assert r.status_code == 200, "corrigido? troque por 403 e remova este bloco"
     assert "cpf" in (r.get_json() or {})["items"][0]
