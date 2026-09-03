@@ -13,7 +13,7 @@ import uuid
 import pytest
 
 from app.core.exceptions import (
-    AppError,
+    ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
@@ -119,15 +119,16 @@ def test_create_instituicao_o_proprio_tipo_padrao_do_servico_e_invalido(_db, ges
     `TipoInstituicao(tipo_str)`. O construtor do Enum resolve por **valor**, e
     o valor do membro é `"Escola Pública"`, não `"ESCOLA_PUBLICA"`. O padrão
     do próprio serviço levanta `ValueError` antes de encostar no banco.
+
+    Com o `transactional()` o `ValueError` sobe cru em vez de virar `AppError`
+    500 com o texto embutido. O status para o cliente segue 500, agora pelo
+    handler genérico.
     """
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(ValueError, match="not a valid TipoInstituicao"):
         create_instituicao(
             str(gestor.user.id),
             {"nome": "Escola Nova", "cnpj": "12345678000199", "endereco": _ENDERECO},
         )
-
-    assert exc.value.status_code == 500
-    assert "'ESCOLA_PUBLICA' is not a valid TipoInstituicao" in str(exc.value)
 
 
 def test_create_instituicao_com_o_tipo_certo_ainda_viola_not_null(_db, gestor):
@@ -137,49 +138,43 @@ def test_create_instituicao_com_o_tipo_certo_ainda_viola_not_null(_db, gestor):
     Passando o valor que o Enum aceita, a função avança e morre no commit. O
     `Instituicao(...)` do serviço passa só `nome`, `cnpj`, `tipo` e
     `ponto_id`, mas `fonte`, `codigo_externo`, `uf` e `prefeitura_id` são
-    `nullable=False`. Não existe payload que faça esta função ter sucesso: o
-    endpoint de criar instituição está quebrado em produção, do jeito que o
-    cadastro de aluno também esteve antes de ser corrigido.
+    `nullable=False`. Não existe payload que faça esta função ter sucesso.
+
+    A violação de NOT NULL é `IntegrityError`, então o `transactional()` a
+    mapeia para `ConflictError` 409. O 409 é semanticamente errado, porque a
+    causa é um defeito do servidor e não um conflito do cliente. Some quando
+    esse defeito de schema for corrigido, que é a correção de verdade.
     """
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(ConflictError) as exc:
         create_instituicao(
             str(gestor.user.id),
             {"nome": "Escola Nova", "tipo": "Escola Pública", "endereco": _ENDERECO},
         )
 
-    assert exc.value.status_code == 500
-    assert "null value in column" in str(exc.value)
+    assert exc.value.status_code == 409
 
 
-def test_create_instituicao_vaza_texto_do_driver_no_500(_db, gestor):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    O `except Exception` interpola `str(e)` na resposta, então o cliente
-    recebe o SQL e o nome da coluna que violou NOT NULL. Mesmo defeito que
-    aparece nos demais serviços do sistema. Some quando o `transactional()`
-    for adotado neste serviço.
-    """
-    with pytest.raises(AppError) as exc:
+def test_create_instituicao_nao_vaza_texto_do_driver(_db, gestor):
+    """Corrigido: a resposta não carrega mais o SQL nem o nome da coluna
+    que violou NOT NULL, só a mensagem fixa do `transactional()`."""
+    with pytest.raises(ConflictError) as exc:
         create_instituicao(
             str(gestor.user.id),
             {"nome": "Escola Nova", "tipo": "Escola Pública", "endereco": _ENDERECO},
         )
 
-    assert "INSERT INTO instituicao" in str(exc.value)
+    assert str(exc.value) == "Violação de integridade"
+    assert "INSERT INTO" not in str(exc.value)
 
 
-def test_create_instituicao_tipo_invalido_vira_500_e_nao_400(_db, gestor):
-    # `TipoInstituicao(tipo_str)` levanta ValueError dentro do `try`, que o
-    # `except Exception` embrulha no mesmo AppError 500 de erro de banco. Um
-    # tipo inválido é entrada do cliente e caberia 400.
-    with pytest.raises(AppError) as exc:
+def test_create_instituicao_tipo_invalido_sobe_como_value_error(_db, gestor):
+    # Tipo inválido é entrada do cliente e caberia 400. Continua virando 500,
+    # agora pelo handler genérico em vez do `except Exception` do serviço.
+    with pytest.raises(ValueError, match="not a valid TipoInstituicao"):
         create_instituicao(
             str(gestor.user.id),
             {"nome": "X", "tipo": "NAO_EXISTE", "endereco": _ENDERECO},
         )
-
-    assert exc.value.status_code == 500
 
 
 def test_create_instituicao_faz_rollback_e_nao_deixa_ponto_orfao(_db, gestor):
@@ -187,7 +182,7 @@ def test_create_instituicao_faz_rollback_e_nao_deixa_ponto_orfao(_db, gestor):
     # falha, o rollback do `except` desfaz o Ponto também.
     antes = Ponto.query.count()
 
-    with pytest.raises(AppError):
+    with pytest.raises(ConflictError):
         create_instituicao(
             str(gestor.user.id),
             {"nome": "Escola Nova", "tipo": "Escola Pública", "endereco": _ENDERECO},
@@ -452,15 +447,11 @@ def test_delete_instituicao_cross_tenant_403(_db, gestor, other_prefeitura):
     assert _db.session.get(Instituicao, alheia.id) is not None
 
 
-def test_delete_instituicao_erro_no_commit_vaza_texto_do_driver(
+def test_delete_instituicao_erro_no_commit_nao_vaza_texto_do_driver(
     _db, gestor, prefeitura, monkeypatch
 ):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
-
-    Mesmo vazamento de `str(e)` do create. Some quando o `transactional()` for
-    adotado neste serviço.
-    """
+    """Corrigido: a falha do commit sobe crua e o handler genérico
+    responde 500 "Erro interno do servidor", sem o texto do driver."""
     from app.services import instituicao_service
 
     inst = _instituicao(_db, prefeitura.id)
@@ -470,8 +461,5 @@ def test_delete_instituicao_erro_no_commit_vaza_texto_do_driver(
 
     monkeypatch.setattr(instituicao_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         delete_instituicao(str(gestor.user.id), str(inst.id))
-
-    assert exc.value.status_code == 500
-    assert "boom do driver" in str(exc.value)
