@@ -4,7 +4,8 @@ import logging
 from typing import Any
 
 from app.core.authz import get_gestor_or_403
-from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
+from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import StatusOcorrencia, TipoOcorrencia, UserRole
 from app.models.ocorrencia import Ocorrencia
@@ -42,7 +43,7 @@ class OcorrenciaService:
             if not viagem:
                 raise NotFoundError("Viagem não encontrada.")
 
-        try:
+        with transactional():
             ocorrencia = Ocorrencia(
                 autor_id=user_id,
                 viagem_id=viagem_id,
@@ -56,22 +57,13 @@ class OcorrenciaService:
             # Notify the gestor of this prefeitura
             OcorrenciaService._notificar_gestores(user, ocorrencia)
 
-            db.session.commit()
-            audit_logger.log_user_action(
-                action="criar_ocorrencia",
-                user_id=user_id,
-                resource_type="ocorrencia",
-                resource_id=str(ocorrencia.id),
-            )
-            return ocorrencia
-
-        except AppError:
-            db.session.rollback()
-            raise
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Erro ao criar ocorrência: {e}")
-            raise AppError(f"Erro ao registrar ocorrência: {str(e)}", 500)
+        audit_logger.log_user_action(
+            action="criar_ocorrencia",
+            user_id=user_id,
+            resource_type="ocorrencia",
+            resource_id=str(ocorrencia.id),
+        )
+        return ocorrencia
 
     @staticmethod
     def _notificar_gestores(autor: User, ocorrencia: Ocorrencia) -> None:
@@ -128,10 +120,7 @@ class OcorrenciaService:
         if ocorrencia.status == StatusOcorrencia.RESOLVIDA:
             raise ValidationError("Ocorrência já foi resolvida.")
 
-        try:
+        with transactional():
             ocorrencia.status = StatusOcorrencia.RESOLVIDA
-            db.session.commit()
-            return ocorrencia
-        except Exception as e:
-            db.session.rollback()
-            raise AppError(f"Erro ao resolver ocorrência: {str(e)}", 500)
+
+        return ocorrencia
