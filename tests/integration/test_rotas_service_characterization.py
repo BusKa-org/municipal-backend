@@ -431,22 +431,27 @@ def test_add_ponto_lista_vazia_da_400(_db, gestor, rota):
     assert str(exc.value) == "A rota deve conter pelo menos um ponto válido"
 
 
-def test_add_ponto_de_outra_prefeitura_e_pulado_em_silencio(_db, gestor, rota, other_prefeitura):
+def test_add_ponto_de_outra_prefeitura_agora_da_403(_db, gestor, rota, other_prefeitura):
+    # B7 corrigido: antes o ponto alheio era descartado em silêncio e a API
+    # respondia sucesso. Agora a substituição inteira é abortada.
     ponto_alheio = cria_ponto(_db, other_prefeitura.id, apelido="Alheio")
 
-    add_ponto(str(gestor.user.id), str(rota.id), {"pontos": [{"ponto_id": str(ponto_alheio.id)}]})
+    with pytest.raises(ForbiddenError) as exc:
+        add_ponto(
+            str(gestor.user.id),
+            str(rota.id),
+            {"pontos": [{"ponto_id": str(ponto_alheio.id), "ordem": 1}]},
+        )
 
-    # Nenhum erro sobe, a rota simplesmente fica sem pontos.
-    assert RotaPonto.query.filter_by(rota_id=rota.id).count() == 0
-
-
-def test_add_ponto_sem_nome_ou_coordenada_e_pulado_em_silencio(_db, gestor, rota):
-    add_ponto(str(gestor.user.id), str(rota.id), {"pontos": [{"latitude": -7.21}]})
-
-    assert RotaPonto.query.filter_by(rota_id=rota.id).count() == 0
+    assert "pertence a outra prefeitura" in str(exc.value)
 
 
-# ─── add_horario ───────────────────────────────────────────────────────────────
+def test_add_ponto_sem_nome_ou_coordenada_agora_da_400(_db, gestor, rota):
+    # B7 corrigido: ponto novo incompleto era descartado em silêncio.
+    with pytest.raises(ValidationError) as exc:
+        add_ponto(str(gestor.user.id), str(rota.id), {"pontos": [{"latitude": -7.21}]})
+
+    assert str(exc.value) == "Ponto novo exige nome, latitude e longitude"
 
 
 def test_add_horario_cria_horario_e_dias(_db, gestor, rota):
@@ -553,20 +558,13 @@ def test_get_horarios_cross_tenant_bloqueado_para_motorista(_db, other_motorista
         get_horarios(str(other_motorista.user.id), str(rota.id))
 
 
-def test_get_horarios_aluno_de_outra_prefeitura_passa(_db, other_aluno, rota, horario_rota):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
+def test_get_horarios_aluno_de_outra_prefeitura_agora_da_403(_db, other_aluno, rota, horario_rota):
+    # B9 corrigido: o guarda deixava ALUNO passar porque só comparava a
+    # prefeitura para GESTOR e MOTORISTA. Agora vale para todos os papéis.
+    with pytest.raises(ForbiddenError) as exc:
+        get_horarios(str(other_aluno.user.id), str(rota.id))
 
-    A checagem de tenant só roda para GESTOR e MOTORISTA. Um aluno de outra
-    prefeitura lê a grade de horários de qualquer rota do sistema.
-    """
-    resultado = get_horarios(str(other_aluno.user.id), str(rota.id))
-
-    # FALHA: deveria levantar ForbiddenError.
-    assert [h.id for h in resultado] == [horario_rota.id]
-
-
-# ─── get_by_id ─────────────────────────────────────────────────────────────────
+    assert str(exc.value) == "Acesso negado"
 
 
 def test_get_by_id_retorna_rota(_db, gestor, rota):
@@ -594,18 +592,12 @@ def test_get_by_id_cross_tenant_bloqueado_para_gestor(_db, other_gestor, rota):
     assert str(exc.value) == "Acesso negado"
 
 
-def test_get_by_id_aluno_de_outra_prefeitura_passa(_db, other_aluno, rota):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
+def test_get_by_id_aluno_de_outra_prefeitura_agora_da_403(_db, other_aluno, rota):
+    # B9 corrigido, mesmo guarda do `get_horarios`.
+    with pytest.raises(ForbiddenError) as exc:
+        get_by_id(str(other_aluno.user.id), str(rota.id))
 
-    Mesma lacuna de ``get_horarios``: a checagem de tenant só roda para GESTOR
-    e MOTORISTA, então um aluno de outra prefeitura lê a rota inteira.
-    """
-    # FALHA: deveria levantar ForbiddenError.
-    assert get_by_id(str(other_aluno.user.id), str(rota.id)).id == rota.id
-
-
-# ─── update_rota ───────────────────────────────────────────────────────────────
+    assert str(exc.value) == "Acesso negado"
 
 
 def test_update_rota_altera_nome(_db, gestor, rota):
@@ -745,22 +737,14 @@ def test_get_pontos_by_rota_inexistente_da_404(_db, gestor):
     assert str(exc.value) == "Rota não encontrada"
 
 
-def test_get_pontos_by_rota_sem_checagem_de_tenant(_db, other_gestor, rota, ponto, rota_ponto):
-    """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
+def test_get_pontos_by_rota_agora_checa_tenant(_db, other_gestor, rota, ponto, rota_ponto):
+    # B9 corrigido. Esta era a pior das três: nenhuma checagem de prefeitura,
+    # e o `rota_id` é parâmetro de path, então qualquer autenticado lia as
+    # coordenadas de embarque de qualquer rota.
+    with pytest.raises(ForbiddenError) as exc:
+        get_pontos_by_rota(str(other_gestor.user.id), str(rota.id))
 
-    ``get_pontos_by_rota`` não tem checagem de tenant nenhuma. Qualquer papel
-    de qualquer prefeitura lê os pontos de qualquer rota. A mesma lacuna está
-    registrada em ``test_authz_falhas_conhecidas``, que ainda não está na main
-    (vem no PR #47).
-    """
-    resultado = get_pontos_by_rota(str(other_gestor.user.id), str(rota.id))
-
-    # FALHA: deveria levantar ForbiddenError.
-    assert [p["id"] for p in resultado] == [str(ponto.id)]
-
-
-# ─── invariantes de papel entre as funções do módulo ───────────────────────────
+    assert str(exc.value) == "Acesso negado"
 
 
 def test_papeis_aceitos_por_funcao_de_escrita(_db, gestor, motorista, aluno, rota, ponto):
