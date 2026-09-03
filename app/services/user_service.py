@@ -14,6 +14,7 @@ from app.core.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.user import Aluno, Motorista, User
@@ -23,11 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 # Helper functions
-def _require_active(user: User) -> None:
-    if user.status != UserStatus.ACTIVE:
-        raise ForbiddenError("Cadastro precisa ser finalizado antes de usar o app")
-
-
 def get_all_users(current_user_id: str) -> list[User]:
     """List all users in the same prefeitura (gestor only)."""
     gestor = get_gestor_or_403(current_user_id, "Apenas gestores podem listar usuários")
@@ -69,32 +65,25 @@ def update_user(user_id: str, data: dict[str, Any]) -> User:
     """Update user data (nome, email, password, telefone)."""
     user = get_user_or_404(user_id)
 
-    if nome := data.get("nome"):
-        user.nome = nome.strip()
+    with transactional():
+        if nome := data.get("nome"):
+            user.nome = nome.strip()
 
-    if email := data.get("email"):
-        email_validated = validate_email(email)
-        if existing := db.session.query(User).filter_by(email=email_validated).first():
-            if existing.id != user.id:
-                raise ConflictError("Email já está em uso")
-        user.email = email_validated
+        if email := data.get("email"):
+            email_validated = validate_email(email)
+            if existing := db.session.query(User).filter_by(email=email_validated).first():
+                if existing.id != user.id:
+                    raise ConflictError("Email já está em uso")
+            user.email = email_validated
 
-    if password := data.get("password"):
-        password = validate_password(password)
-        user.senha_hash = generate_password_hash(password)
+        if password := data.get("password"):
+            password = validate_password(password)
+            user.senha_hash = generate_password_hash(password)
 
-    if telefone := data.get("telefone"):
-        user.telefone = telefone.strip()
+        if telefone := data.get("telefone"):
+            user.telefone = telefone.strip()
 
-    try:
-        db.session.commit()
-        return user
-    except (ValidationError, ConflictError):
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error updating user: {e}", exc_info=True)
-        raise AppError(f"Erro ao atualizar usuário: {str(e)}", 500)
+    return user
 
 
 def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
@@ -108,7 +97,7 @@ def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
         raise ConflictError("Email ou CPF já cadastrado")
 
     password = validate_password(data.get("password", ""))
-    try:
+    with transactional():
         new_aluno = Aluno(
             prefeitura_id=gestor.prefeitura_id,
             nome=data["nome"],
@@ -121,14 +110,8 @@ def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
         )
 
         db.session.add(new_aluno)
-        db.session.commit()
-        return new_aluno
-    except (ValidationError, ConflictError, ForbiddenError):
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating aluno account: {e}", exc_info=True)
-        raise AppError(f"Erro ao criar conta de aluno: {str(e)}", 500)
+
+    return new_aluno
 
 
 def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
@@ -149,7 +132,7 @@ def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
 
     password = validate_password(data.get("password", ""))
 
-    try:
+    with transactional():
         new_motorista = Motorista(
             prefeitura_id=gestor.prefeitura_id,
             nome=data["nome"],
@@ -162,15 +145,8 @@ def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
         )
 
         db.session.add(new_motorista)
-        db.session.commit()
-        return new_motorista
 
-    except (ValidationError, ConflictError, ForbiddenError):
-        raise
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating motorista: {e}", exc_info=True)
-        raise AppError(f"Erro ao criar motorista: {str(e)}", 500)
+    return new_motorista
 
 
 def change_password(user_id: str, data: dict[str, Any]) -> None:
@@ -198,22 +174,15 @@ def change_password(user_id: str, data: dict[str, Any]) -> None:
         )
         raise UnauthorizedError("A senha atual está incorreta")
 
-    try:
+    with transactional():
         user.senha_hash = generate_password_hash(new_password)
-        db.session.commit()
 
-        # Log successful password change
-        audit_logger.log_user_action(
-            action="change_password",
-            user_id=user_id,
-            resource_type="user",
-            resource_id=user_id,
-        )
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error changing password: {e}", exc_info=True)
-        raise AppError(f"Erro ao atualizar senha: {str(e)}", 500)
+    audit_logger.log_user_action(
+        action="change_password",
+        user_id=user_id,
+        resource_type="user",
+        resource_id=user_id,
+    )
 
 
 def get_motoristas_by_municipio(gestor_id: str):
@@ -237,35 +206,30 @@ def update_profile(user_id: str, data: dict[str, Any]) -> User:
     """
     user = get_user_or_404(user_id)
 
-    if nome := data.get("nome"):
-        user.nome = nome.strip()
+    with transactional():
+        if nome := data.get("nome"):
+            user.nome = nome.strip()
 
-    if telefone := data.get("telefone"):
-        user.telefone = telefone.strip()
+        if telefone := data.get("telefone"):
+            user.telefone = telefone.strip()
 
-    if "receber_notificacoes" in data:
-        user.receber_notificacoes = bool(data["receber_notificacoes"])
+        if "receber_notificacoes" in data:
+            user.receber_notificacoes = bool(data["receber_notificacoes"])
 
-    if user.role == UserRole.MOTORISTA and (cnh := data.get("cnh")):
-        cnh = cnh.strip()
-        existing = db.session.query(Motorista).filter_by(cnh=cnh).first()
-        if existing and str(existing.id) != str(user_id):
-            raise ConflictError("CNH já cadastrada para outro motorista", field="cnh")
-        cast(Motorista, user).cnh = cnh
+        if user.role == UserRole.MOTORISTA and (cnh := data.get("cnh")):
+            cnh = cnh.strip()
+            existing = db.session.query(Motorista).filter_by(cnh=cnh).first()
+            if existing and str(existing.id) != str(user_id):
+                raise ConflictError("CNH já cadastrada para outro motorista", field="cnh")
+            cast(Motorista, user).cnh = cnh
 
-    try:
-        db.session.commit()
-        audit_logger.log_user_action(
-            action="update_profile",
-            user_id=user_id,
-            resource_type="user",
-            resource_id=user_id,
-        )
-        return user
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error updating profile: {e}", exc_info=True)
-        raise AppError(f"Erro ao atualizar perfil: {str(e)}", 500)
+    audit_logger.log_user_action(
+        action="update_profile",
+        user_id=user_id,
+        resource_type="user",
+        resource_id=user_id,
+    )
+    return user
 
 
 def delete_motorista(gestor_id: str, motorista_id: str) -> None:
@@ -284,24 +248,25 @@ def delete_motorista(gestor_id: str, motorista_id: str) -> None:
         raise ForbiddenError("Proibido remover motoristas de outra prefeitura")
 
     try:
-        db.session.delete(motorista)
-        db.session.commit()
-        audit_logger.log_user_action(
-            action="delete_motorista",
-            user_id=gestor_id,
-            resource_type="motorista",
-            resource_id=motorista_id,
-        )
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error deleting motorista: {e}", exc_info=True)
+        with transactional():
+            db.session.delete(motorista)
+    except ConflictError as e:
+        # Só o IntegrityError vira esta mensagem. Antes qualquer exceção saía
+        # rotulada como viagem vinculada, o mesmo defeito do `:127`.
         raise AppError(
             "Não é possível remover este motorista pois ele possui viagens vinculadas", 400
-        )
+        ) from e
+
+    audit_logger.log_user_action(
+        action="delete_motorista",
+        user_id=gestor_id,
+        resource_type="motorista",
+        resource_id=motorista_id,
+    )
 
 
 def update_fcm_token(user_id: str, data: dict[str, Any]) -> None:
     """Update the FCM token for a user."""
     user = get_user_or_404(user_id)
-    user.fcm_token = data.get("fcm_token")
-    db.session.commit()
+    with transactional():
+        user.fcm_token = data.get("fcm_token")
