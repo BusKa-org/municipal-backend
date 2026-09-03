@@ -6,7 +6,8 @@ from typing import Any
 
 from firebase_admin import messaging
 
-from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
+from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import UserRole
 from app.models.notificacao import Notificacao
@@ -103,23 +104,17 @@ class NotificacaoService:
         if not usuarios_notificados:
             raise NotFoundError("Nenhum aluno encontrado para receber este aviso.")
 
-        try:
+        with transactional():
             for aluno_id in usuarios_notificados:
                 NotificacaoService._criar_notificacao_interna(aluno_id, titulo, mensagem)
 
-            db.session.commit()
-            audit_logger.log_user_action(
-                action="enviar_notificacao_massa", user_id=user_id, resource_type="notificacao"
-            )
+        audit_logger.log_user_action(
+            action="enviar_notificacao_massa", user_id=user_id, resource_type="notificacao"
+        )
 
-            return {
-                "message": f"Notificação enviada para {len(usuarios_notificados)} aluno(s) com sucesso."
-            }
-
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Erro ao disparar notificações: {e}")
-            raise AppError(f"Erro ao enviar notificações: {str(e)}", 500)
+        return {
+            "message": f"Notificação enviada para {len(usuarios_notificados)} aluno(s) com sucesso."
+        }
 
     @staticmethod
     def listar_notificacoes(user_id: str) -> list[Notificacao]:
@@ -136,32 +131,29 @@ class NotificacaoService:
         if not notificacao or str(notificacao.usuario_id) != str(user_id):
             raise NotFoundError("Notificação não encontrada.")
 
-        try:
+        with transactional():
             notificacao.enviada = True
-            db.session.commit()
-            return {"message": "Notificação marcada como lida."}
-        except Exception as e:
-            db.session.rollback()
-            raise AppError(f"Erro ao atualizar notificação: {str(e)}", 500)
+
+        return {"message": "Notificação marcada como lida."}
 
     @staticmethod
     def notificar_alunos_viagem_iniciada(viagem_id: str) -> None:
         """Busca os alunos confirmados na viagem e dispara o aviso de partida."""
+        # O `except` largo é deliberado: quem chama é `controlar_viagem`, e uma
+        # falha de notificação não pode impedir a viagem de iniciar.
         try:
-            confirmados = AlunosConfirmados.query.filter_by(
-                viagem_id=viagem_id, confirmacao=True
-            ).all()
+            with transactional():
+                confirmados = AlunosConfirmados.query.filter_by(
+                    viagem_id=viagem_id, confirmacao=True
+                ).all()
 
-            for conf in confirmados:
-                NotificacaoService._criar_notificacao_interna(
-                    usuario_id=conf.aluno_id,
-                    titulo="🚌 Viagem Iniciada!",
-                    mensagem="O motorista acabou de iniciar a rota. Acompanhe o trajeto no aplicativo!",
-                )
-
-            db.session.commit()
+                for conf in confirmados:
+                    NotificacaoService._criar_notificacao_interna(
+                        usuario_id=conf.aluno_id,
+                        titulo="🚌 Viagem Iniciada!",
+                        mensagem="O motorista acabou de iniciar a rota. Acompanhe o trajeto no aplicativo!",
+                    )
         except Exception as e:
-            db.session.rollback()
             logger.error(
                 f"Falha ao orquestrar notificações de início da viagem {viagem_id}: {str(e)}"
             )
