@@ -5,7 +5,8 @@ from typing import Any
 
 from sqlalchemy import or_
 
-from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
+from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import TipoInstituicao, UserRole
 from app.models.geo import Endereco, Instituicao, Ponto
@@ -21,7 +22,7 @@ def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
 
     Raises: ForbiddenError, ValidationError, AppError
     """
-    user = User.query.get(gestor_id)
+    user = db.session.get(User, gestor_id)
     if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Permissão negada. Apenas gestores criam instituições.")
 
@@ -33,7 +34,7 @@ def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
     if not end_data:
         raise ValidationError("Dados de endereço são obrigatórios")
 
-    try:
+    with transactional():
         novo_ponto = Ponto(
             prefeitura_id=user.prefeitura_id,
             latitude=end_data.get("latitude"),
@@ -61,17 +62,12 @@ def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
         )
         db.session.add(novo_endereco)
 
-        db.session.commit()
-        return nova_inst
-
-    except Exception as e:
-        db.session.rollback()
-        raise AppError(f"Erro ao salvar instituição: {str(e)}", 500)
+    return nova_inst
 
 
 def list_all(gestor_id: str) -> list[Instituicao]:
     """List all institutions for user's prefeitura."""
-    user = User.query.get(gestor_id)
+    user = db.session.get(User, gestor_id)
     if not user:
         raise NotFoundError("Usuário não encontrado")
 
@@ -107,11 +103,11 @@ def get_by_id(gestor_id: str, inst_id: str) -> Instituicao:
 
     Raises: NotFoundError, ForbiddenError
     """
-    user = User.query.get(gestor_id)
+    user = db.session.get(User, gestor_id)
     if not user:
         raise NotFoundError("Usuário não encontrado")
 
-    inst = Instituicao.query.get(inst_id)
+    inst = db.session.get(Instituicao, inst_id)
     if not inst:
         raise NotFoundError("Instituição não encontrada")
 
@@ -127,21 +123,16 @@ def delete_instituicao(gestor_id: str, inst_id: str) -> None:
 
     Raises: ForbiddenError, NotFoundError, AppError
     """
-    user = User.query.get(gestor_id)
+    user = db.session.get(User, gestor_id)
     if not user or user.role != UserRole.GESTOR:
         raise ForbiddenError("Apenas gestores podem remover instituições")
 
-    inst = Instituicao.query.get(inst_id)
+    inst = db.session.get(Instituicao, inst_id)
     if not inst:
         raise NotFoundError("Instituição não encontrada")
 
     if inst.ponto.prefeitura_id != user.prefeitura_id:
         raise ForbiddenError("Acesso negado")
 
-    try:
+    with transactional():
         db.session.delete(inst.ponto)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error deleting institution: {e}")
-        raise AppError(f"Erro ao remover instituição: {str(e)}", 500)

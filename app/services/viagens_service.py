@@ -464,7 +464,7 @@ def cancelar_viagem(user_id: str, viagem_id: str) -> dict[str, Any]:
     if viagem.status in (StatusViagem.FINALIZADA, StatusViagem.CANCELADA):
         raise ValidationError(f"Não é possível cancelar uma viagem com status {viagem.status.name}")
 
-    try:
+    with transactional():
         viagem.status = StatusViagem.CANCELADA
 
         confirmados = AlunosConfirmados.query.filter_by(viagem_id=viagem.id, confirmacao=True).all()
@@ -477,17 +477,11 @@ def cancelar_viagem(user_id: str, viagem_id: str) -> dict[str, Any]:
                 mensagem=f"Atenção! A viagem da rota agendada para o dia {data_formatada} foi cancelada pela prefeitura.",
             )
 
-        db.session.commit()
+    audit_logger.log_user_action(
+        action="cancelar_viagem", user_id=user_id, resource_type="viagem", resource_id=viagem_id
+    )
 
-        audit_logger.log_user_action(
-            action="cancelar_viagem", user_id=user_id, resource_type="viagem", resource_id=viagem_id
-        )
-
-        return {"message": "Viagem cancelada com sucesso", "alunos_notificados": len(confirmados)}
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Erro ao cancelar viagem: {e}")
-        raise AppError(f"Erro ao cancelar viagem: {str(e)}", 500)
+    return {"message": "Viagem cancelada com sucesso", "alunos_notificados": len(confirmados)}
 
 
 def atualizar_localizacao(user_id: str, viagem_id: str, data: dict) -> dict:

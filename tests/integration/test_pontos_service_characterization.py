@@ -208,16 +208,12 @@ def test_create_ponto_ignora_prefeitura_id_do_payload(_db, gestor, other_prefeit
     assert novo.prefeitura_id == gestor.user.prefeitura_id
 
 
-def test_create_ponto_erro_de_banco_vaza_sql_na_mensagem(_db, gestor):
-    # CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui)
-    # O `except Exception` interpola `str(e)` na resposta, então o cliente
-    # recebe o SQL, os parâmetros e o nome das colunas dentro de um 500.
-    with pytest.raises(AppError) as exc:
+def test_create_ponto_erro_de_banco_nao_vaza_sql_na_mensagem(_db, gestor):
+    # `:127` corrigido no create. A latitude textual segue falhando só no
+    # commit, mas o DataError sobe cru e o handler genérico responde 500
+    # "Erro interno do servidor", sem o SQL nem os parâmetros no corpo.
+    with pytest.raises(DataError):
         create_ponto(str(gestor.user.id), {"latitude": "abc", "longitude": -35.88})
-
-    assert str(exc.value).startswith("Erro ao criar ponto: ")
-    assert "INSERT INTO ponto" in str(exc.value)
-    assert exc.value.status_code == 500
 
 
 # ─── update_ponto ───────────────────────────────────────────────────────────
@@ -294,15 +290,10 @@ def test_update_ponto_de_outra_prefeitura_403(_db, gestor, other_prefeitura):
     assert str(exc.value) == "Acesso negado"
 
 
-def test_update_ponto_erro_de_banco_vaza_sql_na_mensagem(_db, gestor, ponto):
-    # CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui): mesmo vazamento
-    # de `str(e)` do create.
-    with pytest.raises(AppError) as exc:
+def test_update_ponto_erro_de_banco_nao_vaza_sql_na_mensagem(_db, gestor, ponto):
+    # Mesma correção do create: sem `str(e)` na resposta.
+    with pytest.raises(DataError):
         update_ponto(str(gestor.user.id), str(ponto.id), {"latitude": "abc"})
-
-    assert str(exc.value).startswith("Erro ao atualizar ponto: ")
-    assert "UPDATE ponto" in str(exc.value)
-    assert exc.value.status_code == 500
 
 
 # ─── delete_ponto ───────────────────────────────────────────────────────────
@@ -364,17 +355,17 @@ def test_delete_ponto_de_outra_prefeitura_403(_db, gestor, other_prefeitura):
     assert str(exc.value) == "Acesso negado"
 
 
-def test_delete_ponto_qualquer_erro_vira_mensagem_de_ponto_em_uso(_db, gestor, ponto, monkeypatch):
-    # CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui)
-    # O `except Exception` genérico responde "está sendo usado em uma rota"
-    # para qualquer falha, inclusive as que nada têm a ver com uso do ponto.
+def test_delete_ponto_erro_generico_nao_vira_mensagem_de_ponto_em_uso(
+    _db, gestor, ponto, monkeypatch
+):
+    # `:127` corrigido. Só o ConflictError do `transactional()`, que vem de
+    # IntegrityError, é reembrulhado no 400 "está sendo usado em uma rota".
+    # Uma falha de conexão sobe crua em vez de sair rotulada como uso do ponto.
+    # O caso legítimo continua fixado em `test_delete_ponto_em_uso_por_rota_400`.
     def falha_generica():
         raise RuntimeError("conexão perdida")
 
     monkeypatch.setattr(pontos_service.db.session, "commit", falha_generica)
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(RuntimeError):
         delete_ponto(str(gestor.user.id), str(ponto.id))
-
-    assert str(exc.value) == "Este ponto está sendo usado em uma rota e não pode ser excluído"
-    assert exc.value.status_code == 400
