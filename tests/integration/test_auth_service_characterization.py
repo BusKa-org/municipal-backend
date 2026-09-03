@@ -350,8 +350,8 @@ def test_reset_com_usuario_ja_removido_400_e_apaga_o_registro(_db, aluno):
     #
     # Isto é a prova de que o ramo `if not user` de `reset_password` é código
     # morto: para alcançá-lo seria preciso um token cujo usuário sumiu, e a FK
-    # `ON DELETE CASCADE` impede exatamente esse estado. Por isso as linhas
-    # 197-200 ficam sem cobertura, e é de propósito.
+    # `ON DELETE CASCADE` impede exatamente esse estado. O ramo foi mantido
+    # porque é o estreitamento de tipo que o mypy exige.
     with pytest.raises(ValidationError) as exc:
         reset_password(token, "NovaSenha123!")
 
