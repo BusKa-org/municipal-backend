@@ -150,32 +150,29 @@ def test_get_proximas_viagens_aluno_inclui_em_andamento(_db, aluno, rota, rota_a
     assert [v.id for v in get_proximas_viagens_aluno(str(aluno.user.id))] == [viagem.id]
 
 
-def test_get_proximas_viagens_aluno_corta_pela_data_utc_e_nao_pela_local(
+def test_get_proximas_viagens_aluno_corta_pela_data_local(
     _db, aluno, rota, rota_aluno, horario_rota
 ):
+    """Corrigido: o corte usa `date.today()`, a data local.
+
+    O `docker-compose.prod.yml` define `TZ: America/Sao_Paulo`, então "hoje"
+    para o aluno é a data brasileira. Antes esta função usava
+    `datetime.now(UTC).date()` enquanto o `gerar_viagens_periodo` gerava com
+    `date.today()`: entre 21h e meia-noite a data UTC virava antes e a viagem
+    de hoje sumia da agenda, justamente quando o aluno mais a consultaria.
+
+    Este teste é determinístico a qualquer hora porque usa a mesma referência
+    do serviço. Foi um teste meu flaky que revelou o problema.
     """
-    CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
+    hoje = date.today()
 
-    `get_proximas_viagens_aluno` faz `hoje = datetime.now(UTC).date()`, mas
-    `gerar_viagens_periodo` gera com `date.today()`, que é a data local. Os
-    dois lados do mesmo fluxo usam referências diferentes.
-
-    No Brasil (UTC-3), entre 21h e meia-noite a data UTC já virou. Uma viagem
-    criada para "hoje" some da agenda do aluno nesse intervalo, justamente
-    quando ele mais provavelmente a consultaria.
-
-    O teste usa a data UTC como referência de propósito, para ser determinístico
-    a qualquer hora do dia. Foi um teste meu flaky que revelou isto.
-    """
-    hoje_utc = datetime.now(UTC).date()
-
-    de_ontem_utc = _viagem(_db, horario_rota, hoje_utc - timedelta(days=1))
-    de_hoje_utc = _viagem(_db, horario_rota, hoje_utc)
+    de_ontem = _viagem(_db, horario_rota, hoje - timedelta(days=1))
+    de_hoje = _viagem(_db, horario_rota, hoje)
 
     ids = [v.id for v in get_proximas_viagens_aluno(str(aluno.user.id))]
 
-    assert de_hoje_utc.id in ids
-    assert de_ontem_utc.id not in ids
+    assert de_hoje.id in ids
+    assert de_ontem.id not in ids
 
 
 def test_get_proximas_viagens_aluno_sem_inscricao_devolve_vazio(_db, aluno, horario_rota):
