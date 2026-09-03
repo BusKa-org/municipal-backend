@@ -1,0 +1,23 @@
+{
+  "tier": "load-spike",
+  "label": "Dawn Departure (Spike variant on the Load dataset)",
+  "data_source": "load",
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 1450,
+  "concurrent_trips": 39,
+  "stages": [
+    {
+      "duration": "10s",
+      "fraction": 1
+    },
+    {
+      "duration": "3m",
+      "fraction": 1
+    },
+    {
+      "duration": "30s",
+      "fraction": 0
+    }
+  ],
+  "note": "Reuses loadtest/exports/load_export.json — run generate_data.py --tier load first."
+}

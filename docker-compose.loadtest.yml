@@ -1,0 +1,139 @@
+# Isolated load-testing environment for buska-backend.
+#
+# Deliberately separate from docker-compose.prod.yml so load tests never
+# touch the real production VM/DB (see loadtest/README.md, "Guiding
+# principles: isolate the blast radius"). Mirrors prod's two-service shape
+# (api + db) but:
+#   - resource-limits both containers to the prod VM's actual spec
+#     (general.large: 4 vCPU / 8GB, per infra/terraform/terraform.tfvars)
+#     so results are representative of what's actually deployed.
+#   - points OSRM at the local stub instead of the public demo server.
+#   - uses dummy Firebase/SMTP config so those calls fail closed instead of
+#     reaching real services.
+#   - enables Postgres slow-query logging for observe.sh to capture.
+#
+# Usage:
+#   docker compose -f docker-compose.loadtest.yml up -d --build
+#   docker compose -f docker-compose.loadtest.yml down -v   # wipe data between tiers
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: buska_db_loadtest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-buska_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-buska_pass}
+      POSTGRES_DB: ${DB_NAME:-buska_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - loadtest_postgres_data:/var/lib/postgresql/data
+      # NOT mounting database/init.sql here: its first statement
+      # (`CREATE ROLE buska_user ...`) fails because POSTGRES_USER/DB below
+      # already pre-create that role/db, and docker-entrypoint.sh aborts its
+      # *entire* init sequence (not just that script) on that failure —
+      # meaning uuid-ossp/postgis never get created either. This is a real,
+      # observed bug that affects a truly fresh docker-compose.prod.yml
+      # deploy too (flagged in the wrap-up report) — worked around here by
+      # using our own minimal, idempotent extensions-only script instead.
+      - ./loadtest/db-init/extensions.sql:/docker-entrypoint-initdb.d/10-extensions.sql:ro
+    command:
+      - "postgres"
+      - "-c"
+      - "log_min_duration_statement=200" # log any query slower than 200ms
+      - "-c"
+      - "log_line_prefix=%m [%p] "
+      - "-c"
+      - "max_connections=200"
+    networks:
+      - buska_loadtest_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-buska_user} -d ${DB_NAME:-buska_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+
+  api:
+    image: ${API_IMAGE:-buska-backend:loadtest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: buska_api_loadtest
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5000}:5000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-buska_user}
+      DB_PASSWORD: ${DB_PASSWORD:-buska_pass}
+      DB_NAME: ${DB_NAME:-buska_db}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-loadtest-secret-key-not-for-prod-use-only}
+      JWT_EXPIRES_HOURS: ${JWT_EXPIRES_HOURS:-2}
+      FLASK_ENV: production
+      # Gunicorn concurrency — overridable so we can A/B different worker
+      # models against the same image without rebuilding (Dockerfile CMD reads
+      # these). Defaults mirror the Dockerfile.
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-1}
+      GUNICORN_WORKER_CLASS: ${GUNICORN_WORKER_CLASS:-sync}
+      # --- Neutralized external dependencies (never hit real services) ---
+      OSRM_BASE_URL: "http://osrm-stub:5001/route/v1/driving"
+      MAIL_SERVER: ""
+      MAIL_USERNAME: "loadtest@example.invalid"
+      MAIL_PASSWORD: "unused"
+      CORS_ORIGINS: "http://localhost"
+    volumes:
+      # A syntactically-valid but fake service account (see
+      # loadtest/fixtures/firebase-credentials.fake.json) mounted at the
+      # exact path app/__init__.py:61 falls back to when FIREBASE_CREDENTIALS
+      # is unset — needed because that call is unconditional and crashes
+      # gunicorn's worker boot otherwise when FLASK_ENV=production. No
+      # exercised load-test endpoint ever calls
+      # firebase_admin.messaging.send (guarded behind a per-user fcm_token
+      # our generated users never set), so this only needs to parse, never
+      # to actually authenticate against Google.
+      - ./loadtest/fixtures/firebase-credentials.fake.json:/app/firebase-credentials.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      osrm-stub:
+        condition: service_started
+    networks:
+      - buska_loadtest_network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+
+  osrm-stub:
+    build:
+      context: ./loadtest/osrm-stub
+    container_name: buska_osrm_stub_loadtest
+    restart: unless-stopped
+    environment:
+      STUB_LATENCY_MS: "40"
+      STUB_LATENCY_JITTER_MS: "30"
+      STUB_ERROR_RATE: "0"
+    networks:
+      - buska_loadtest_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+
+volumes:
+  loadtest_postgres_data:
+    driver: local
+
+networks:
+  buska_loadtest_network:
+    driver: bridge
