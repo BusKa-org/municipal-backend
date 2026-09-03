@@ -22,6 +22,7 @@ from app.core.exceptions import (
 )
 from app.models.enum import TipoInstituicao, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
+from app.models.rota import RotaPonto
 from app.models.user import Aluno
 from app.services.aluno_service import (
     aprovar_aluno,
@@ -278,7 +279,6 @@ def test_record_guardian_consent_avanca_para_pending_approval(_db, aluno_menor, 
     assert aluno.guardian_consented_at is not None
     assert aluno.guardian_token is None  # single-use: token is burned
 
-    # gestor(es) da prefeitura são notificados
     from app.models.notificacao import Notificacao
 
     notifs = _db.session.query(Notificacao).filter_by(usuario_id=str(gestor.user.id)).all()
@@ -382,25 +382,27 @@ def test_update_me_completa_signup_do_adulto(_db, aluno_pending, instituicao):
     assert atualizado.signup_completed_at is not None
 
 
-def test_update_me_pendencias_viram_500_e_nao_400(_db, aluno_pending):
-    """CHARACTERIZATION OF A KNOWN BUG, not fixed here.
+def test_update_me_pendencias_retorna_400(_db, aluno_pending):
+    """
 
-    ``update_me`` raises ValidationError(400) for an incomplete signup, but the
-    bare ``except Exception`` at the end of the function swallows it and
-    re-raises AppError 500. The API therefore answers 500 for what is a client
-    input problem. When this is fixed, this test must flip to
-    ValidationError/400.
+    ``update_me`` raises ValidationError(400) for an incomplete signup. The bare
+    ``except Exception`` used to swallow it and re-raise AppError 500, turning a
+    client input problem into a server error.
     """
     aluno_pending.user.matricula = None
     aluno_pending.user.instituicao_id = None
     _db.session.commit()
 
-    with pytest.raises(AppError) as exc:
+    with pytest.raises(ValidationError) as exc:
         update_me(str(aluno_pending.user.id), {"nome": "Sem Dados"})
 
-    assert exc.value.status_code == 500  # BUG: should be 400
-    assert not isinstance(exc.value, ValidationError)
+    assert exc.value.status_code == 400
     assert "Cadastro precisa ser finalizado" in exc.value.message
+    assert exc.value.details["missing"] == [
+        "matricula",
+        "instituicao_id",
+        "endereco_casa.latitude/longitude",
+    ]
 
 
 def test_update_me_nao_persiste_instituicao_id(_db, aluno_pending):
@@ -444,29 +446,43 @@ def test_delete_me_sem_ponto_casa(_db, aluno_ativo):
     assert _db.session.get(Aluno, aluno_id) is None
 
 
-def test_delete_me_com_ponto_casa_falha_com_500(_db, instituicao):
-    """CHARACTERIZATION OF A KNOWN BUG, not fixed here.
+def test_delete_me_com_ponto_casa(_db, instituicao):
+    """
 
-    ``delete_me`` deletes ``aluno.ponto_casa`` while ``aluno.ponto_casa_id``
-    still references it. The cascade-resolution query autoflushes the pending
-    Ponto delete before the Aluno row is removed, so Postgres rejects it with
-    ``aluno_ponto_casa_id_fkey`` and the caller gets a generic 500.
+    ``delete_me`` used to delete ``aluno.ponto_casa`` while
+    ``aluno.ponto_casa_id`` still referenced it. The cascade-resolution query
+    autoflushed the pending Ponto delete before the Aluno row was removed, so
+    Postgres rejected it with ``aluno_ponto_casa_id_fkey`` and the caller got a
+    generic 500, with the account still in place.
 
     Since ``auto_cadastro`` ALWAYS creates a ponto_casa, self-service account
-    deletion is broken for every student who signed up through the app. Fixing
-    it means clearing the FK (or reordering the deletes), a behaviour change,
-    so it is tracked as its own item rather than done inside the refactor.
+    deletion was broken for every student who signed up through the app.
     """
     aluno = auto_cadastro(signup_payload(instituicao_id=str(instituicao.id)))
-    assert aluno.ponto_casa_id is not None
+    aluno_id, ponto_id = aluno.id, aluno.ponto_casa_id
+    assert ponto_id is not None
 
-    with pytest.raises(AppError) as exc:
-        delete_me(str(aluno.id))
+    delete_me(str(aluno_id))
 
-    assert exc.value.status_code == 500
-    assert "Erro ao excluir conta" in exc.value.message
-    # the account survives the failed deletion
-    assert _db.session.get(Aluno, aluno.id) is not None
+    assert _db.session.get(Aluno, aluno_id) is None
+    # o ponto de casa (e o endereço pendurado nele) saem junto
+    assert _db.session.get(Ponto, ponto_id) is None
+    assert Endereco.query.filter_by(ponto_id=ponto_id).first() is None
+
+
+def test_delete_me_mantem_ponto_casa_usado_por_rota(_db, instituicao, rota):
+    """O ponto de casa pode ter virado parada de uma rota (rota_ponto tem FK
+    RESTRICT). A conta ainda assim precisa ser excluída — só o ponto fica."""
+    aluno = auto_cadastro(signup_payload(instituicao_id=str(instituicao.id)))
+    aluno_id, ponto_id = aluno.id, aluno.ponto_casa_id
+
+    _db.session.add(RotaPonto(rota_id=rota.id, ponto_id=ponto_id, ordem=1))
+    _db.session.commit()
+
+    delete_me(str(aluno_id))
+
+    assert _db.session.get(Aluno, aluno_id) is None
+    assert _db.session.get(Ponto, ponto_id) is not None
 
 
 def test_delete_me_aluno_inexistente(_db):
