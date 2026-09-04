@@ -30,10 +30,14 @@ def init_scheduler(app: Flask, scheduler: APScheduler):
     run_scheduler = os.getenv("RUN_SCHEDULER", "").lower() in ("1", "true")
 
     if run_scheduler:
+        # Sem `args=[app]`: o jobstore agora é o SQLAlchemyJobStore, que
+        # serializa o job via pickle pra gravar no Postgres. O objeto Flask
+        # `app` carrega closures internas que não picklam. As três tasks
+        # buscam `scheduler.app` por dentro, como `realizar_auto_checkin`
+        # já fazia em `viagem_tasks.py`.
         scheduler.add_job(
             id="job_24h",
             func=verificar_viagens_24h,
-            args=[app],
             trigger="interval",
             minutes=60,
             replace_existing=True,
@@ -42,7 +46,6 @@ def init_scheduler(app: Flask, scheduler: APScheduler):
         scheduler.add_job(
             id="job_10min",
             func=verificar_viagens_10min,
-            args=[app],
             trigger="interval",
             minutes=10,
             replace_existing=True,
@@ -54,7 +57,6 @@ def init_scheduler(app: Flask, scheduler: APScheduler):
         scheduler.add_job(
             id="job_viagens_semanais",
             func=job_gerar_viagens_semanais,
-            args=[app],
             trigger=CronTrigger(hour=2, minute=0, timezone="America/Sao_Paulo"),
             replace_existing=True,
         )
