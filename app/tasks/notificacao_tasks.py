@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta
 
+from app.extensions import scheduler
 from app.models.base import db
 from app.models.enum import StatusViagem
 from app.models.rota import RotaAluno
@@ -11,8 +12,13 @@ from app.services.notificacao_service import NotificacaoService
 logger = logging.getLogger(__name__)
 
 
-def verificar_viagens_24h(app):
+def verificar_viagens_24h():
     """Job: Notifica alunos 24 horas antes da viagem"""
+    app = scheduler.app
+    if not app:
+        logger.error("Erro fatal: Instância do Flask (app) não encontrada no Scheduler.")
+        return
+
     with app.app_context():
         agora = datetime.now()
         amanha_inicio = agora + timedelta(hours=23, minutes=50)
@@ -48,8 +54,13 @@ def verificar_viagens_24h(app):
             logger.error(f"Erro no Job de 24h: {e}")
 
 
-def verificar_viagens_10min(app):
+def verificar_viagens_10min():
     """Job: Notifica o motorista 10 min antes com a lista de universidades"""
+    app = scheduler.app
+    if not app:
+        logger.error("Erro fatal: Instância do Flask (app) não encontrada no Scheduler.")
+        return
+
     with app.app_context():
         agora = datetime.now()
 
