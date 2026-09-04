@@ -3,12 +3,13 @@
 import logging
 from typing import Any
 
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
-from app.core.transaction import transactional
+from buska_core.transaction import transactional
+
 from app.models.base import db
 from app.models.enum import DiaDaSemana, SentidoViagem, UserRole
 from app.models.geo import Ponto
@@ -136,7 +137,7 @@ def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) 
         if inscricao_existente:
             return {"message": "Aluno já inscrito nesta rota"}
 
-        with transactional():
+        with transactional(db.session):
             nova_inscricao = RotaAluno(rota_id=rota.id, aluno_id=aluno.id)
             db.session.add(nova_inscricao)
 
@@ -152,7 +153,7 @@ def gerenciar_inscricao_aluno(user_id: str, rota_id: str, data: dict[str, Any]) 
     if not inscricao_existente:
         raise NotFoundError("Aluno não está inscrito nesta rota")
 
-    with transactional():
+    with transactional(db.session):
         db.session.delete(inscricao_existente)
 
     audit_logger.log_user_action(
@@ -179,7 +180,7 @@ def create_rota(gestor_id: str, data: dict[str, Any]) -> Rota:
     if not nome:
         raise ValidationError("Nome da rota é obrigatório")
 
-    with transactional():
+    with transactional(db.session):
         # If a driver creates a route, automatically assign themselves as the default driver
         motorista_id = data.get("motorista_padrao_id")
         if not motorista_id and user.role == UserRole.MOTORISTA:
@@ -271,7 +272,7 @@ def add_ponto(gestor_id: str, rota_id: str, data: dict[str, Any]) -> None:
     if not pontos or not isinstance(pontos, list):
         raise ValidationError("A rota deve conter pelo menos um ponto válido")
 
-    with transactional():
+    with transactional(db.session):
         # Clear existing route points (replacing with new set)
         RotaPonto.query.filter_by(rota_id=rota.id).delete()
         db.session.flush()
@@ -334,7 +335,7 @@ def add_horario(gestor_id: str, rota_id: str, data: dict[str, Any]) -> HorarioRo
     if not dias_list:
         raise ValidationError("Selecione pelo menos um dia da semana")
 
-    with transactional():
+    with transactional(db.session):
         novo_horario = HorarioRota(
             rota_id=rota.id,
             horario_saida=data.get("horario_saida"),
@@ -421,7 +422,7 @@ def update_rota(user_id: str, rota_id: str, data: dict[str, Any]) -> Rota:
 
     updated_fields: list[str] = []
 
-    with transactional():
+    with transactional(db.session):
         if "nome" in data:
             rota.nome = data.get("nome")
             updated_fields.append("nome")
@@ -488,7 +489,7 @@ def delete_rota(user_id: str, rota_id: str) -> None:
         )
         raise ForbiddenError("Acesso negado")
 
-    with transactional():
+    with transactional(db.session):
         # Store route name for audit log
         rota_nome = rota.nome
 

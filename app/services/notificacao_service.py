@@ -4,10 +4,10 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from buska_core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from buska_core.transaction import transactional
 from firebase_admin import messaging
 
-from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
-from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import UserRole
 from app.models.notificacao import Notificacao
@@ -104,7 +104,7 @@ class NotificacaoService:
         if not usuarios_notificados:
             raise NotFoundError("Nenhum aluno encontrado para receber este aviso.")
 
-        with transactional():
+        with transactional(db.session):
             for aluno_id in usuarios_notificados:
                 NotificacaoService._criar_notificacao_interna(aluno_id, titulo, mensagem)
 
@@ -131,7 +131,7 @@ class NotificacaoService:
         if not notificacao or str(notificacao.usuario_id) != str(user_id):
             raise NotFoundError("Notificação não encontrada.")
 
-        with transactional():
+        with transactional(db.session):
             notificacao.enviada = True
 
         return {"message": "Notificação marcada como lida."}
@@ -142,7 +142,7 @@ class NotificacaoService:
         # O `except` largo é deliberado: quem chama é `controlar_viagem`, e uma
         # falha de notificação não pode impedir a viagem de iniciar.
         try:
-            with transactional():
+            with transactional(db.session):
                 confirmados = AlunosConfirmados.query.filter_by(
                     viagem_id=viagem_id, confirmacao=True
                 ).all()

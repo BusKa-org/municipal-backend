@@ -3,9 +3,10 @@
 import logging
 from typing import Any
 
+from buska_core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from buska_core.transaction import transactional
+
 from app.core.authz import get_gestor_or_403
-from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
-from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import StatusOcorrencia, TipoOcorrencia, UserRole
 from app.models.ocorrencia import Ocorrencia
@@ -43,7 +44,7 @@ class OcorrenciaService:
             if not viagem:
                 raise NotFoundError("Viagem não encontrada.")
 
-        with transactional():
+        with transactional(db.session):
             ocorrencia = Ocorrencia(
                 autor_id=user_id,
                 viagem_id=viagem_id,
@@ -120,7 +121,7 @@ class OcorrenciaService:
         if ocorrencia.status == StatusOcorrencia.RESOLVIDA:
             raise ValidationError("Ocorrência já foi resolvida.")
 
-        with transactional():
+        with transactional(db.session):
             ocorrencia.status = StatusOcorrencia.RESOLVIDA
 
         return ocorrencia

@@ -3,7 +3,8 @@
 import re
 import uuid
 
-from app.core.exceptions import ValidationError
+from buska_core.exceptions import ValidationError
+
 from app.utils.security import SecurityConfig
 
 

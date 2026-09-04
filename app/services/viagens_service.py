@@ -4,16 +4,16 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy.orm import joinedload, selectinload
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
-from app.core.transaction import transactional
+from buska_core.transaction import transactional
+from sqlalchemy.orm import joinedload, selectinload
+
 from app.extensions import scheduler
 from app.models.base import db
 from app.models.enum import DiaDaSemana, SentidoViagem, StatusViagem, UserRole
@@ -162,7 +162,7 @@ def confirmar_presenca_aluno(
     confirmacao: bool = data["confirmacao"]
     ponto_embarque_id = data.get("ponto_embarque_id")
 
-    with transactional():
+    with transactional(db.session):
         viagem = db.session.get(Viagem, viagem_id)
         if not viagem:
             raise NotFoundError("Viagem não encontrada")
@@ -313,7 +313,7 @@ def gerar_viagem(user_id: str, data_input: dict) -> Viagem:
             f"Viagem já gerada para este dia/horário: {data_viagem} {horario_selecionado.horario_saida.strftime('%H:%M')}"
         )
 
-    with transactional():
+    with transactional(db.session):
         nova_viagem = Viagem(
             data=data_viagem,
             horario_rota_id=horario_selecionado.id,
@@ -344,7 +344,7 @@ def gerar_viagens_em_lote(user_id: str, data_viagem: date) -> dict[str, Any]:
         "detalhes": [],
     }
 
-    with transactional():
+    with transactional(db.session):
         for rota in rotas:
             horarios_validos = (
                 db.session.query(HorarioRota)
@@ -409,7 +409,7 @@ def controlar_viagem(user_id: str, viagem_id: str, data: dict[str, Any]) -> Viag
 
     acao = data.get("acao")
 
-    with transactional():
+    with transactional(db.session):
         if acao == "INICIAR":
             if viagem.status != StatusViagem.AGENDADA:
                 raise ValidationError(
@@ -500,7 +500,7 @@ def cancelar_viagem(user_id: str, viagem_id: str) -> dict[str, Any]:
     if viagem.status in (StatusViagem.FINALIZADA, StatusViagem.CANCELADA):
         raise ValidationError(f"Não é possível cancelar uma viagem com status {viagem.status.name}")
 
-    with transactional():
+    with transactional(db.session):
         viagem.status = StatusViagem.CANCELADA
 
         confirmados = AlunosConfirmados.query.filter_by(viagem_id=viagem.id, confirmacao=True).all()

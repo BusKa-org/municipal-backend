@@ -11,8 +11,8 @@ the SAME PR that changes the behaviour of
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from buska_core.exceptions import ForbiddenError, UnauthorizedError, ValidationError
 
-from app.core.exceptions import ForbiddenError, UnauthorizedError, ValidationError
 from app.models.enum import UserStatus
 from app.models.password_reset import PasswordResetToken
 from app.models.user import User

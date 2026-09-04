@@ -3,14 +3,15 @@
 import logging
 from typing import Any
 
-from app.core.exceptions import (
+from buska_core.exceptions import (
     AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
-from app.core.transaction import transactional
+from buska_core.transaction import transactional
+
 from app.models.base import db
 from app.models.enum import UserRole
 from app.models.geo import Ponto
@@ -61,7 +62,7 @@ def create_ponto(user_id: str, data: dict[str, Any]) -> Ponto:
     if not data.get("latitude") or not data.get("longitude"):
         raise ValidationError("Lat/Lon são obrigatórios")
 
-    with transactional():
+    with transactional(db.session):
         novo_ponto = Ponto(
             prefeitura_id=user.prefeitura_id,
             apelido=data.get("apelido", "Sem Nome"),
@@ -91,7 +92,7 @@ def update_ponto(user_id: str, ponto_id: str, data: dict[str, Any]) -> Ponto:
     if ponto.prefeitura_id != user.prefeitura_id:
         raise ForbiddenError("Acesso negado")
 
-    with transactional():
+    with transactional(db.session):
         # Update simple fields
         for field in ("apelido", "latitude", "longitude"):
             if field in data:
@@ -118,7 +119,7 @@ def delete_ponto(user_id: str, ponto_id: str) -> None:
         raise ForbiddenError("Acesso negado")
 
     try:
-        with transactional():
+        with transactional(db.session):
             db.session.delete(ponto)
     except ConflictError as e:
         raise AppError(

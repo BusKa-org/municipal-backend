@@ -3,10 +3,7 @@
 import logging
 from typing import Any, cast
 
-from werkzeug.security import check_password_hash, generate_password_hash
-
-from app.core.authz import get_gestor_or_403, get_user_or_404
-from app.core.exceptions import (
+from buska_core.exceptions import (
     AppError,
     ConflictError,
     ForbiddenError,
@@ -14,7 +11,10 @@ from app.core.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
-from app.core.transaction import transactional
+from buska_core.transaction import transactional
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from app.core.authz import get_gestor_or_403, get_user_or_404
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.user import Aluno, Motorista, User
@@ -65,7 +65,7 @@ def update_user(user_id: str, data: dict[str, Any]) -> User:
     """Update user data (nome, email, password, telefone)."""
     user = get_user_or_404(user_id)
 
-    with transactional():
+    with transactional(db.session):
         if nome := data.get("nome"):
             user.nome = nome.strip()
 
@@ -97,7 +97,7 @@ def create_aluno_account(gestor_id: str, data: dict[str, Any]) -> Aluno:
         raise ConflictError("Email ou CPF já cadastrado")
 
     password = validate_password(data.get("password", ""))
-    with transactional():
+    with transactional(db.session):
         new_aluno = Aluno(
             prefeitura_id=gestor.prefeitura_id,
             nome=data["nome"],
@@ -132,7 +132,7 @@ def create_motorista(gestor_id: str, data: dict[str, Any]) -> Motorista:
 
     password = validate_password(data.get("password", ""))
 
-    with transactional():
+    with transactional(db.session):
         new_motorista = Motorista(
             prefeitura_id=gestor.prefeitura_id,
             nome=data["nome"],
@@ -174,7 +174,7 @@ def change_password(user_id: str, data: dict[str, Any]) -> None:
         )
         raise UnauthorizedError("A senha atual está incorreta")
 
-    with transactional():
+    with transactional(db.session):
         user.senha_hash = generate_password_hash(new_password)
 
     audit_logger.log_user_action(
@@ -206,7 +206,7 @@ def update_profile(user_id: str, data: dict[str, Any]) -> User:
     """
     user = get_user_or_404(user_id)
 
-    with transactional():
+    with transactional(db.session):
         if nome := data.get("nome"):
             user.nome = nome.strip()
 
@@ -248,7 +248,7 @@ def delete_motorista(gestor_id: str, motorista_id: str) -> None:
         raise ForbiddenError("Proibido remover motoristas de outra prefeitura")
 
     try:
-        with transactional():
+        with transactional(db.session):
             db.session.delete(motorista)
     except ConflictError as e:
         # Só o IntegrityError vira esta mensagem. Antes qualquer exceção saía
@@ -268,5 +268,5 @@ def delete_motorista(gestor_id: str, motorista_id: str) -> None:
 def update_fcm_token(user_id: str, data: dict[str, Any]) -> None:
     """Update the FCM token for a user."""
     user = get_user_or_404(user_id)
-    with transactional():
+    with transactional(db.session):
         user.fcm_token = data.get("fcm_token")

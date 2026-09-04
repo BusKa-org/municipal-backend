@@ -7,7 +7,8 @@ it without creating import cycles between service modules.
 import logging
 from typing import cast
 
-from app.core.exceptions import ForbiddenError, NotFoundError
+from buska_core.exceptions import ForbiddenError, NotFoundError
+
 from app.models.base import db
 from app.models.enum import UserRole
 from app.models.user import Gestor, User
