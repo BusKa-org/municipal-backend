@@ -186,8 +186,6 @@ def change_password(user_id: str, data: dict[str, Any]) -> None:
 
 
 def get_motoristas_by_municipio(gestor_id: str):
-    from app.models.user import User
-
     gestor = get_user_or_404(gestor_id)
 
     motoristas = User.query.filter(

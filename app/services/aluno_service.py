@@ -2,6 +2,7 @@
 
 import logging
 import secrets
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from flask import current_app
@@ -12,6 +13,7 @@ from app.core.authz import get_gestor_or_403
 from app.core.exceptions import (
     AppError,
     ConflictError,
+    ForbiddenError,
     NotFoundError,
     ValidationError,
 )
@@ -19,7 +21,8 @@ from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
-from app.models.user import Aluno, User
+from app.models.user import Aluno, Gestor, User
+from app.services.notificacao_service import NotificacaoService
 from app.utils import audit_logger, validate_cpf, validate_email, validate_password
 from app.utils.email_sender import send_email
 
@@ -94,8 +97,6 @@ def record_guardian_consent(token: str) -> Aluno:
 
     Raises: NotFoundError, ValidationError, AppError
     """
-    from datetime import UTC, datetime, timedelta
-
     aluno = db.session.query(Aluno).filter_by(guardian_token=token).first()
     if not aluno:
         raise NotFoundError("Link de consentimento inválido ou já utilizado")
@@ -110,16 +111,12 @@ def record_guardian_consent(token: str) -> Aluno:
             raise ValidationError("Este link expirou. Peça ao estudante que refaça o cadastro.")
 
     with transactional():
-        from app.services.notificacao_service import NotificacaoService
-
         aluno.guardian_consented_at = db.func.now()
         aluno.guardian_token = None  # single-use
         aluno.status = UserStatus.PENDING_APPROVAL
         db.session.flush()
 
         # Notify the gestor(s) of the prefeitura
-        from app.models.user import Gestor
-
         gestores = db.session.query(Gestor).filter_by(prefeitura_id=aluno.prefeitura_id).all()
         for gestor in gestores:
             NotificacaoService._criar_notificacao_interna(
@@ -395,8 +392,6 @@ def get_aluno_by_id(gestor_id: str, aluno_id: str) -> Aluno:
 
     Raises: ForbiddenError, NotFoundError
     """
-    from app.core.exceptions import ForbiddenError
-
     gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem consultar alunos")
     aluno = db.session.get(Aluno, aluno_id)
 
@@ -436,9 +431,6 @@ def aprovar_aluno(gestor_id: str, aluno_id: str) -> Aluno:
     Returns: Aluno object
     Raises: ForbiddenError, NotFoundError, ValidationError
     """
-    from app.core.exceptions import ForbiddenError
-    from app.services.notificacao_service import NotificacaoService
-
     gestor = get_gestor_or_403(gestor_id, "Apenas gestores podem aprovar alunos")
     aluno = db.session.get(Aluno, aluno_id)
 
