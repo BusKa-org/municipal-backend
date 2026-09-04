@@ -49,12 +49,41 @@ def test_init_scheduler_registra_todos_os_jobs(scheduler_app, sched, monkeypatch
 
 
 def test_init_scheduler_nao_registra_nada_sem_run_scheduler(scheduler_app, sched, monkeypatch):
-    """Garante que os 4 workers da API (e a suíte de testes) fiquem sem scheduler."""
+    """Garante que os 4 workers da API (e a suíte de testes) não recebam os
+    jobs periódicos (verificação de viagem, geração semanal)."""
     monkeypatch.delenv("RUN_SCHEDULER", raising=False)
 
     init_scheduler(scheduler_app, sched)
 
     assert sched.get_jobs() == []
+
+
+def test_scheduler_pausado_ainda_grava_no_jobstore(scheduler_app, sched, monkeypatch):
+    """B6: sem RUN_SCHEDULER o scheduler sobe pausado, não parado.
+
+    `viagens_service.py` e `viagem_tasks.py` chamam `scheduler.add_job()`
+    durante o request de um worker da API, fora daqui. Se o scheduler
+    continuasse parado (como antes), esse `add_job()` só empilharia numa
+    lista de pending jobs local, nunca lida, e o auto-checkin nunca
+    disparava. Pausado, `add_job` grava de verdade no jobstore, só não
+    processa jobs devidos.
+    """
+    monkeypatch.delenv("RUN_SCHEDULER", raising=False)
+    # O flask_apscheduler tem sua própria trava de debug (lê FLASK_DEBUG do
+    # ambiente, não app.config), pra não duplicar job quando o reloader do
+    # Flask sobe dois processos. Suíte e CI setam FLASK_DEBUG=true, e algum
+    # teste anterior nessa mesma sessão pode ter chamado create_app() e
+    # carregado essa variável via load_dotenv(). Sem isso o .start() abaixo
+    # vira no-op silencioso e o teste fica instável conforme a ordem.
+    monkeypatch.delenv("FLASK_DEBUG", raising=False)
+
+    init_scheduler(scheduler_app, sched)
+
+    assert sched.running
+
+    sched.add_job(id="prova-b6", func=lambda: None, trigger="date", run_date="2099-01-01")
+
+    assert sched.get_job("prova-b6") is not None
 
 
 def test_geracao_de_viagens_roda_todo_dia(scheduler_app, sched, monkeypatch):
