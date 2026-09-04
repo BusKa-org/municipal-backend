@@ -75,10 +75,8 @@ class AlunoListResource(Resource):
     @jwt_required()
     def get(self) -> tuple[dict[str, Any], int]:
         """Gestor vê lista de alunos cadastrados"""
-        from flask import request as flask_request
-
         user_id = get_jwt_identity()
-        status_filter = flask_request.args.get("status")
+        status_filter = request.args.get("status")
         alunos = aluno_service.list_alunos_gestor(user_id, status=status_filter)
         return (
             aluno_list_response_schema.dump(list_envelope(alunos)),
