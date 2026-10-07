@@ -5,21 +5,22 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from flask_jwt_extended import create_access_token
-from werkzeug.security import check_password_hash, generate_password_hash
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ForbiddenError,
     UnauthorizedError,
     ValidationError,
 )
-from app.core.transaction import transactional
+from buska_core.notifications import send_email
+from buska_core.transaction import transactional
+from buska_core.validation import validate_email, validate_password
+from flask_jwt_extended import create_access_token
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.password_reset import PasswordResetToken
 from app.models.user import Aluno, User
-from app.utils import audit_logger, validate_email, validate_password
-from app.utils.email_sender import send_email
+from app.utils import audit_logger
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +160,7 @@ def request_password_reset(email_raw: str, base_url: str) -> None:
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + timedelta(hours=1)
     reset_record = PasswordResetToken(user_id=user.id, token=token, expires_at=expires_at)
-    with transactional():
+    with transactional(db.session):
         db.session.add(reset_record)
 
     link = f"{base_url.rstrip('/')}/v1/auth/reset-password?token={token}"
@@ -189,21 +190,21 @@ def reset_password(token: str, new_password: str) -> None:
     if record.is_expired():
         # O delete fica fora do `raise`: com o `transactional()` envolvendo os
         # dois, o rollback desfaria a remoção do token expirado.
-        with transactional():
+        with transactional(db.session):
             db.session.delete(record)
         raise ValidationError("Link expirado. Solicite uma nova recuperação de senha.")
 
-    new_password = validate_password(new_password, "Nova senha")
+    new_password = validate_password(new_password, field_name="Nova senha")
     user = db.session.get(User, record.user_id)
     if not user:
         # Ramo inalcançável hoje: a FK do token é ON DELETE CASCADE, então não
         # existe token cujo usuário sumiu. Mantido porque é o estreitamento de
         # tipo que o mypy exige, e trocá-lo por um cast seria pior.
-        with transactional():
+        with transactional(db.session):
             db.session.delete(record)
         raise ValidationError("Link inválido")
 
-    with transactional():
+    with transactional(db.session):
         user.senha_hash = generate_password_hash(new_password)
         db.session.delete(record)
     logger.info("Password reset completed for user %s", user.id)

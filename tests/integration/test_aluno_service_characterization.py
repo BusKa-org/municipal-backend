@@ -12,13 +12,13 @@ from datetime import UTC, date, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+
 from app.models.enum import TipoInstituicao, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.rota import RotaPonto

@@ -11,13 +11,13 @@ the SAME PR that changes the behaviour of
 import uuid
 
 import pytest
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+
 from app.models.enum import TipoInstituicao
 from app.models.geo import Instituicao, Ponto
 from app.services.instituicao_service import (

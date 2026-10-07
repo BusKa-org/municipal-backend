@@ -3,14 +3,15 @@
 import logging
 from typing import Any
 
-from app.core.exceptions import (
+from buska_core.exceptions import (
     AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
-from app.core.transaction import transactional
+from buska_core.transaction import transactional
+
 from app.models.base import db
 from app.models.enum import UserRole
 from app.models.onibus import Onibus
@@ -69,7 +70,7 @@ def create_onibus(user_id: str, data: dict[str, Any]) -> Onibus:
     if Onibus.query.filter_by(placa=placa).first():
         raise ConflictError(f"Já existe um ônibus com a placa {placa}")
 
-    with transactional():
+    with transactional(db.session):
         novo_onibus = Onibus(
             placa=placa,
             modelo=modelo,
@@ -99,7 +100,7 @@ def update_onibus(user_id: str, onibus_id: str, data: dict[str, Any]) -> Onibus:
     if onibus.prefeitura_id != user.prefeitura_id:
         raise ForbiddenError("Proibido alterar dados de outra prefeitura")
 
-    with transactional():
+    with transactional(db.session):
         if placa := data.get("placa"):
             placa = placa.upper().strip()
             existing = Onibus.query.filter_by(placa=placa).first()
@@ -137,7 +138,7 @@ def delete_onibus(user_id: str, onibus_id: str) -> None:
         raise ForbiddenError("Proibido alterar dados de outra prefeitura")
 
     try:
-        with transactional():
+        with transactional(db.session):
             db.session.delete(onibus)
     except ConflictError as e:
         raise AppError(

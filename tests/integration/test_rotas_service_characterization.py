@@ -11,13 +11,13 @@ corresponding test must be updated in the SAME PR that changes it.
 import uuid
 
 import pytest
-from sqlalchemy.exc import DataError
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+from sqlalchemy.exc import DataError
+
 from app.models.enum import DiaDaSemana, SentidoViagem, UserRole
 from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
