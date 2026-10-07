@@ -9,6 +9,7 @@ from buska_core.exceptions import (
     ValidationError,
 )
 from buska_core.transaction import transactional
+from buska_core.validation import validate_uuid
 
 from app.models.base import db
 from app.models.enum import DiaDaSemana, SentidoViagem, UserRole
@@ -16,7 +17,7 @@ from app.models.geo import Ponto
 from app.models.rota import DiasOperacao, HorarioRota, Rota, RotaAluno, RotaPonto
 from app.models.user import User
 from app.services.viagens_service import gerar_viagens_periodo
-from app.utils import audit_logger, validate_uuid
+from app.utils import audit_logger
 
 logger = logging.getLogger(__name__)
 

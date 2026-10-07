@@ -8,11 +8,11 @@ import logging
 from typing import cast
 
 from buska_core.exceptions import ForbiddenError, NotFoundError
+from buska_core.validation import validate_uuid
 
 from app.models.base import db
 from app.models.enum import UserRole
 from app.models.user import Gestor, User
-from app.utils import validate_uuid
 
 logger = logging.getLogger(__name__)
 

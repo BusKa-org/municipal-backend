@@ -10,7 +10,9 @@ from buska_core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from buska_core.notifications import send_email
 from buska_core.transaction import transactional
+from buska_core.validation import validate_email, validate_password
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
@@ -20,8 +22,7 @@ from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.user import Aluno, User
-from app.utils import audit_logger, validate_cpf, validate_email, validate_password
-from app.utils.email_sender import send_email
+from app.utils import audit_logger, validate_cpf
 
 logger = logging.getLogger(__name__)
 
