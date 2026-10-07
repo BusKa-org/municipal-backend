@@ -1,0 +1,117 @@
+name: BusKá Load Test — Smoke/Baseline Regression
+
+# Manual-only, cheap regression check for the two load-test tiers that are
+# fast/small enough to run on a shared GitHub-hosted runner (see
+# loadtest/README.md and the wrap-up report in loadtest/REPORT.md).
+#
+# Load's Spike/Soak variants and the Capacity/Stress/Breakpoint tiers are
+# deliberately NOT here — they need a resource-isolated VM (to get
+# meaningful latency numbers) and, for Capacity+, a second host entirely.
+# Run those manually via loadtest/run_tier.sh on real infra instead.
+on:
+  workflow_dispatch:
+    inputs:
+      TIER:
+        description: "Which tier(s) to run"
+        type: choice
+        required: false
+        default: "both"
+        options:
+          - both
+          - smoke
+          - baseline
+
+concurrency:
+  group: buska-backend-loadtest-regression
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  loadtest:
+    name: "Run Smoke/Baseline against docker-compose.loadtest.yml"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+
+      - name: "Install dependencies"
+        run: uv sync --frozen --dev
+
+      - name: "Install k6"
+        uses: grafana/setup-k6-action@v1
+
+      - name: "Start isolated load-test environment"
+        run: |
+          docker compose -f docker-compose.loadtest.yml up -d --build
+          echo "Waiting for db to report healthy..."
+          for i in {1..30}; do
+            status=$(docker inspect --format='{{.State.Health.Status}}' buska_db_loadtest 2>/dev/null || echo "starting")
+            [ "$status" = "healthy" ] && break
+            sleep 2
+          done
+
+      - name: "Run migrations against the loadtest db"
+        env:
+          DB_HOST: localhost
+        run: uv run alembic upgrade head
+
+      - name: "Wait for API health"
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:5000/health > /dev/null; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 2
+          done
+          echo "API did not become healthy in time"
+          docker logs buska_api_loadtest || true
+          exit 1
+
+      - name: "Run Smoke tier"
+        if: ${{ inputs.TIER == 'smoke' || inputs.TIER == 'both' || inputs.TIER == '' }}
+        env:
+          DB_HOST: localhost
+          BASE_URL: http://localhost:5000
+        run: bash loadtest/run_tier.sh smoke
+
+      - name: "Run Baseline tier"
+        if: ${{ inputs.TIER == 'baseline' || inputs.TIER == 'both' || inputs.TIER == '' }}
+        env:
+          DB_HOST: localhost
+          BASE_URL: http://localhost:5000
+        run: bash loadtest/run_tier.sh baseline
+
+      - name: "Show container logs on failure"
+        if: failure()
+        run: |
+          echo "==== docker compose ps ===="
+          docker compose -f docker-compose.loadtest.yml ps || true
+          echo "==== docker logs buska_api_loadtest (tail) ===="
+          docker logs --tail 200 buska_api_loadtest || true
+          echo "==== docker logs buska_db_loadtest (tail) ===="
+          docker logs --tail 100 buska_db_loadtest || true
+
+      - name: "Upload results"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loadtest-results-${{ github.run_number }}
+          path: loadtest/results/
+          retention-days: 30
+
+      - name: "Tear down"
+        if: always()
+        run: docker compose -f docker-compose.loadtest.yml down -v

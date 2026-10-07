@@ -1,0 +1,34 @@
+{
+  "tier": "baseline",
+  "label": "Morning Rush, One Small Town",
+  "seed": 42,
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 500,
+  "concurrent_trips": 14,
+  "stages": [
+    {
+      "duration": "1m",
+      "fraction": 1
+    },
+    {
+      "duration": "5m",
+      "fraction": 1
+    },
+    {
+      "duration": "30s",
+      "fraction": 0
+    }
+  ],
+  "prefeituras": [
+    {
+      "codigo_ibge": "2510709",
+      "nome": "Passagem",
+      "estado": "PB",
+      "center_lat": -7.13656,
+      "center_lon": -37.04558,
+      "buses": 14,
+      "students": 500,
+      "source_note": "students=500 is a sourced fact (Consed, 05/09/2025: 'pouco mais de 500 estudantes'). buses=14 is a derived assumption (500 / ~37 seats/bus), since Passagem's actual fleet size wasn't published."
+    }
+  ]
+}
