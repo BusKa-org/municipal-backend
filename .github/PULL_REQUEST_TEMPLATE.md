@@ -1,27 +1,27 @@
 <!--
 Guidance: AGENTS.md § "Writing PR descriptions". Delete sections that
-genuinely don't apply (a pure docs PR may not need "Como testar"), but
+genuinely don't apply (a pure docs PR may not need "How to test"), but
 default to filling all four.
 -->
 
-## Contexto
+## Context
 
-<!-- Por que essa PR existe. Link pro item do plano/ADR/issue, se houver.
-     Se for empilhada sobre outra PR, diga qual e qual commit é novo. -->
+<!-- Why this PR exists. Link the plan/ADR/issue item, if any. If stacked
+     on another PR, say which one and which commit is new. -->
 
-## O que mudou
+## What changed
 
-<!-- Bullets, um por arquivo/responsabilidade. Tabela para números
-     antes/depois (queries, linhas, testes). -->
+<!-- Bullets, one per file/concern. A table beats prose for before/after
+     numbers (queries, lines, tests). -->
 
 -
 
-## Por quê
+## Why
 
-<!-- O raciocínio que o diff não mostra: alternativas descartadas,
-     trade-offs aceitos, o que ficou de fora e por quê. -->
+<!-- The reasoning the diff alone can't show: alternatives discarded,
+     trade-offs accepted, what was deliberately left out and why. -->
 
-## Como testar
+## How to test
 
-<!-- Comandos rodados e o que provam. Mutation check, se houver: o que foi
-     quebrado de propósito e qual teste pegou. -->
+<!-- Commands run and what they prove. Mutation check, if any: what was
+     broken on purpose and which test caught it. -->
