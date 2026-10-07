@@ -78,6 +78,26 @@ order, every time:
 A sentence running past ~3 lines is a sign it should be a bullet or a table
 row instead. `.github/PULL_REQUEST_TEMPLATE.md` has the skeleton.
 
+## Language
+
+Audience decides the language, not topic:
+
+- **Dev-facing content is English**: code comments, docstrings, this file,
+  `docs/architecture.md`, commit messages, PR titles/bodies. `README.md` is
+  dev-facing too (setup instructions) and should eventually move to English,
+  though it isn't yet — don't block on retranslating it.
+- **User/client-facing content is Portuguese**: anything an `Aluno`,
+  guardian, or `Gestor` actually sees — API validation/error messages,
+  email templates (guardian consent, password reset), anything surfaced
+  through the frontend.
+- **Exception**: domain vocabulary (`Aluno`, `Rota`, `Viagem`, `Prefeitura`,
+  `HorarioRota`, ...) stays Portuguese everywhere, including in dev-facing
+  code and comments — it's the team's actual business vocabulary, not a
+  translation task.
+
+Applies going forward to new/edited code; not a mandate to retranslate
+existing comments/docstrings on sight just because you're nearby.
+
 ## Where to look for more
 
 | Question | Look here |
