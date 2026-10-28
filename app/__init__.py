@@ -5,6 +5,7 @@ from datetime import timedelta
 from typing import Any
 
 import firebase_admin
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from dotenv import load_dotenv
 from firebase_admin import credentials
 from flask import Flask, Response, jsonify
@@ -153,6 +154,15 @@ def configure_app(app: Flask, settings: Settings) -> None:
     app.config["MAIL_PASSWORD"] = settings.MAIL_PASSWORD
     app.config["MAIL_USE_TLS"] = settings.MAIL_USE_TLS
     app.config["FRONTEND_URL"] = settings.FRONTEND_URL
+
+    # Jobstore do APScheduler compartilhado via Postgres: o processo com
+    # RUN_SCHEDULER ligado processa os jobs, os workers da API só gravam
+    # (auto-checkin por proximidade). Sem isso cada processo tinha seu
+    # próprio jobstore em memória, e um job criado num worker nunca era
+    # visto pelo processo que efetivamente roda o scheduler.
+    app.config["SCHEDULER_JOBSTORES"] = {
+        "default": SQLAlchemyJobStore(url=settings.SQLALCHEMY_DATABASE_URI)
+    }
 
 
 def register_extensions(app: Flask, settings: Settings) -> None:
