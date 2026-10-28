@@ -11,9 +11,7 @@ the SAME PR that changes the behaviour of
 import uuid
 
 import pytest
-from werkzeug.security import check_password_hash
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     AppError,
     ConflictError,
     ForbiddenError,
@@ -21,6 +19,8 @@ from app.core.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from werkzeug.security import check_password_hash
+
 from app.models.enum import UserRole, UserStatus
 from app.models.user import Motorista, User
 from app.services import user_service

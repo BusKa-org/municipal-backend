@@ -12,15 +12,15 @@ import uuid
 from datetime import date
 
 import pytest
-from sqlalchemy.exc import DataError
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+from sqlalchemy.exc import DataError
+
 from app.models.onibus import Onibus
 from app.models.rota import Rota
 from app.services.onibus_service import (

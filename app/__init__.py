@@ -6,6 +6,9 @@ from typing import Any
 
 import firebase_admin
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from buska_core.config import Settings
+from buska_core.error_handlers import register_error_handlers, register_jwt_handlers
+from buska_core.security import check_production_security, setup_security_headers
 from dotenv import load_dotenv
 from firebase_admin import credentials
 from flask import Flask, Response, jsonify
@@ -13,7 +16,6 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
-from app.core.error_handlers import register_error_handlers, register_jwt_handlers
 from app.extensions import scheduler
 from app.utils.scheduler_setup import init_scheduler
 
@@ -29,15 +31,9 @@ from .api.controllers.rotas_controller import api as rotas_ns
 from .api.controllers.routing_controller import api as routing_ns
 from .api.controllers.user_controller import api as user_ns
 from .api.controllers.viagens_controller import api as viagem_ns
-from .core.config import Settings
 from .models import Ocorrencia  # noqa: F401 — registers table with SQLAlchemy
 from .models.base import db
-from .utils import (
-    check_production_security,
-    setup_logging,
-    setup_request_id_middleware,
-    setup_security_headers,
-)
+from .utils import setup_logging, setup_request_id_middleware
 
 jwt = JWTManager()
 logger = logging.getLogger(__name__)
@@ -45,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 def create_app() -> Flask:
     load_dotenv()
-    settings = Settings()
+    settings = Settings.load()
     app = Flask(__name__)
     app.url_map.strict_slashes = False
 

@@ -12,13 +12,13 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+
 from app.models.enum import DiaDaSemana, SentidoViagem, StatusViagem
 from app.models.geo import Ponto
 from app.models.notificacao import Notificacao

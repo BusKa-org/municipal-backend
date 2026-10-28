@@ -3,10 +3,10 @@
 import logging
 from typing import Any
 
+from buska_core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from buska_core.transaction import transactional
 from sqlalchemy import or_
 
-from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
-from app.core.transaction import transactional
 from app.models.base import db
 from app.models.enum import TipoInstituicao, UserRole
 from app.models.geo import Endereco, Instituicao, Ponto
@@ -34,7 +34,7 @@ def create_instituicao(gestor_id: str, data: dict[str, Any]) -> Instituicao:
     if not end_data:
         raise ValidationError("Dados de endereço são obrigatórios")
 
-    with transactional():
+    with transactional(db.session):
         novo_ponto = Ponto(
             prefeitura_id=user.prefeitura_id,
             latitude=end_data.get("latitude"),
@@ -134,5 +134,5 @@ def delete_instituicao(gestor_id: str, inst_id: str) -> None:
     if inst.ponto.prefeitura_id != user.prefeitura_id:
         raise ForbiddenError("Acesso negado")
 
-    with transactional():
+    with transactional(db.session):
         db.session.delete(inst.ponto)

@@ -1,5 +1,6 @@
 from typing import Any
 
+from buska_core.exceptions import ValidationError
 from flask import request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restx import Namespace, Resource
@@ -7,7 +8,6 @@ from flask_restx import Namespace, Resource
 from app.api.contracts import ponto_contract, viagem_contract
 from app.api.contracts.viagem_parsers import parsers
 from app.api.helpers import list_envelope
-from app.core.exceptions import ValidationError
 from app.schemas.ponto_schema import (
     PontoFlatListResponseSchema,
 )

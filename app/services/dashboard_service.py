@@ -1,9 +1,9 @@
 import logging
 
+from buska_core.exceptions import AppError, NotFoundError
 from sqlalchemy import case, func
 
 from app.core.authz import get_gestor_or_403
-from app.core.exceptions import AppError, NotFoundError
 from app.models.base import db
 from app.models.enum import StatusViagem
 from app.models.rota import HorarioRota, Rota

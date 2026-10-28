@@ -11,13 +11,13 @@ the SAME PR that changes the behaviour of
 import uuid
 
 import pytest
-from sqlalchemy.exc import DataError
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+from sqlalchemy.exc import DataError
+
 from app.models.enum import StatusOcorrencia, TipoOcorrencia
 from app.models.notificacao import Notificacao
 from app.models.ocorrencia import Ocorrencia

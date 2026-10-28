@@ -5,26 +5,27 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from flask import current_app
-from sqlalchemy.exc import IntegrityError
-from werkzeug.security import generate_password_hash
-
-from app.core.authz import get_gestor_or_403
-from app.core.exceptions import (
+from buska_core.exceptions import (
     AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
-from app.core.transaction import transactional
+from buska_core.notifications import send_email
+from buska_core.transaction import transactional
+from buska_core.validation import validate_email, validate_password
+from flask import current_app
+from sqlalchemy.exc import IntegrityError
+from werkzeug.security import generate_password_hash
+
+from app.core.authz import get_gestor_or_403
 from app.models.base import db
 from app.models.enum import UserRole, UserStatus
 from app.models.geo import Endereco, Instituicao, Ponto
 from app.models.user import Aluno, Gestor, User
 from app.services.notificacao_service import NotificacaoService
-from app.utils import audit_logger, validate_cpf, validate_email, validate_password
-from app.utils.email_sender import send_email
+from app.utils import audit_logger, validate_cpf
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ def record_guardian_consent(token: str) -> Aluno:
         if datetime.now(UTC) > expires_at:
             raise ValidationError("Este link expirou. Peça ao estudante que refaça o cadastro.")
 
-    with transactional():
+    with transactional(db.session):
         aluno.guardian_consented_at = db.func.now()
         aluno.guardian_token = None  # single-use
         aluno.status = UserStatus.PENDING_APPROVAL
@@ -160,7 +161,7 @@ def auto_cadastro(data: dict[str, Any]) -> Aluno:
     if db.session.query(User).filter(User.cpf == cpf_clean).first():
         raise ConflictError("Este CPF já está cadastrado.", field="cpf")
 
-    with transactional():
+    with transactional(db.session):
         dados_endereco = data.get("endereco_casa")
         if not dados_endereco:
             raise ValidationError(
@@ -327,7 +328,7 @@ def update_me(user_id: str, data: dict[str, Any]) -> Aluno:
     if not aluno:
         raise NotFoundError("Aluno não encontrado")
 
-    with transactional():
+    with transactional(db.session):
         for field in _CAMPOS_PERFIL:
             if field in data:
                 setattr(aluno, field, data[field])
@@ -441,7 +442,7 @@ def aprovar_aluno(gestor_id: str, aluno_id: str) -> Aluno:
     if aluno.status != UserStatus.PENDING_APPROVAL:
         raise ValidationError("Aluno não está aguardando aprovação")
 
-    with transactional():
+    with transactional(db.session):
         aluno.status = UserStatus.ACTIVE
         aluno.signup_completed_at = db.func.now()
         db.session.flush()

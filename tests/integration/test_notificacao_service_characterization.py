@@ -12,13 +12,13 @@ import uuid
 from datetime import date, timedelta
 
 import pytest
-from sqlalchemy.exc import DataError
-
-from app.core.exceptions import (
+from buska_core.exceptions import (
     ForbiddenError,
     NotFoundError,
     ValidationError,
 )
+from sqlalchemy.exc import DataError
+
 from app.models.enum import StatusViagem
 from app.models.notificacao import Notificacao
 from app.models.rota import RotaAluno

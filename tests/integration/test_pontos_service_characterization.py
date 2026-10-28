@@ -11,9 +11,9 @@ the SAME PR that changes the behaviour of
 import uuid
 
 import pytest
+from buska_core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from sqlalchemy.exc import DataError
 
-from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from app.models.geo import Ponto
 from app.services import pontos_service
 from app.services.pontos_service import (
