@@ -1,6 +1,6 @@
 import logging
 
-from buska_core.exceptions import NotFoundError
+from buska_core.exceptions import AppError, NotFoundError
 from sqlalchemy import case, func
 
 from app.core.authz import get_gestor_or_403
@@ -114,8 +114,6 @@ def relatorio_periodo_gestor(gestor_id: str, data_inicio: str, data_fim: str) ->
 
     except Exception as e:
         logger.error(f"Erro ao gerar relatorio do gestor {gestor_id}: {e}")
-        from buska_core.exceptions import AppError
-
         raise AppError("Erro ao processar relatório do período", 500)
 
 

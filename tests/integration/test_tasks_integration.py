@@ -51,7 +51,10 @@ def test_integracao_job_24h_banco_real(app, _db, prefeitura):
             patch("app.tasks.notificacao_tasks.RotaAluno.query") as mock_rota_query,
             patch("app.tasks.notificacao_tasks.db.session.get") as mock_get,
             patch("app.tasks.notificacao_tasks.NotificacaoService") as mock_notif,
+            patch("app.tasks.notificacao_tasks.scheduler") as mock_scheduler,
         ):
+
+            mock_scheduler.app = app
 
             mock_insc = MagicMock()
             mock_insc.aluno_id = "fake-aluno"
@@ -61,7 +64,7 @@ def test_integracao_job_24h_banco_real(app, _db, prefeitura):
             mock_aluno.receber_notificacoes = True
             mock_get.return_value = mock_aluno
 
-            verificar_viagens_24h(app)
+            verificar_viagens_24h()
 
         _db.session.refresh(viagem)
         assert viagem.aviso_24h_enviado is True, "A task falhou em atualizar a flag no banco"

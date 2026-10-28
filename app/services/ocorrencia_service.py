@@ -10,8 +10,9 @@ from app.core.authz import get_gestor_or_403
 from app.models.base import db
 from app.models.enum import StatusOcorrencia, TipoOcorrencia, UserRole
 from app.models.ocorrencia import Ocorrencia
-from app.models.user import User
+from app.models.user import Gestor, User
 from app.models.viagem import Viagem
+from app.services.notificacao_service import NotificacaoService
 from app.utils import audit_logger
 
 logger = logging.getLogger(__name__)
@@ -68,9 +69,6 @@ class OcorrenciaService:
 
     @staticmethod
     def _notificar_gestores(autor: User, ocorrencia: Ocorrencia) -> None:
-        from app.models.user import Gestor
-        from app.services.notificacao_service import NotificacaoService
-
         tipo_label = {
             TipoOcorrencia.ATRASO: "Atraso",
             TipoOcorrencia.SUPERLOTACAO: "Superlotação",
