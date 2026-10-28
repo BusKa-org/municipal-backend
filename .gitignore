@@ -90,3 +90,11 @@ clouds.yaml
 # Terraform crash logs
 crash.log
 crash.*.log
+
+# =========================
+# Load testing (loadtest/README.md)
+# =========================
+loadtest/results/*
+!loadtest/results/.gitkeep
+loadtest/exports/*
+!loadtest/exports/.gitkeep

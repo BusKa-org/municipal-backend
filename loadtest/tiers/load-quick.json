@@ -1,0 +1,23 @@
+{
+  "tier": "load-quick",
+  "label": "Config A/B probe (short Load-scale run for Gunicorn tuning)",
+  "data_source": "load",
+  "base_url": "http://localhost:5000",
+  "concurrent_students": 1450,
+  "concurrent_trips": 39,
+  "stages": [
+    {
+      "duration": "30s",
+      "fraction": 1
+    },
+    {
+      "duration": "3m",
+      "fraction": 1
+    },
+    {
+      "duration": "15s",
+      "fraction": 0
+    }
+  ],
+  "note": "Ephemeral tier used only to A/B Gunicorn worker configs at the Campina Grande (load) scale. Reuses loadtest/exports/load_export.json (run generate_data.py --tier load first)."
+}

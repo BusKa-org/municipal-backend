@@ -1,5 +1,6 @@
 import logging
 
+from app.extensions import scheduler
 from app.models.enum import UserRole
 from app.models.user import User
 from app.services.viagens_service import gerar_viagens_periodo
@@ -7,8 +8,13 @@ from app.services.viagens_service import gerar_viagens_periodo
 logger = logging.getLogger(__name__)
 
 
-def job_gerar_viagens_semanais(app):
+def job_gerar_viagens_semanais():
     """Job diário que mantém a agenda dos próximos 14 dias preenchida."""
+    app = scheduler.app
+    if not app:
+        logger.error("Erro fatal: Instância do Flask (app) não encontrada no Scheduler.")
+        return
+
     with app.app_context():
         logger.info("Job de geração de viagens iniciado.")
 

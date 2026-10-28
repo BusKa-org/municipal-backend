@@ -9,11 +9,11 @@ from firebase_admin import messaging
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.transaction import transactional
 from app.models.base import db
-from app.models.enum import UserRole
+from app.models.enum import StatusViagem, UserRole
 from app.models.notificacao import Notificacao
 from app.models.rota import RotaAluno
 from app.models.user import User
-from app.models.viagem import AlunosConfirmados
+from app.models.viagem import AlunosConfirmados, Viagem
 from app.utils import audit_logger
 
 logger = logging.getLogger(__name__)
@@ -54,8 +54,6 @@ class NotificacaoService:
 
     @staticmethod
     def notificar_por_gestor(user_id: str, dados: dict[str, Any]) -> dict[str, Any]:
-        from app.models.viagem import Viagem
-
         user = db.session.get(User, user_id)
         if not user:
             raise ForbiddenError("Usuário não encontrado.")
@@ -71,8 +69,6 @@ class NotificacaoService:
                 raise ForbiddenError(
                     "Você só pode enviar avisos para viagens que você está conduzindo."
                 )
-            from app.models.enum import StatusViagem
-
             if viagem.status != StatusViagem.EM_ANDAMENTO:
                 raise ForbiddenError("Você só pode enviar avisos durante uma viagem em andamento.")
         elif user.role != UserRole.GESTOR:
