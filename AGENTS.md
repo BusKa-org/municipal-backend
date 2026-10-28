@@ -54,6 +54,50 @@ Full local setup options: [`README.md`](README.md).
   registered in `app/core/error_handlers.py` map these to the right HTTP
   status; anything else falls through to a generic 500.
 
+## Writing PR descriptions
+
+Written for a reviewer with no chat context — a brief for someone deciding
+whether to approve, not a changelog of what you did. Four sections, in this
+order, every time:
+
+- **Context** — why this PR exists, 1-3 sentences. Link the plan/issue item
+  it closes (`REFACTOR_PLAN.md` item, an ADR, etc.) when there is one. If
+  stacked on another PR, say which one, and which commit in the branch is
+  actually new vs. already merged elsewhere.
+- **What changed** — bullets, one per file/concern, not a paragraph. A table
+  beats prose for before/after numbers (query counts, line counts, test
+  counts).
+- **Why** — the reasoning the diff alone can't show: why this approach
+  over an alternative, what trade-off was accepted, what was deliberately
+  left out and why.
+- **How to test** — what ran (`pytest`, `mypy`, etc.) and what it proves. If
+  there's a mutation check (break the fix on purpose, confirm the right test
+  catches it), name what was broken and which test failed — this is the
+  strongest signal of a real fix versus a coincidental pass.
+
+A sentence running past ~3 lines is a sign it should be a bullet or a table
+row instead. `.github/PULL_REQUEST_TEMPLATE.md` has the skeleton.
+
+## Language
+
+Audience decides the language, not topic:
+
+- **Dev-facing content is English**: code comments, docstrings, this file,
+  `docs/architecture.md`, commit messages, PR titles/bodies. `README.md` is
+  dev-facing too (setup instructions) and should eventually move to English,
+  though it isn't yet — don't block on retranslating it.
+- **User/client-facing content is Portuguese**: anything an `Aluno`,
+  guardian, or `Gestor` actually sees — API validation/error messages,
+  email templates (guardian consent, password reset), anything surfaced
+  through the frontend.
+- **Exception**: domain vocabulary (`Aluno`, `Rota`, `Viagem`, `Prefeitura`,
+  `HorarioRota`, ...) stays Portuguese everywhere, including in dev-facing
+  code and comments — it's the team's actual business vocabulary, not a
+  translation task.
+
+Applies going forward to new/edited code; not a mandate to retranslate
+existing comments/docstrings on sight just because you're nearby.
+
 ## Where to look for more
 
 | Question | Look here |
@@ -75,3 +119,5 @@ stays tool-agnostic on purpose so any agent reads the same source of truth.
       `docs/endpoints/` if applicable
 - [ ] A non-obvious decision (chose X over Y, accepted a known trade-off) gets
       an ADR in `docs/adr/`, not just a commit message
+- [ ] PR description follows `.github/PULL_REQUEST_TEMPLATE.md` (Context /
+      What changed / Why / How to test)
