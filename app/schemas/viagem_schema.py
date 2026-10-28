@@ -8,6 +8,7 @@ from marshmallow import ValidationError as MarshmallowValidationError, fields, v
 from marshmallow.validate import OneOf, Range
 
 from app.models.enum import StatusViagem
+from app.models.rota import RotaAluno
 from app.schemas.common import BaseSchema
 from app.schemas.validators import validate_uuid4
 
@@ -292,8 +293,6 @@ class ViagemAgendaAlunoResponseSchema(BaseSchema):
     def get_total_alunos(self, obj):
         """Total students subscribed to the route."""
         if obj.horario_rota and obj.horario_rota.rota:
-            from app.models.rota import RotaAluno
-
             return RotaAluno.query.filter_by(rota_id=obj.horario_rota.rota.id).count()
         return 0
 

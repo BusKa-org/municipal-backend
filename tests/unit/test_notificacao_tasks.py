@@ -14,7 +14,10 @@ def test_verificar_viagens_24h(app):
             patch("app.tasks.notificacao_tasks.RotaAluno.query") as mock_rota_query,
             patch("app.tasks.notificacao_tasks.db.session.get") as mock_db_get,
             patch("app.tasks.notificacao_tasks.NotificacaoService") as mock_notificacao_service,
+            patch("app.tasks.notificacao_tasks.scheduler") as mock_scheduler,
         ):
+
+            mock_scheduler.app = app
 
             mock_viagem = MagicMock()
             mock_viagem.id = "viagem-123"
@@ -28,7 +31,7 @@ def test_verificar_viagens_24h(app):
             mock_aluno.id = "aluno-123"
             mock_db_get.return_value = mock_aluno
 
-            verificar_viagens_24h(app)
+            verificar_viagens_24h()
 
             assert (
                 mock_notificacao_service.mock_calls
@@ -45,7 +48,10 @@ def test_verificar_viagens_10min(app):
             patch("app.tasks.notificacao_tasks.AlunosConfirmados.query") as mock_alunos_query,
             patch("app.tasks.notificacao_tasks.db.session.get") as mock_db_get,
             patch("app.tasks.notificacao_tasks.NotificacaoService") as mock_notificacao_service,
+            patch("app.tasks.notificacao_tasks.scheduler") as mock_scheduler,
         ):
+
+            mock_scheduler.app = app
 
             mock_viagem = MagicMock()
             mock_viagem.id = "viagem-123"
@@ -59,7 +65,7 @@ def test_verificar_viagens_10min(app):
             mock_aluno.instituicao.nome = "Universidade Teste"
             mock_db_get.return_value = mock_aluno
 
-            verificar_viagens_10min(app)
+            verificar_viagens_10min()
 
             assert (
                 mock_notificacao_service.mock_calls
