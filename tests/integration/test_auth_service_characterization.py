@@ -210,7 +210,7 @@ def test_login_gestor_pendente_nao_e_barrado_pelo_guarda_do_aluno(_db, gestor):
 
 def test_reset_request_email_invalido_400(_db, emails_enviados):
     with pytest.raises(ValidationError) as exc:
-        request_password_reset("nao-e-email", "https://app.buska")
+        request_password_reset("nao-e-email")
 
     assert str(exc.value) == "Formato de email inválido"
     assert emails_enviados == []
@@ -218,13 +218,13 @@ def test_reset_request_email_invalido_400(_db, emails_enviados):
 
 def test_reset_request_email_desconhecido_nao_levanta_e_nao_envia(_db, emails_enviados):
     # Não revela se o e-mail existe: retorna sem erro e sem enviar nada.
-    assert request_password_reset("ninguem@exemplo.com", "https://app.buska") is None
+    assert request_password_reset("ninguem@exemplo.com") is None
     assert emails_enviados == []
     assert PasswordResetToken.query.count() == 0
 
 
 def test_reset_request_cria_token_e_envia_email(_db, aluno, emails_enviados):
-    request_password_reset(aluno.user.email, "https://app.buska")
+    request_password_reset(aluno.user.email)
 
     registro = PasswordResetToken.query.one()
     assert registro.user_id == aluno.user.id
@@ -236,7 +236,7 @@ def test_reset_request_cria_token_e_envia_email(_db, aluno, emails_enviados):
 def test_reset_request_token_expira_em_uma_hora(_db, aluno, emails_enviados):
     antes = datetime.now(UTC)
 
-    request_password_reset(aluno.user.email, "https://app.buska")
+    request_password_reset(aluno.user.email)
 
     registro = PasswordResetToken.query.one()
     delta = registro.expires_at - antes
@@ -244,20 +244,17 @@ def test_reset_request_token_expira_em_uma_hora(_db, aluno, emails_enviados):
     assert timedelta(minutes=55) < delta < timedelta(hours=1, minutes=5)
 
 
-def test_reset_request_monta_o_link_com_o_token(_db, aluno, emails_enviados):
-    request_password_reset(aluno.user.email, "https://app.buska/")
+def test_reset_request_monta_o_link_do_frontend_com_o_token(
+    app, _db, aluno, emails_enviados, monkeypatch
+):
+    monkeypatch.setitem(app.config, "FRONTEND_URL", "https://app.buska/")
+
+    request_password_reset(aluno.user.email)
 
     registro = PasswordResetToken.query.one()
-    esperado = f"https://app.buska/v1/auth/reset-password?token={registro.token}"
+    esperado = f"https://app.buska/redefinir-senha?token={registro.token}"
     assert esperado in emails_enviados[0]["body_plain"]
     assert esperado in emails_enviados[0]["body_html"]
-
-
-def test_reset_request_remove_a_barra_final_da_base_url(_db, aluno, emails_enviados):
-    request_password_reset(aluno.user.email, "https://app.buska///")
-
-    assert "https://app.buska/v1/auth/" in emails_enviados[0]["body_plain"]
-    assert "buska///v1" not in emails_enviados[0]["body_plain"]
 
 
 def test_reset_request_duas_vezes_gera_dois_tokens_validos(_db, aluno, emails_enviados):
@@ -268,8 +265,8 @@ def test_reset_request_duas_vezes_gera_dois_tokens_validos(_db, aluno, emails_en
     links continuam válidos até expirarem, então um link antigo que vazou
     ainda troca a senha.
     """
-    request_password_reset(aluno.user.email, "https://app.buska")
-    request_password_reset(aluno.user.email, "https://app.buska")
+    request_password_reset(aluno.user.email)
+    request_password_reset(aluno.user.email)
 
     assert PasswordResetToken.query.count() == 2
 

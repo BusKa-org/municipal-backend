@@ -5,6 +5,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from flask import current_app
 from flask_jwt_extended import create_access_token
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -140,7 +141,7 @@ def login_user(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def request_password_reset(email_raw: str, base_url: str) -> None:
+def request_password_reset(email_raw: str) -> None:
     """
     Send password recovery email with link if the user exists.
     Always returns without error (does not reveal if email exists).
@@ -162,7 +163,8 @@ def request_password_reset(email_raw: str, base_url: str) -> None:
     with transactional():
         db.session.add(reset_record)
 
-    link = f"{base_url.rstrip('/')}/v1/auth/reset-password?token={token}"
+    frontend_url = current_app.config.get("FRONTEND_URL", "http://localhost:8081")
+    link = f"{frontend_url.rstrip('/')}/redefinir-senha?token={token}"
     subject = "Recuperação de senha - BusKá"
     body_plain = (
         f"Olá, {user.nome}.\n\n"
