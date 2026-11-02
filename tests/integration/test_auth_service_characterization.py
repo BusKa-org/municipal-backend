@@ -257,6 +257,16 @@ def test_reset_request_monta_o_link_do_frontend_com_o_token(
     assert esperado in emails_enviados[0]["body_html"]
 
 
+def test_reset_request_escapa_o_nome_no_html(_db, aluno, emails_enviados):
+    aluno.user.nome = "<b>Ana</b>"
+    _db.session.commit()
+
+    request_password_reset(aluno.user.email)
+
+    assert "&lt;b&gt;Ana&lt;/b&gt;" in emails_enviados[0]["body_html"]
+    assert "<b>Ana</b>" not in emails_enviados[0]["body_html"]
+
+
 def test_reset_request_duas_vezes_gera_dois_tokens_validos(_db, aluno, emails_enviados):
     """
     CARACTERIZAÇÃO DE FALHA CONHECIDA (não corrigida aqui).
