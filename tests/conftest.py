@@ -172,6 +172,8 @@ def app():
         DEBUG=True,
         JWT_SECRET_KEY="change_this_secret_key_use_long_random_string",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        # The suite logs in many times in a row; the limiter has its own tests.
+        RATELIMIT_ENABLED=False,
     )
     return app
 

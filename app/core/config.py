@@ -2,6 +2,8 @@ import logging
 import os
 import re
 
+from limits import parse_many
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +54,17 @@ class Settings:
         # Frontend URL (used for guardian consent email links)
         self.FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8081")
 
+        # Rate limit (Flask-Limiter). Format: "10 per minute", "200 per hour".
+        self.RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "true").lower() == "true"
+        # shortcut: memory:// counts per gunicorn worker (4 workers = up to 4x the limit),
+        # point RATELIMIT_STORAGE_URI at a redis:// once production runs Redis.
+        self.RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+        self.RATELIMIT_DEFAULT = self._get_rate_limit("RATELIMIT_DEFAULT", "2000 per hour")
+        self.RATELIMIT_AUTH = self._get_rate_limit("RATELIMIT_AUTH", "10 per minute")
+        self.RATELIMIT_SENSITIVE = self._get_rate_limit("RATELIMIT_SENSITIVE", "5 per minute")
+        # GPS sends many requests in a row from the same user.
+        self.RATELIMIT_REALTIME = self._get_rate_limit("RATELIMIT_REALTIME", "120 per minute")
+
         # CORS settings
         self.CORS_ORIGINS = self._parse_cors_origins()
 
@@ -90,6 +103,16 @@ class Settings:
             self._errors.append(f"{key} must be <= {max_val}, got {value}")
             return default
 
+        return value
+
+    def _get_rate_limit(self, key: str, default: str) -> str:
+        """Get a rate limit string such as "10 per minute"."""
+        value = os.getenv(key, default)
+        try:
+            parse_many(value)
+        except ValueError:
+            self._errors.append(f"{key} is not a valid rate limit, got '{value}'")
+            return default
         return value
 
     def _get_secret(self, key: str, default: str, min_length: int = 16) -> str:

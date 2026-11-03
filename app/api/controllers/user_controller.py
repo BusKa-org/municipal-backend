@@ -6,6 +6,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract, user_contract
 from app.api.helpers import list_envelope
+from app.extensions import limite_sensivel
 from app.schemas.aluno_schema import AlunoProvisionAccountRequestSchema
 from app.schemas.user_schema import (
     ChangePasswordRequestSchema,
@@ -177,6 +178,7 @@ class UserChangePassword(Resource):
     @api.expect(models["change_password_request"])
     @api.response(200, "Password changed successfully", models["change_password_response"])
     @jwt_required()
+    @limite_sensivel
     def post(self) -> tuple[dict[str, Any], int]:
         """Altera a senha do usuário logado (Requer senha atual)."""
         current_user_id = get_jwt_identity()

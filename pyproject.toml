@@ -28,6 +28,7 @@ dependencies = [
     "pyjwt>=2.15.1",
     "urllib3>=2.8.0",
     "werkzeug>=3.1.9",
+    "flask-limiter[redis]>=4.1.1",
 ]
 
 # ==========================================

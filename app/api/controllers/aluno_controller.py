@@ -6,6 +6,7 @@ from flask_restx import Namespace, Resource
 
 from app.api.contracts import aluno_contract
 from app.api.helpers import list_envelope
+from app.extensions import limite_auth_por_token
 from app.schemas.aluno_schema import (
     AlunoGuardianConsentPublicSchema,
     AlunoListResponseSchema,
@@ -112,6 +113,7 @@ class AlunoAprovarResource(Resource):
 class GuardianConsentResource(Resource):
     @api.doc("guardian_consent_info", security=[])
     @api.response(200, "Success", models["guardian_consent_response"])
+    @limite_auth_por_token
     def get(self, token: str) -> tuple[dict[str, Any], int]:
         """(Público) Busca dados do aluno para a tela de consentimento do responsável"""
         aluno = aluno_service.get_guardian_consent_info(token)
@@ -119,6 +121,7 @@ class GuardianConsentResource(Resource):
 
     @api.doc("guardian_consent_confirm", security=[])
     @api.response(200, "Success", models["aluno_response"])
+    @limite_auth_por_token
     def post(self, token: str) -> tuple[dict[str, Any], int]:
         """(Público) Responsável confirma consentimento para o aluno menor"""
         aluno = aluno_service.record_guardian_consent(token)

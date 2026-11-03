@@ -89,6 +89,8 @@ services:
       MAIL_USERNAME: "loadtest@example.invalid"
       MAIL_PASSWORD: "unused"
       CORS_ORIGINS: "http://localhost"
+      # Load tests measure capacity, not the limiter: k6 would hit 429 within seconds.
+      RATELIMIT_ENABLED: "false"
     volumes:
       # A syntactically-valid but fake service account (see
       # loadtest/fixtures/firebase-credentials.fake.json) mounted at the
