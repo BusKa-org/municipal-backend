@@ -13,8 +13,12 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
 
-from app.core.error_handlers import register_error_handlers, register_jwt_handlers
-from app.extensions import scheduler
+from app.core.error_handlers import (
+    register_api_error_handlers,
+    register_error_handlers,
+    register_jwt_handlers,
+)
+from app.extensions import limiter, scheduler
 from app.utils.scheduler_setup import init_scheduler
 
 from .api.controllers.aluno_controller import api as alunos_ns
@@ -59,7 +63,7 @@ def create_app() -> Flask:
 
     api = register_blueprints(app)
 
-    register_handlers(app)
+    register_handlers(app, api)
     register_openapi_routes(app, api)
     register_health_routes(app, settings)
 
@@ -155,6 +159,19 @@ def configure_app(app: Flask, settings: Settings) -> None:
     app.config["MAIL_USE_TLS"] = settings.MAIL_USE_TLS
     app.config["FRONTEND_URL"] = settings.FRONTEND_URL
 
+    app.config["RATELIMIT_ENABLED"] = settings.RATELIMIT_ENABLED
+    app.config["RATELIMIT_STORAGE_URI"] = settings.RATELIMIT_STORAGE_URI
+    app.config["RATELIMIT_DEFAULT"] = settings.RATELIMIT_DEFAULT
+    app.config["RATELIMIT_AUTH"] = settings.RATELIMIT_AUTH
+    app.config["RATELIMIT_SENSITIVE"] = settings.RATELIMIT_SENSITIVE
+    app.config["RATELIMIT_REALTIME"] = settings.RATELIMIT_REALTIME
+    app.config["RATELIMIT_HEADERS_ENABLED"] = True
+    # If Redis is configured and goes down, each worker counts in memory (logged as a
+    # warning) and goes back to Redis once it answers.
+    app.config["RATELIMIT_IN_MEMORY_FALLBACK_ENABLED"] = True
+    app.config["RATELIMIT_SWALLOW_ERRORS"] = True
+    app.config["RATELIMIT_STORAGE_OPTIONS"] = {"socket_connect_timeout": 1, "socket_timeout": 1}
+
     # Jobstore do APScheduler compartilhado via Postgres: o processo com
     # RUN_SCHEDULER ligado processa os jobs, os workers da API só gravam
     # (auto-checkin por proximidade). Sem isso cada processo tinha seu
@@ -190,11 +207,18 @@ def register_extensions(app: Flask, settings: Settings) -> None:
         supports_credentials=True,
         allow_headers=["Content-Type", "Authorization"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        expose_headers=[
+            "Retry-After",
+            "X-RateLimit-Limit",
+            "X-RateLimit-Remaining",
+            "X-RateLimit-Reset",
+        ],
         max_age=86400,  # Cache preflight for 24 hours
     )
 
     db.init_app(app)
     jwt.init_app(app)
+    limiter.init_app(app)
 
 
 def register_scheduler(app: Flask) -> None:
@@ -252,14 +276,15 @@ def register_blueprints(app: Flask) -> Api:
     return api
 
 
-def register_handlers(app: Flask) -> None:
-    """Handlers de erro da aplicação e do flask-jwt-extended."""
+def register_handlers(app: Flask, api: Api) -> None:
+    """Handlers de erro da aplicação, do flask-restx e do flask-jwt-extended."""
     # ==========================================
     # Error Handlers
     # ==========================================
 
     register_jwt_handlers(jwt)
     register_error_handlers(app)
+    register_api_error_handlers(api)
 
 
 def register_openapi_routes(app: Flask, api: Api) -> None:
