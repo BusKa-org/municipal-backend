@@ -8,6 +8,7 @@ from app.api.contracts import ponto_contract, viagem_contract
 from app.api.contracts.viagem_parsers import parsers
 from app.api.helpers import list_envelope
 from app.core.exceptions import ValidationError
+from app.extensions import limite_tempo_real
 from app.schemas.ponto_schema import (
     PontoFlatListResponseSchema,
 )
@@ -185,6 +186,7 @@ class ViagemLocalizacaoResource(Resource):
     @api.doc("atualizar_localizacao_onibus")
     @api.expect(models["localizacao_request"])
     @jwt_required()
+    @limite_tempo_real
     def post(self, id):
         """(Motorista) Envia coordenada GPS atual do ônibus em tempo real"""
         user_id = get_jwt_identity()
@@ -195,6 +197,7 @@ class ViagemLocalizacaoResource(Resource):
 
     @api.doc("obter_localizacao_onibus")
     @jwt_required()
+    @limite_tempo_real
     def get(self, id):
         """(Aluno/Motorista) Obtém a localização atual do ônibus (viagem em andamento)."""
         user_id = get_jwt_identity()
@@ -209,6 +212,7 @@ class ViagemLocalizacaoAluno(Resource):
     @api.doc("atualizar_localizacao_aluno", security="Bearer Auth")
     @api.expect(models["localizacao_request"])
     @jwt_required()
+    @limite_tempo_real
     def post(self, viagem_id: str):
         """Recebe o GPS em tempo real do Aluno para o Auto-Checkin (Geofencing)."""
         current_user_id = get_jwt_identity()
