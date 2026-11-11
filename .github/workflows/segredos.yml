@@ -23,6 +23,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="origin/${{ github.base_ref }}"
+          elif [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            # Branch nova: não existe commit anterior, então confere tudo que ainda não está na main.
+            BASE="origin/main"
           else
             BASE="${{ github.event.before }}"
           fi
